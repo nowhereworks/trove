@@ -3,24 +3,26 @@
 ## Current State
 
 - This repo is still at spec/scaffold stage: no `README`, CI, source packages, migrations, web app, or lockfiles exist yet.
-- `go.mod` is the only executable manifest: module `agenthub`, Go `1.26.1`.
-- Treat `agent_artifact_registry_spec.md` as the spec index; canonical implementation details live in `docs/spec/` until executable code/config contradicts them.
+- `go.mod` is the only executable manifest: module `trove`, Go `1.26.1`.
+- Treat `trove_spec.md` as the spec index; canonical implementation details live in `docs/spec/` until executable code/config contradicts them.
 
 ## Spec Layout
 
-- Start with `agent_artifact_registry_spec.md` for reading order and key MVP decisions.
+- Start with `trove_spec.md` for reading order and key MVP decisions.
 - Use `docs/spec/09-implementation-plan.md` for implementation slices and acceptance criteria.
 - Use `docs/spec/10-decisions.md` for accepted decisions, deferred decisions, and remaining open questions.
+- Use `docs/spec/11-testing.md` for test tiers, fixture layout, integration prerequisites, and required coverage.
 
 ## Commands
 
 - Verify the Go toolchain with `go env GOVERSION`; this environment reports `go1.26.1`.
 - `go test ./...` is the expected all-package test command once packages exist; currently it reports `"./..." matched no packages`.
+- DB integration tests must use real PostgreSQL and should be gated by `TROVE_TEST_DATABASE_URL` once a test harness exists; do not use SQLite substitutes.
 - Do not invent npm/pnpm/yarn, lint, formatter, migration, or codegen commands until their configs/manifests are added.
 
 ## Product Direction To Preserve
 
-- Build AgentHub as a self-hosted Go single binary that serves JSON APIs, raw artifact endpoints, health/metrics, and an embedded React/Vite SPA.
+- Build Trove as a self-hosted Go single binary that serves JSON APIs, raw artifact endpoints, health/metrics, and an embedded React/Vite SPA.
 - Use PostgreSQL as the MVP source of truth for metadata and artifact blobs; optional S3-compatible object storage can come later for large archives.
 - Store MVP artifact bytes in PostgreSQL `bytea`; keep the design ready for near-future S3-compatible storage, preferably RustFS.
 - Prefer `chi`, `pgx`, and `sqlc` if/when backend implementation starts.
@@ -41,9 +43,9 @@
 - Keep OIDC standards-based and provider-neutral; configure provider details rather than baking in one provider.
 - Include an MVP CLI prototype for resolve, fetch, install, check, and dry-run update flows.
 - CLI defaults to human-readable text output and should support `--json` for agents/CI.
-- `agenthub check` is advisory for ordinary updates by default; yanked or incompatible installed versions should fail unless policy says otherwise.
-- `agenthub install` installs required artifacts by default; optional artifacts require explicit selection.
-- `agenthub update` is dry-run by default and requires explicit apply to write files or lockfiles.
+- `trove check` is advisory for ordinary updates by default; yanked or incompatible installed versions should fail unless policy says otherwise.
+- `trove install` installs required artifacts by default; optional artifacts require explicit selection.
+- `trove update` is dry-run by default and requires explicit apply to write files or lockfiles.
 - MVP web content management is upload-only; browser-based artifact editing is deferred.
 - MVP publish flow requires one human approval; maintainers publish after approval; content changes after submission reset approvals/checks.
 - MVP compatibility uses a generic tools/models/runtimes schema; tool versions use SemVer ranges, runtimes are named strings, and model constraints use family plus optional context window.
@@ -59,7 +61,7 @@
 - Agent-facing APIs matter as much as the web UI: raw file fetch, manifest fetch, resolve, archive download, update check, and compatibility checks are first-class.
 - API JSON uses camelCase; list endpoints use cursor pagination; every response should include `X-Request-Id`.
 - Keep registry-style route refs like `/api/v1/resolve/{org}/{namespace}/{package}@{selector}`.
-- Package manifests are `agenthub.yaml`; package installs may be pinned by `.agenthub.lock.yaml`.
+- Package manifests are `trove.yaml`; package installs may be pinned by `.trove.lock.yaml`.
 - Published manifests require non-empty descriptions and at least one maintainer; manifest dependencies are declare-only in MVP.
 - Artifact `targetPath` defaults to `path`; installs must not overwrite different existing files without an explicit overwrite option.
 - MVP package uploads support `.tar.gz` and `.zip`; archive downloads are generated on demand from stored artifact files.

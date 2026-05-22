@@ -108,7 +108,7 @@ Show:
 
 1. Maintainer creates a draft version.
 2. Maintainer uploads package files or archive.
-3. Server validates paths and extracts `agenthub.yaml`.
+3. Server validates paths and extracts `trove.yaml`.
 4. Server runs manifest validation.
 5. UI shows validation errors inline.
 6. Maintainer submits the draft for review.

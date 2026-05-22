@@ -2,10 +2,10 @@
 
 ## Package Manifest
 
-Every package version must contain `agenthub.yaml`.
+Every package version must contain `trove.yaml`.
 
 ```yaml
-apiVersion: agenthub.io/v1
+apiVersion: trove.io/v1
 kind: AgentArtifactPackage
 metadata:
   org: companyx
@@ -155,13 +155,13 @@ These defaults can be raised by configuration, but Postgres-backed blob storage 
 
 ## Project Lock File
 
-Projects that install packages may pin them with `.agenthub.lock.yaml`.
+Projects that install packages may pin them with `.trove.lock.yaml`.
 
 ```yaml
-apiVersion: agenthub.io/v1
-kind: AgentHubLock
+apiVersion: trove.io/v1
+kind: TroveLock
 generatedBy:
-  name: agenthub
+  name: trove
   version: 0.1.0
   generatedAt: "2026-05-21T00:00:00Z"
 project:
@@ -187,6 +187,6 @@ installs:
 - Lock file package references must use full `org/namespace/package` form.
 - Update checks compare the pinned version and digest against server-side selectors.
 - Lock files are project-owned; the registry does not directly edit downstream repositories by default.
-- `agenthub install` must not overwrite an existing different target file unless the caller passes an explicit overwrite option.
+- `trove install` must not overwrite an existing different target file unless the caller passes an explicit overwrite option.
 - CLI writes canonical YAML with stable ordering when it creates or updates the lockfile.
-- Comments and hand formatting in `.agenthub.lock.yaml` are not preserved by CLI rewrites.
+- Comments and hand formatting in `.trove.lock.yaml` are not preserved by CLI rewrites.

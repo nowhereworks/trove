@@ -4,7 +4,7 @@
 
 | Decision | Status | Rationale |
 |---|---|---|
-| Use internal name AgentHub | Accepted | Short, clear project name |
+| Use internal name Trove | Accepted | Short, clear project name |
 | Build a Go single binary | Accepted | Keeps deployment simple and self-hostable |
 | Embed React/Vite static UI | Accepted | Fits single-binary deployment without Next.js runtime complexity |
 | Use PostgreSQL for MVP metadata and blobs | Accepted | Queryable source of truth with simpler permissions than Git-backed storage |
@@ -31,7 +31,7 @@
 | Use scoped opaque bearer tokens | Accepted | Allows revocation, auditing, and least-privilege CI/agent access |
 | Use OIDC plus gated dev auth mode | Accepted | Keeps production enterprise-ready without blocking local development |
 | Include MVP CLI prototype | Accepted | Agent and CI consumption should be practical early |
-| Make `agenthub check` advisory for ordinary updates by default | Accepted | Avoids noisy CI failures while allowing strict policy flags |
+| Make `trove check` advisory for ordinary updates by default | Accepted | Avoids noisy CI failures while allowing strict policy flags |
 | Use text CLI output with `--json` support | Accepted | Serves humans by default and agents/CI when structured output is needed |
 | Install required artifacts by default | Accepted | Avoids surprising optional skill/command installs |
 | Make updates dry-run first | Accepted | Shows diffs before changing repo instruction files |

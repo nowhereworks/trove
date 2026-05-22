@@ -36,10 +36,10 @@ Avoid `go-git` in MVP unless Git-backed storage is explicitly added.
 ```yaml
 server:
   listen: ":8080"
-  publicUrl: "https://agenthub.company.com"
+  publicUrl: "https://trove.company.com"
 
 database:
-  url: "postgres://agenthub:agenthub@postgres:5432/agenthub?sslmode=disable"
+  url: "postgres://trove:trove@postgres:5432/trove?sslmode=disable"
   migrateOnStartup: false
 
 auth:
@@ -47,15 +47,15 @@ auth:
   devModeEnabled: false
   oidc:
     issuerUrl: "https://login.microsoftonline.com/.../v2.0"
-    clientId: "agenthub"
-    clientSecretRef: "AGENTHUB_OIDC_CLIENT_SECRET"
-    redirectUrl: "https://agenthub.company.com/auth/oidc/callback"
+    clientId: "trove"
+    clientSecretRef: "TROVE_OIDC_CLIENT_SECRET"
+    redirectUrl: "https://trove.company.com/auth/oidc/callback"
     scopes:
       - openid
       - profile
       - email
   tokens:
-    hashSecretRef: "AGENTHUB_TOKEN_HASH_SECRET"
+    hashSecretRef: "TROVE_TOKEN_HASH_SECRET"
 
 storage:
   mode: postgres
@@ -66,9 +66,9 @@ storage:
   s3:
     enabled: false
     endpoint: "http://rustfs:9000"
-    bucket: "agenthub-artifacts"
-    accessKeyRef: "AGENTHUB_S3_ACCESS_KEY"
-    secretKeyRef: "AGENTHUB_S3_SECRET_KEY"
+    bucket: "trove-artifacts"
+    accessKeyRef: "TROVE_S3_ACCESS_KEY"
+    secretKeyRef: "TROVE_S3_SECRET_KEY"
 
 raw:
   requireAuthByDefault: true
@@ -138,7 +138,7 @@ Archive entry ordering must be deterministic by sorting artifact paths.
 
 Expected local services once implementation exists:
 
-- `agenthub`
+- `trove`
 - `postgres`
 - optional `minio`
 

@@ -3,8 +3,8 @@
 ## Target Repo Structure
 
 ```text
-agenthub/
-  cmd/agenthub/main.go
+trove/
+  cmd/trove/main.go
   internal/api/
   internal/auth/
   internal/config/
@@ -59,7 +59,7 @@ Goal: make package publishing real.
 
 1. Add draft version creation.
 2. Add artifact upload API.
-3. Add `agenthub.yaml` parsing and validation.
+3. Add `trove.yaml` parsing and validation.
 4. Add path validation.
 5. Add digest computation.
 6. Add publish endpoint.
@@ -97,14 +97,14 @@ Acceptance:
 
 Goal: make installed packages maintainable.
 
-1. Add `.agenthub.lock.yaml` parser.
+1. Add `.trove.lock.yaml` parser.
 2. Add update check API.
 3. Add compatibility checks.
-4. Add `agenthub resolve`.
-5. Add `agenthub fetch`.
-6. Add `agenthub install`.
-7. Add `agenthub check`.
-8. Add dry-run-by-default `agenthub update` and explicit `agenthub update --apply`.
+4. Add `trove resolve`.
+5. Add `trove fetch`.
+6. Add `trove install`.
+7. Add `trove check`.
+8. Add dry-run-by-default `trove update` and explicit `trove update --apply`.
 
 Acceptance:
 
@@ -131,7 +131,12 @@ Acceptance:
 
 ## Initial Test Strategy
 
-- Unit test manifest validation, path validation, selector resolution, digest calculation, and lock-file parsing.
-- Handler test resolve, manifest, raw, upload, publish, and update check endpoints.
-- DB integration test migrations, SQL queries, and immutability triggers against real PostgreSQL.
-- UI smoke test package browse and package detail once the web app exists.
+Use [`docs/spec/11-testing.md`](11-testing.md) as the canonical testing strategy.
+
+Minimum implementation expectations:
+
+- Add unit tests with each pure package.
+- Add handler tests with each HTTP surface.
+- Add PostgreSQL integration tests when migrations, `sqlc` queries, constraints, or triggers are introduced.
+- Add CLI tests when CLI commands are introduced.
+- Add UI smoke tests only after `web/` and its test tooling exist.

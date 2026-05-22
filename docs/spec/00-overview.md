@@ -2,7 +2,7 @@
 
 ## Product
 
-AgentHub is a curated registry for agent-consumable engineering artifacts:
+Trove is a curated registry for agent-consumable engineering artifacts:
 
 - `AGENTS.md`
 - `SKILL.md`
@@ -45,7 +45,7 @@ It behaves like a lightweight GitHub/npm/OCI-style registry for agent instructio
 - A human can browse the package and version in the UI.
 - An agent can fetch `AGENTS.md` over an immutable raw URL.
 - `@stable` resolves to an exact immutable version.
-- A project can store `.agenthub.lock.yaml`.
+- A project can store `.trove.lock.yaml`.
 - The update API can report that a newer compatible version exists.
 - Published artifact content cannot be mutated.
 - Publish actions are audited.

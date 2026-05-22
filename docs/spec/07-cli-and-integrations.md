@@ -7,44 +7,44 @@ The MVP includes a small CLI prototype for agent and CI flows.
 Initial commands:
 
 ```bash
-agenthub resolve companyx/platform/agent-backend@stable
-agenthub fetch companyx/platform/agent-backend@stable AGENTS.md
-agenthub install companyx/platform/agent-backend@stable --target .
-agenthub check --lock .agenthub.lock.yaml
-agenthub update --lock .agenthub.lock.yaml
-agenthub update --lock .agenthub.lock.yaml --apply
+trove resolve companyx/platform/agent-backend@stable
+trove fetch companyx/platform/agent-backend@stable AGENTS.md
+trove install companyx/platform/agent-backend@stable --target .
+trove check --lock .trove.lock.yaml
+trove update --lock .trove.lock.yaml
+trove update --lock .trove.lock.yaml --apply
 ```
 
-The CLI can be implemented inside the Go binary as subcommands or as a separate `cmd/agenthub` entrypoint that shares packages with the server.
+The CLI can be implemented inside the Go binary as subcommands or as a separate `cmd/trove` entrypoint that shares packages with the server.
 
 ## CLI Behavior
 
 - `resolve` calls the resolve API and prints the exact version and digest.
 - `fetch` downloads one artifact to stdout or a target path.
-- `install` downloads required artifacts by default and writes `.agenthub.lock.yaml`.
-- `check` reads `.agenthub.lock.yaml` and calls the update check API.
+- `install` downloads required artifacts by default and writes `.trove.lock.yaml`.
+- `check` reads `.trove.lock.yaml` and calls the update check API.
 - `update` shows available updates and diffs without writing files.
-- `update --apply` writes changed artifacts and rewrites `.agenthub.lock.yaml`.
+- `update --apply` writes changed artifacts and rewrites `.trove.lock.yaml`.
 - `install`, `check`, and `update --apply` may report lockfile/adoption summaries when configured with an API token.
 
 CLI commands default to human-readable text output. Commands that return structured data must support `--json` for agents and CI.
 
 The registry should not directly edit downstream repositories by default. Changes happen through CLI, CI, Backstage, or agent proposal workflows.
 
-`agenthub install` must not overwrite existing files that differ from the fetched artifact unless the caller passes an explicit overwrite option. Non-interactive callers should fail with a clear conflict error instead of prompting.
+`trove install` must not overwrite existing files that differ from the fetched artifact unless the caller passes an explicit overwrite option. Non-interactive callers should fail with a clear conflict error instead of prompting.
 
 Manifest dependencies are declare-only in the MVP. The CLI may display dependency metadata, but it must not auto-install dependencies until dependency resolution is explicitly designed.
 
-`agenthub install` installs only manifest artifacts marked `required: true` by default. Optional artifacts require explicit selection flags.
+`trove install` installs only manifest artifacts marked `required: true` by default. Optional artifacts require explicit selection flags.
 
-When `agenthub install` or `agenthub update --apply` changes the lockfile, it rewrites `.agenthub.lock.yaml` as canonical YAML with stable ordering. Comments and hand formatting are not preserved.
+When `trove install` or `trove update --apply` changes the lockfile, it rewrites `.trove.lock.yaml` as canonical YAML with stable ordering. Comments and hand formatting are not preserved.
 
 ## OpenCode Init
 
 Target UX:
 
 ```bash
-opencode /init https://agenthub.company.com/companyx/platform/agent-backend@stable
+opencode /init https://trove.company.com/companyx/platform/agent-backend@stable
 ```
 
 The URL should resolve to package metadata, manifest, raw artifact URLs, and archive download links.
@@ -54,7 +54,7 @@ The URL should resolve to package metadata, manifest, raw artifact URLs, and arc
 Example CI flow:
 
 ```bash
-agenthub check --lock .agenthub.lock.yaml
+trove check --lock .trove.lock.yaml
 ```
 
 MVP behavior is advisory by default:
@@ -72,12 +72,12 @@ Adoption reporting is opt-in by configuration/token. Reports send package refere
 
 ## Backstage Integration
 
-Backstage can use AgentHub during scaffolding:
+Backstage can use Trove during scaffolding:
 
 - resolve a default package by project type
 - download a package archive
 - copy target artifacts into the new repository
-- write `.agenthub.lock.yaml`
+- write `.trove.lock.yaml`
 
 ## GitHub/GitLab Integration
 
