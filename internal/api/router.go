@@ -5,14 +5,18 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"trove/internal/config"
+	"trove/internal/packages"
+	"trove/internal/ui"
 )
 
 const HeaderRequestID = "X-Request-Id"
@@ -29,7 +33,14 @@ type APIError struct {
 	RequestID string `json:"requestId"`
 }
 
-func NewRouter(_ config.Config) http.Handler {
+type ReadinessCheck func(context.Context) error
+
+func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck) http.Handler {
+	_ = cfg
+	if store == nil {
+		store = packages.NewSeedMemoryStore()
+	}
+
 	r := chi.NewRouter()
 	r.Use(requestIDMiddleware)
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
@@ -40,6 +51,18 @@ func NewRouter(_ config.Config) http.Handler {
 	})
 
 	r.Get("/healthz", handleHealth)
+	r.Get("/readyz", handleReady(readiness))
+	r.Get("/api/v1/search/packages", handleListPackages(store))
+	r.Get("/api/v1/packages", handleListPackages(store))
+	r.Get("/api/v1/resolve/{org}/{namespace}/{packageSelector}", handleResolve(store))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
+	r.Get("/raw/{org}/{namespace}/{package}/{selector}/*", handleRawArtifact(store))
+	uiHandler := ui.Handler()
+	r.Get("/", uiHandler.ServeHTTP)
+	r.Get("/packages", uiHandler.ServeHTTP)
+	r.Get("/app.js", uiHandler.ServeHTTP)
+	r.Get("/styles.css", uiHandler.ServeHTTP)
 
 	return r
 }
@@ -74,6 +97,133 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+func handleReady(readiness ReadinessCheck) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if readiness == nil {
+			writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+			return
+		}
+		if err := readiness(r.Context()); err != nil {
+			writeError(w, r, http.StatusServiceUnavailable, "NOT_READY", "Readiness check failed.")
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+	}
+}
+
+func handleResolve(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		packageName, selector, err := packages.SplitPackageSelector(chi.URLParam(r, "packageSelector"))
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_SELECTOR", "Package reference must use package@selector.")
+			return
+		}
+
+		result, err := store.Resolve(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), packageName, selector)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleGetManifest(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		result, err := store.GetManifest(
+			r.Context(),
+			chi.URLParam(r, "org"),
+			chi.URLParam(r, "namespace"),
+			chi.URLParam(r, "package"),
+			chi.URLParam(r, "version"),
+		)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeRawJSON(w, http.StatusOK, result.Manifest)
+	}
+}
+
+func handleRawArtifact(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		selector := chi.URLParam(r, "selector")
+		path := chi.URLParam(r, "*")
+		if path == "" || strings.Contains(path, "..") || strings.HasPrefix(path, "/") {
+			writeError(w, r, http.StatusBadRequest, "INVALID_ARTIFACT_PATH", "Artifact path is invalid.")
+			return
+		}
+
+		parsed, err := packages.ParseSelector(selector)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		version := selector
+		if parsed.Kind != packages.SelectorExact {
+			resolved, err := store.Resolve(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), selector)
+			if err != nil {
+				writeStoreError(w, r, err)
+				return
+			}
+			w.Header().Set("Cache-Control", "no-cache")
+			http.Redirect(w, r, "/raw/"+resolved.Org+"/"+resolved.Namespace+"/"+resolved.Package+"/"+resolved.ResolvedVersion+"/"+path, http.StatusFound)
+			return
+		}
+
+		artifact, err := store.GetRawArtifact(
+			r.Context(),
+			chi.URLParam(r, "org"),
+			chi.URLParam(r, "namespace"),
+			chi.URLParam(r, "package"),
+			version,
+			path,
+		)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Content-Type", artifact.ContentType)
+		w.Header().Set("ETag", artifact.BlobDigest)
+		w.Header().Set("Cache-Control", artifact.CacheControl)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(artifact.Content)
+	}
+}
+
+func handleListPackages(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		limit := 50
+		if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+			parsed, err := strconv.Atoi(rawLimit)
+			if err != nil || parsed < 1 {
+				writeError(w, r, http.StatusBadRequest, "INVALID_LIMIT", "limit must be a positive integer.")
+				return
+			}
+			limit = parsed
+		}
+
+		result, err := store.ListPackages(r.Context(), packages.ListPackagesParams{Limit: limit, Cursor: r.URL.Query().Get("cursor")})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleGetPackage(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		result, err := store.GetPackage(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"))
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
 func writeError(w http.ResponseWriter, r *http.Request, status int, code string, message string) {
 	writeJSON(w, status, ErrorResponse{
 		Error: APIError{
@@ -84,8 +234,29 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 	})
 }
 
+func writeStoreError(w http.ResponseWriter, r *http.Request, err error) {
+	switch {
+	case errors.Is(err, packages.ErrInvalidSelector):
+		writeError(w, r, http.StatusBadRequest, "INVALID_SELECTOR", "Selector is invalid.")
+	case errors.Is(err, packages.ErrArtifactNotFound):
+		writeError(w, r, http.StatusNotFound, "ARTIFACT_NOT_FOUND", "Artifact was not found.")
+	case errors.Is(err, packages.ErrVersionNotFound):
+		writeError(w, r, http.StatusNotFound, "VERSION_NOT_FOUND", "Package version was not found.")
+	case errors.Is(err, packages.ErrPackageNotFound):
+		writeError(w, r, http.StatusNotFound, "PACKAGE_NOT_FOUND", "Package was not found.")
+	default:
+		writeError(w, r, http.StatusInternalServerError, "INTERNAL_ERROR", "An internal error occurred.")
+	}
+}
+
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(body)
+}
+
+func writeRawJSON(w http.ResponseWriter, status int, body []byte) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write(body)
 }

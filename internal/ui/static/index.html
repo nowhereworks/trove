@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Trove</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero">
+        <p class="eyebrow">Trove Registry</p>
+        <h1>Agent artifacts, resolved exactly.</h1>
+        <p class="lede">Browse seeded packages from the Slice 1 API and copy exact raw URLs for agent instructions.</p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-heading">
+          <h2>Packages</h2>
+          <button id="refresh" type="button">Refresh</button>
+        </div>
+        <div id="packages" class="package-list" aria-live="polite"></div>
+      </section>
+
+      <section class="panel detail-panel">
+        <h2>Package Detail</h2>
+        <div id="detail" class="detail" aria-live="polite">Select a package.</div>
+      </section>
+    </main>
+    <script src="/app.js"></script>
+  </body>
+</html>
