@@ -15,9 +15,14 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"trove/internal/auth"
 	"trove/internal/config"
+	"trove/internal/db/sqlc"
 	"trove/internal/packages"
+	"trove/internal/reviews"
+	"trove/internal/security"
 	"trove/internal/ui"
+	"trove/internal/updates"
 	"trove/internal/uploads"
 )
 
@@ -44,8 +49,26 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	}
 	writeStore, _ := store.(packages.WriteStore)
 
+	var authenticator *auth.Authenticator
+	var reviewService *reviews.Service
+	scanner := security.NewScanner(cfg.Security)
+	updateService := updates.NewService(store)
+
+	if ps, ok := store.(interface{ Queries() *sqlc.Queries }); ok {
+		queries := ps.Queries()
+		if queries != nil {
+			authenticator, _ = auth.NewAuthenticator(cfg, queries)
+			reviewService = reviews.NewService(queries, cfg.Reviews)
+		}
+	}
+
 	r := chi.NewRouter()
 	r.Use(requestIDMiddleware)
+
+	if authenticator != nil {
+		r.Use(authenticator.Middleware)
+	}
+
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, r, http.StatusNotFound, "NOT_FOUND", fmt.Sprintf("Route %s %s was not found.", r.Method, r.URL.Path))
 	})
@@ -55,18 +78,47 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 
 	r.Get("/healthz", handleHealth)
 	r.Get("/readyz", handleReady(readiness))
-	r.Get("/api/v1/search/packages", handleListPackages(store))
+	r.Get("/api/v1/search/packages", handleSearchPackages(store))
 	r.Get("/api/v1/packages", handleListPackages(store))
 	r.Get("/api/v1/resolve/{org}/{namespace}/{packageSelector}", handleResolve(store))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions", handleCreateDraft(writeStore))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive", handleUploadArchive(writeStore))
-	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", handleUploadArtifact(writeStore))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", handlePublishVersion(writeStore))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive", handleUploadArchive(writeStore, scanner, cfg))
+	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", handleUploadArtifact(writeStore, scanner, cfg))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", handlePublishVersion(writeStore, reviewService, cfg))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/deprecate", handleDeprecateVersion(writeStore))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/yank", handleYankVersion(writeStore))
+	r.Post("/api/v1/orgs", handleCreateOrg(writeStore))
+	r.Post("/api/v1/orgs/{org}/namespaces", handleCreateNamespace(writeStore))
+	r.Post("/api/v1/packages", handleCreatePackage(writeStore))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz", handleGetArchive(store, packages.ArchiveTarGz))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip", handleGetArchive(store, packages.ArchiveZip))
-	r.Get("/raw/{org}/{namespace}/{package}/{selector}/*", handleRawArtifact(store))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}/adoption", handleGetPackageAdoption(store))
+	r.Get("/raw/{org}/{namespace}/{package}/{selector}/*", handleRawArtifact(store, cfg))
+
+	r.Post("/api/v1/updates/check", handleCheckUpdate(updateService))
+	r.Post("/api/v1/compatibility/check", handleCheckCompatibility(updateService))
+	r.Post("/api/v1/projects/report", handleReportProjectAdoption(writeStore))
+	r.Post("/api/v1/projects", handleCreateProject(writeStore))
+
+	r.Group(func(r chi.Router) {
+		r.Post("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit", handleSubmitReview(reviewService))
+		r.Post("/api/v1/reviews/{reviewId}/approve", handleApproveReview(reviewService))
+		r.Post("/api/v1/reviews/{reviewId}/request-changes", handleRequestChanges(reviewService))
+		r.Post("/api/v1/reviews/{reviewId}/comments", handleAddReviewComment(reviewService))
+		r.Get("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}", handleListReviews(reviewService))
+		r.Get("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/approval-status", handleApprovalStatus(reviewService))
+	})
+
+	r.Group(func(r chi.Router) {
+		r.Post("/api/v1/tokens", handleCreateToken(authenticator, cfg))
+		r.Post("/api/v1/tokens/{tokenId}/revoke", handleRevokeToken(authenticator))
+	})
+
+	r.Get("/auth/oidc/login", handleOIDCLogin(authenticator))
+	r.Get("/auth/oidc/callback", handleOIDCCallback(authenticator))
+
 	uiHandler := ui.Handler()
 	r.Get("/", uiHandler.ServeHTTP)
 	r.Get("/packages", uiHandler.ServeHTTP)
@@ -109,7 +161,7 @@ func handleCreateDraft(writeStore packages.WriteStore) http.HandlerFunc {
 	}
 }
 
-func handleUploadArtifact(writeStore packages.WriteStore) http.HandlerFunc {
+func handleUploadArtifact(writeStore packages.WriteStore, scanner *security.Scanner, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if writeStore == nil {
 			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
@@ -125,6 +177,25 @@ func handleUploadArtifact(writeStore packages.WriteStore) http.HandlerFunc {
 		if err != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_ARTIFACT", "Artifact body could not be read.")
 			return
+		}
+
+		if int64(len(content)) > cfg.Storage.Limits.MaxArtifactFileBytes {
+			writeError(w, r, http.StatusBadRequest, "ARTIFACT_TOO_LARGE", "Artifact exceeds maximum file size.")
+			return
+		}
+
+		if scanner != nil {
+			scanResult := scanner.ScanContent(path, content)
+			if scanResult.Blocked {
+				if len(scanResult.SecretsFound) > 0 {
+					writeError(w, r, http.StatusBadRequest, "SECRET_DETECTED", "Potential secret detected in artifact.")
+					return
+				}
+				if len(scanResult.UnsafeFound) > 0 {
+					writeError(w, r, http.StatusBadRequest, "UNSAFE_INSTRUCTION", "High-risk unsafe instruction detected in artifact.")
+					return
+				}
+			}
 		}
 
 		result, err := writeStore.UploadArtifact(r.Context(), packages.UploadArtifactRequest{
@@ -144,7 +215,7 @@ func handleUploadArtifact(writeStore packages.WriteStore) http.HandlerFunc {
 	}
 }
 
-func handleUploadArchive(writeStore packages.WriteStore) http.HandlerFunc {
+func handleUploadArchive(writeStore packages.WriteStore, scanner *security.Scanner, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if writeStore == nil {
 			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
@@ -162,6 +233,40 @@ func handleUploadArchive(writeStore packages.WriteStore) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "INVALID_ARCHIVE", err.Error())
 			return
 		}
+
+		totalSize := int64(0)
+		for _, file := range files {
+			totalSize += int64(len(file.Content))
+			if int64(len(file.Content)) > cfg.Storage.Limits.MaxArtifactFileBytes {
+				writeError(w, r, http.StatusBadRequest, "ARTIFACT_TOO_LARGE", fmt.Sprintf("Artifact %s exceeds maximum file size.", file.Path))
+				return
+			}
+		}
+		if totalSize > cfg.Storage.Limits.MaxUnpackedPackageBytes {
+			writeError(w, r, http.StatusBadRequest, "PACKAGE_TOO_LARGE", "Unpacked package exceeds maximum size.")
+			return
+		}
+		if len(files) > cfg.Storage.Limits.MaxArtifactsPerVersion {
+			writeError(w, r, http.StatusBadRequest, "TOO_MANY_ARTIFACTS", "Package exceeds maximum artifact count.")
+			return
+		}
+
+		if scanner != nil {
+			for _, file := range files {
+				scanResult := scanner.ScanContent(file.Path, file.Content)
+				if scanResult.Blocked {
+					if len(scanResult.SecretsFound) > 0 {
+						writeError(w, r, http.StatusBadRequest, "SECRET_DETECTED", fmt.Sprintf("Potential secret detected in %s.", file.Path))
+						return
+					}
+					if len(scanResult.UnsafeFound) > 0 {
+						writeError(w, r, http.StatusBadRequest, "UNSAFE_INSTRUCTION", fmt.Sprintf("High-risk unsafe instruction detected in %s.", file.Path))
+						return
+					}
+				}
+			}
+		}
+
 		artifacts := make([]packages.UploadArchiveArtifact, 0, len(files))
 		for _, file := range files {
 			artifacts = append(artifacts, packages.UploadArchiveArtifact{Path: file.Path, ContentType: contentTypeForPath(file.Path), Content: file.Content})
@@ -183,11 +288,19 @@ func handleUploadArchive(writeStore packages.WriteStore) http.HandlerFunc {
 	}
 }
 
-func handlePublishVersion(writeStore packages.WriteStore) http.HandlerFunc {
+func handlePublishVersion(writeStore packages.WriteStore, reviewService *reviews.Service, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if writeStore == nil {
 			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
 			return
+		}
+
+		if reviewService != nil && cfg.Reviews.RequireApproval {
+			status := reviewService.GetApprovalStatus(r.Context(), chi.URLParam(r, "version"))
+			if !status.HasEnoughApprovals {
+				writeError(w, r, http.StatusForbidden, "INSUFFICIENT_APPROVALS", "Version does not have enough approvals to publish.")
+				return
+			}
 		}
 
 		result, err := writeStore.PublishVersion(r.Context(), packages.PublishVersionRequest{
@@ -201,6 +314,151 @@ func handlePublishVersion(writeStore packages.WriteStore) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleDeprecateVersion(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		result, err := writeStore.DeprecateVersion(r.Context(), packages.LifecycleChangeRequest{
+			Org:       chi.URLParam(r, "org"),
+			Namespace: chi.URLParam(r, "namespace"),
+			Package:   chi.URLParam(r, "package"),
+			Version:   chi.URLParam(r, "version"),
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleYankVersion(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		result, err := writeStore.YankVersion(r.Context(), packages.LifecycleChangeRequest{
+			Org:       chi.URLParam(r, "org"),
+			Namespace: chi.URLParam(r, "namespace"),
+			Package:   chi.URLParam(r, "package"),
+			Version:   chi.URLParam(r, "version"),
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleCreateOrg(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		var body struct {
+			Slug        string `json:"slug"`
+			DisplayName string `json:"displayName"`
+			Visibility  string `json:"visibility"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		result, err := writeStore.CreateOrg(r.Context(), packages.CreateOrgRequest{
+			Slug:        body.Slug,
+			DisplayName: body.DisplayName,
+			Visibility:  body.Visibility,
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Location", "/api/v1/orgs/"+result.Slug)
+		writeJSON(w, http.StatusCreated, result)
+	}
+}
+
+func handleCreateNamespace(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		var body struct {
+			Slug        string `json:"slug"`
+			DisplayName string `json:"displayName"`
+			Visibility  string `json:"visibility"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		result, err := writeStore.CreateNamespace(r.Context(), packages.CreateNamespaceRequest{
+			Org:         chi.URLParam(r, "org"),
+			Slug:        body.Slug,
+			DisplayName: body.DisplayName,
+			Visibility:  body.Visibility,
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Location", "/api/v1/orgs/"+chi.URLParam(r, "org")+"/namespaces/"+result.Slug)
+		writeJSON(w, http.StatusCreated, result)
+	}
+}
+
+func handleCreatePackage(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		var body struct {
+			Org         string `json:"org"`
+			Namespace   string `json:"namespace"`
+			Name        string `json:"name"`
+			DisplayName string `json:"displayName"`
+			Description string `json:"description"`
+			Visibility  string `json:"visibility"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		result, err := writeStore.CreatePackage(r.Context(), packages.CreatePackageRequest{
+			Org:         body.Org,
+			Namespace:   body.Namespace,
+			Name:        body.Name,
+			DisplayName: body.DisplayName,
+			Description: body.Description,
+			Visibility:  body.Visibility,
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Location", "/api/v1/packages/"+result.Org+"/"+result.Namespace+"/"+result.Name)
+		writeJSON(w, http.StatusCreated, result)
 	}
 }
 
@@ -261,12 +519,31 @@ func handleResolve(store packages.Store) http.HandlerFunc {
 			writeStoreError(w, r, err)
 			return
 		}
+
+		user, _ := auth.UserFromContext(r.Context())
+		if !user.IsAuthenticated && !user.IsDev {
+			visibility, verr := store.CheckVisibility(r.Context(), result.Org, result.Namespace, result.Package, result.ResolvedVersion)
+			if verr != nil || !auth.CheckVisibility(visibility, user, true) {
+				writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Package version was not found.")
+				return
+			}
+		}
+
 		writeJSON(w, http.StatusOK, result)
 	}
 }
 
 func handleGetManifest(store packages.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := auth.UserFromContext(r.Context())
+		if !user.IsAuthenticated && !user.IsDev {
+			visibility, verr := store.CheckVisibility(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), chi.URLParam(r, "version"))
+			if verr != nil || !auth.CheckVisibility(visibility, user, true) {
+				writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Package version was not found.")
+				return
+			}
+		}
+
 		result, err := store.GetManifest(
 			r.Context(),
 			chi.URLParam(r, "org"),
@@ -290,12 +567,27 @@ func handleGetArchive(store packages.Store, format packages.ArchiveFormat) http.
 			writeStoreError(w, r, err)
 			return
 		}
+
+		org := chi.URLParam(r, "org")
+		namespace := chi.URLParam(r, "namespace")
+		pkg := chi.URLParam(r, "package")
+
 		if parsed.Kind != packages.SelectorExact {
-			resolved, err := store.Resolve(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), version)
+			resolved, err := store.Resolve(r.Context(), org, namespace, pkg, version)
 			if err != nil {
 				writeStoreError(w, r, err)
 				return
 			}
+
+			user, _ := auth.UserFromContext(r.Context())
+			if !user.IsAuthenticated && !user.IsDev {
+				visibility, verr := store.CheckVisibility(r.Context(), resolved.Org, resolved.Namespace, resolved.Package, resolved.ResolvedVersion)
+				if verr != nil || !auth.CheckVisibility(visibility, user, true) {
+					writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Package version was not found.")
+					return
+				}
+			}
+
 			extension := "archive.tar.gz"
 			if format == packages.ArchiveZip {
 				extension = "archive.zip"
@@ -305,7 +597,16 @@ func handleGetArchive(store packages.Store, format packages.ArchiveFormat) http.
 			return
 		}
 
-		archive, err := store.GetArchive(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), parsed.Version, format)
+		user, _ := auth.UserFromContext(r.Context())
+		if !user.IsAuthenticated && !user.IsDev {
+			visibility, verr := store.CheckVisibility(r.Context(), org, namespace, pkg, parsed.Version)
+			if verr != nil || !auth.CheckVisibility(visibility, user, true) {
+				writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Package version was not found.")
+				return
+			}
+		}
+
+		archive, err := store.GetArchive(r.Context(), org, namespace, pkg, parsed.Version, format)
 		if err != nil {
 			writeStoreError(w, r, err)
 			return
@@ -318,7 +619,7 @@ func handleGetArchive(store packages.Store, format packages.ArchiveFormat) http.
 	}
 }
 
-func handleRawArtifact(store packages.Store) http.HandlerFunc {
+func handleRawArtifact(store packages.Store, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		selector := chi.URLParam(r, "selector")
 		path := chi.URLParam(r, "*")
@@ -326,6 +627,8 @@ func handleRawArtifact(store packages.Store) http.HandlerFunc {
 			writeError(w, r, http.StatusBadRequest, "INVALID_ARTIFACT_PATH", "Artifact path is invalid.")
 			return
 		}
+
+		user, _ := auth.UserFromContext(r.Context())
 
 		parsed, err := packages.ParseSelector(selector)
 		if err != nil {
@@ -357,6 +660,14 @@ func handleRawArtifact(store packages.Store) http.HandlerFunc {
 			return
 		}
 
+		if cfg.Raw.RequireAuthByDefault && !user.IsAuthenticated && !user.IsDev {
+			isPublic := strings.Contains(artifact.CacheControl, "public")
+			if !isPublic || !cfg.Raw.AllowPublicPackages {
+				writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required to access this artifact.")
+				return
+			}
+		}
+
 		w.Header().Set("Content-Type", artifact.ContentType)
 		w.Header().Set("ETag", artifact.BlobDigest)
 		w.Header().Set("Cache-Control", artifact.CacheControl)
@@ -382,18 +693,515 @@ func handleListPackages(store packages.Store) http.HandlerFunc {
 			writeStoreError(w, r, err)
 			return
 		}
+
+		user, _ := auth.UserFromContext(r.Context())
+		if !user.IsAuthenticated && !user.IsDev {
+			filtered := make([]packages.PackageSummary, 0, len(result.Items))
+			for _, item := range result.Items {
+				if item.Visibility == "public" {
+					filtered = append(filtered, item)
+				}
+			}
+			result.Items = filtered
+		}
+
 		writeJSON(w, http.StatusOK, result)
 	}
 }
 
 func handleGetPackage(store packages.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := auth.UserFromContext(r.Context())
+		if !user.IsAuthenticated && !user.IsDev {
+			visibility, verr := store.CheckVisibility(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), "latest")
+			if verr != nil || !auth.CheckVisibility(visibility, user, true) {
+				writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Package was not found.")
+				return
+			}
+		}
+
 		result, err := store.GetPackage(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"))
 		if err != nil {
 			writeStoreError(w, r, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleSubmitReview(reviewService *reviews.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reviewService == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Review workflow is not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		err := reviewService.SubmitForReview(r.Context(), chi.URLParam(r, "version"), user.ID)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "REVIEW_SUBMIT_FAILED", "Failed to submit for review.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"status": "submitted"})
+	}
+}
+
+func handleApproveReview(reviewService *reviews.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reviewService == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Review workflow is not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		var body struct {
+			Comment         string `json:"comment"`
+			PackageVersionID string `json:"packageVersionId"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		review, err := reviewService.Approve(r.Context(), chi.URLParam(r, "reviewId"), user.ID, body.PackageVersionID, body.Comment)
+		if err != nil {
+			switch {
+			case errors.Is(err, reviews.ErrSelfApproval):
+				writeError(w, r, http.StatusForbidden, "SELF_APPROVAL_BLOCKED", "Self-approval is not allowed.")
+			case errors.Is(err, reviews.ErrAlreadyApproved):
+				writeError(w, r, http.StatusConflict, "ALREADY_APPROVED", "Already approved by this reviewer.")
+			default:
+				writeError(w, r, http.StatusInternalServerError, "APPROVE_FAILED", "Failed to approve review.")
+			}
+			return
+		}
+
+		writeJSON(w, http.StatusOK, review)
+	}
+}
+
+func handleRequestChanges(reviewService *reviews.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reviewService == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Review workflow is not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		var body struct {
+			Comment string `json:"comment"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		review, err := reviewService.RequestChanges(r.Context(), chi.URLParam(r, "reviewId"), body.Comment)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "REQUEST_CHANGES_FAILED", "Failed to request changes.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, review)
+	}
+}
+
+func handleAddReviewComment(reviewService *reviews.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reviewService == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Review workflow is not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		var body struct {
+			Body string `json:"body"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		comment, err := reviewService.AddComment(r.Context(), chi.URLParam(r, "reviewId"), user.ID, body.Body)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "COMMENT_FAILED", "Failed to add comment.")
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, comment)
+	}
+}
+
+func handleListReviews(reviewService *reviews.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reviewService == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Review workflow is not configured.")
+			return
+		}
+
+		reviews, err := reviewService.ListReviews(r.Context(), chi.URLParam(r, "version"))
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "LIST_REVIEWS_FAILED", "Failed to list reviews.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{"items": reviews})
+	}
+}
+
+func handleApprovalStatus(reviewService *reviews.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reviewService == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Review workflow is not configured.")
+			return
+		}
+
+		status := reviewService.GetApprovalStatus(r.Context(), chi.URLParam(r, "version"))
+		writeJSON(w, http.StatusOK, status)
+	}
+}
+
+func handleCreateToken(authenticator *auth.Authenticator, cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticator == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Token management is not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		var body struct {
+			DisplayName         string   `json:"displayName"`
+			Scopes              []string `json:"scopes"`
+			OrgID               string   `json:"orgId,omitempty"`
+			NamespaceID         string   `json:"namespaceId,omitempty"`
+			PackageID           string   `json:"packageId,omitempty"`
+			ActorServiceAccount string   `json:"actorServiceAccount,omitempty"`
+			ExpiresAt           string   `json:"expiresAt,omitempty"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		if len(body.Scopes) == 0 {
+			body.Scopes = []string{"package:read"}
+		}
+
+		var expiresAt time.Time
+		if body.ExpiresAt != "" {
+			var parseErr error
+			expiresAt, parseErr = time.Parse(time.RFC3339, body.ExpiresAt)
+			if parseErr != nil {
+				writeError(w, r, http.StatusBadRequest, "INVALID_EXPIRES_AT", "expiresAt must be in RFC3339 format.")
+				return
+			}
+		}
+
+		token, rawToken, err := authenticator.CreateAPIToken(r.Context(), auth.CreateTokenRequest{
+			DisplayName:         body.DisplayName,
+			ActorUserID:         user.ID,
+			ActorServiceAccount: body.ActorServiceAccount,
+			Scopes:              body.Scopes,
+			OrgID:               body.OrgID,
+			NamespaceID:         body.NamespaceID,
+			PackageID:           body.PackageID,
+			ExpiresAt:           expiresAt,
+		})
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "TOKEN_CREATE_FAILED", "Failed to create token.")
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, map[string]any{
+			"id":          token.ID,
+			"displayName": token.DisplayName,
+			"scopes":      token.Scopes,
+			"token":       rawToken,
+			"createdAt":   token.CreatedAt.Time.UTC().Format(time.RFC3339),
+		})
+	}
+}
+
+func handleRevokeToken(authenticator *auth.Authenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticator == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Token management is not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		if err := authenticator.RevokeAPIToken(r.Context(), chi.URLParam(r, "tokenId")); err != nil {
+			writeError(w, r, http.StatusInternalServerError, "TOKEN_REVOKE_FAILED", "Failed to revoke token.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"status": "revoked"})
+	}
+}
+
+func handleOIDCLogin(authenticator *auth.Authenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticator == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "OIDC is not configured.")
+			return
+		}
+
+		authURL, state, err := authenticator.OIDCAuthURL()
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "OIDC_CONFIG_ERROR", "OIDC provider is not configured.")
+			return
+		}
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "oidc_state",
+			Value:    state,
+			Path:     "/auth/oidc/callback",
+			HttpOnly: true,
+			Secure:   true,
+			MaxAge:   300,
+		})
+
+		http.Redirect(w, r, authURL, http.StatusFound)
+	}
+}
+
+func handleOIDCCallback(authenticator *auth.Authenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticator == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "OIDC is not configured.")
+			return
+		}
+
+		code := r.URL.Query().Get("code")
+		state := r.URL.Query().Get("state")
+		if code == "" || state == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_CALLBACK", "Missing code or state parameter.")
+			return
+		}
+
+		cookie, err := r.Cookie("oidc_state")
+		if err != nil || cookie.Value != state {
+			writeError(w, r, http.StatusBadRequest, "INVALID_STATE", "State parameter mismatch.")
+			return
+		}
+
+		user, err := authenticator.OIDCCallback(r.Context(), code)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "OIDC_CALLBACK_FAILED", "Failed to complete OIDC login.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{
+			"id":          user.ID,
+			"email":       user.Email,
+			"displayName": user.DisplayName,
+		})
+	}
+}
+
+func handleCheckUpdate(service *updates.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req updates.UpdateCheckRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		if req.Package == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "package is required.")
+			return
+		}
+		if req.CurrentVersion == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "currentVersion is required.")
+			return
+		}
+
+		result, err := service.CheckUpdate(r.Context(), req)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleCheckCompatibility(service *updates.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req updates.CompatibilityCheckRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		if req.Package == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "package is required.")
+			return
+		}
+		if req.Version == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "version is required.")
+			return
+		}
+
+		result, err := service.CheckCompatibility(r.Context(), req)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleSearchPackages(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		query := r.URL.Query().Get("q")
+		if query == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "q query parameter is required.")
+			return
+		}
+
+		limit := 50
+		if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+			parsed, err := strconv.Atoi(rawLimit)
+			if err != nil || parsed < 1 {
+				writeError(w, r, http.StatusBadRequest, "INVALID_LIMIT", "limit must be a positive integer.")
+				return
+			}
+			limit = parsed
+		}
+
+		result, err := store.SearchPackages(r.Context(), packages.SearchParams{
+			Query:        query,
+			Org:          r.URL.Query().Get("org"),
+			Namespace:    r.URL.Query().Get("namespace"),
+			ArtifactType: r.URL.Query().Get("artifactType"),
+			Tool:         r.URL.Query().Get("tool"),
+			Limit:        limit,
+			Cursor:       r.URL.Query().Get("cursor"),
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleGetPackageAdoption(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		result, err := store.GetPackageAdoption(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"))
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleReportProjectAdoption(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		var body struct {
+			Org       string `json:"org"`
+			Name      string `json:"name"`
+			RepoURL   string `json:"repoUrl"`
+			Lockfile  string `json:"lockfile,omitempty"`
+			Installed []struct {
+				Package   string `json:"package"`
+				Version   string `json:"version"`
+				Digest    string `json:"digest"`
+			} `json:"installed"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		if body.Org == "" || body.Name == "" || body.RepoURL == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "org, name, and repoUrl are required.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]string{"status": "reported"})
+	}
+}
+
+func handleCreateProject(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+			return
+		}
+
+		var body struct {
+			Org     string `json:"org"`
+			Name    string `json:"name"`
+			RepoURL string `json:"repoUrl"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		if body.Org == "" || body.Name == "" || body.RepoURL == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "org, name, and repoUrl are required.")
+			return
+		}
+
+		writeJSON(w, http.StatusCreated, map[string]string{
+			"org":     body.Org,
+			"name":    body.Name,
+			"repoUrl": body.RepoURL,
+		})
 	}
 }
 

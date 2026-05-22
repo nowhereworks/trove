@@ -8,6 +8,29 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ApiToken struct {
+	ID                  pgtype.UUID        `json:"id"`
+	TokenHash           string             `json:"token_hash"`
+	DisplayName         string             `json:"display_name"`
+	ActorUserID         pgtype.UUID        `json:"actor_user_id"`
+	ActorServiceAccount pgtype.Text        `json:"actor_service_account"`
+	Scopes              []string           `json:"scopes"`
+	OrgID               pgtype.UUID        `json:"org_id"`
+	NamespaceID         pgtype.UUID        `json:"namespace_id"`
+	PackageID           pgtype.UUID        `json:"package_id"`
+	CreatedAt           pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt           pgtype.Timestamptz `json:"expires_at"`
+	LastUsedAt          pgtype.Timestamptz `json:"last_used_at"`
+	RevokedAt           pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type Approval struct {
+	ID               pgtype.UUID        `json:"id"`
+	PackageVersionID pgtype.UUID        `json:"package_version_id"`
+	ReviewerID       pgtype.UUID        `json:"reviewer_id"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+}
+
 type ArtifactBlob struct {
 	Digest    string             `json:"digest"`
 	Content   []byte             `json:"content"`
@@ -92,6 +115,26 @@ type Package struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
+type PackageMaintainer struct {
+	ID        pgtype.UUID        `json:"id"`
+	PackageID pgtype.UUID        `json:"package_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	TeamID    pgtype.UUID        `json:"team_id"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type PackageSearchDocument struct {
+	PackageID                pgtype.UUID        `json:"package_id"`
+	LatestPublishedVersionID pgtype.UUID        `json:"latest_published_version_id"`
+	SearchText               interface{}        `json:"search_text"`
+	LabelsJson               []byte             `json:"labels_json"`
+	ArtifactTypes            []string           `json:"artifact_types"`
+	ToolNames                []string           `json:"tool_names"`
+	Lifecycle                string             `json:"lifecycle"`
+	Visibility               string             `json:"visibility"`
+	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
+}
+
 type PackageVersion struct {
 	ID           pgtype.UUID        `json:"id"`
 	PackageID    pgtype.UUID        `json:"package_id"`
@@ -110,4 +153,73 @@ type PackageVersion struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	PublishedAt  pgtype.Timestamptz `json:"published_at"`
+}
+
+type ProjectArtifactInstall struct {
+	ID               pgtype.UUID        `json:"id"`
+	ProjectID        pgtype.UUID        `json:"project_id"`
+	PackageID        pgtype.UUID        `json:"package_id"`
+	PackageVersionID pgtype.UUID        `json:"package_version_id"`
+	InstalledDigest  string             `json:"installed_digest"`
+	InstalledAt      pgtype.Timestamptz `json:"installed_at"`
+	LastCheckedAt    pgtype.Timestamptz `json:"last_checked_at"`
+	MetadataJson     []byte             `json:"metadata_json"`
+}
+
+type ProjectRegistration struct {
+	ID           pgtype.UUID        `json:"id"`
+	OrgID        pgtype.UUID        `json:"org_id"`
+	Name         string             `json:"name"`
+	RepoUrl      string             `json:"repo_url"`
+	TeamID       pgtype.UUID        `json:"team_id"`
+	MetadataJson []byte             `json:"metadata_json"`
+	LastSeenAt   pgtype.Timestamptz `json:"last_seen_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type Review struct {
+	ID               pgtype.UUID        `json:"id"`
+	PackageVersionID pgtype.UUID        `json:"package_version_id"`
+	ReviewerID       pgtype.UUID        `json:"reviewer_id"`
+	Status           string             `json:"status"`
+	Comment          pgtype.Text        `json:"comment"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ReviewComment struct {
+	ID        pgtype.UUID        `json:"id"`
+	ReviewID  pgtype.UUID        `json:"review_id"`
+	AuthorID  pgtype.UUID        `json:"author_id"`
+	Body      string             `json:"body"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Team struct {
+	ID          pgtype.UUID        `json:"id"`
+	OrgID       pgtype.UUID        `json:"org_id"`
+	Slug        string             `json:"slug"`
+	DisplayName string             `json:"display_name"`
+	Description pgtype.Text        `json:"description"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TeamMembership struct {
+	ID        pgtype.UUID        `json:"id"`
+	TeamID    pgtype.UUID        `json:"team_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Role      string             `json:"role"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type User struct {
+	ID          pgtype.UUID        `json:"id"`
+	Email       string             `json:"email"`
+	DisplayName string             `json:"display_name"`
+	AvatarUrl   pgtype.Text        `json:"avatar_url"`
+	OidcIssuer  pgtype.Text        `json:"oidc_issuer"`
+	OidcSubject pgtype.Text        `json:"oidc_subject"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }

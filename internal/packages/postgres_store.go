@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -24,6 +25,23 @@ type PostgresStore struct {
 
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
 	return &PostgresStore{pool: pool, queries: sqlc.New(pool)}
+}
+
+func (s *PostgresStore) Queries() *sqlc.Queries {
+	return s.queries
+}
+
+func (s *PostgresStore) CheckVisibility(ctx context.Context, org, namespace, name, version string) (string, error) {
+	eff, err := s.queries.GetEffectiveVisibility(ctx, sqlc.GetEffectiveVisibilityParams{
+		Org:         org,
+		Namespace:   namespace,
+		PackageName: name,
+		Version:     strings.TrimPrefix(version, "v"),
+	})
+	if err != nil {
+		return "", mapReadError(err)
+	}
+	return eff, nil
 }
 
 func (s *PostgresStore) CreateDraftVersion(ctx context.Context, req CreateDraftVersionRequest) (VersionResource, error) {
@@ -245,11 +263,191 @@ func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRe
 		return VersionResource{}, err
 	}
 
+	searchText := buildSearchText(parsed, req.Org, req.Namespace, req.Package, rows)
+	labelsJSON, _ := json.Marshal(parsed.Metadata.Labels)
+	artifactTypes := extractArtifactTypes(parsed)
+	toolNames := extractToolNames(parsed)
+	if err := q.UpsertSearchDocument(ctx, sqlc.UpsertSearchDocumentParams{
+		PackageID:                version.PackageID,
+		LatestPublishedVersionID: version.ID,
+		SearchText:               []byte(searchText),
+		LabelsJson:               labelsJSON,
+		ArtifactTypes:            artifactTypes,
+		ToolNames:                toolNames,
+		Lifecycle:                "active",
+		Visibility:               parsed.Spec.Visibility,
+	}); err != nil {
+		return VersionResource{}, err
+	}
+
 	if err := tx.Commit(ctx); err != nil {
 		return VersionResource{}, err
 	}
 
 	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: published.Version, Lifecycle: published.Lifecycle, Visibility: parsed.Spec.Visibility, Digest: textValue(published.Digest), PublishedAt: timestamptzString(published.PublishedAt)}, nil
+}
+
+func (s *PostgresStore) DeprecateVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.queries.WithTx(tx)
+
+	version, err := q.GetVersionForUpdate(ctx, sqlc.GetVersionForUpdateParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package, Version: strings.TrimPrefix(req.Version, "v")})
+	if err != nil {
+		return VersionResource{}, mapReadError(err)
+	}
+	if version.Lifecycle != "published" {
+		return VersionResource{}, fmt.Errorf("version %s is not published", version.Version)
+	}
+
+	result, err := q.DeprecateVersion(ctx, version.ID)
+	if err != nil {
+		return VersionResource{}, mapWriteError(err)
+	}
+
+	auditID, err := newUUID()
+	if err != nil {
+		return VersionResource{}, err
+	}
+	if err := q.InsertAuditEvent(ctx, sqlc.InsertAuditEventParams{ID: auditID, PackageVersionID: version.ID, ActorServiceAccount: textOrNull("dev"), Action: "version.deprecated", MetadataJson: []byte(`{"source":"api"}`), PackageID: version.PackageID}); err != nil {
+		return VersionResource{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return VersionResource{}, err
+	}
+
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: result.Version, Lifecycle: result.Lifecycle, UpdatedAt: timestamptzString(result.UpdatedAt)}, nil
+}
+
+func (s *PostgresStore) YankVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.queries.WithTx(tx)
+
+	version, err := q.GetVersionForUpdate(ctx, sqlc.GetVersionForUpdateParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package, Version: strings.TrimPrefix(req.Version, "v")})
+	if err != nil {
+		return VersionResource{}, mapReadError(err)
+	}
+	if version.Lifecycle != "published" && version.Lifecycle != "deprecated" {
+		return VersionResource{}, fmt.Errorf("version %s cannot be yanked", version.Version)
+	}
+
+	result, err := q.YankVersion(ctx, version.ID)
+	if err != nil {
+		return VersionResource{}, mapWriteError(err)
+	}
+
+	auditID, err := newUUID()
+	if err != nil {
+		return VersionResource{}, err
+	}
+	if err := q.InsertAuditEvent(ctx, sqlc.InsertAuditEventParams{ID: auditID, PackageVersionID: version.ID, ActorServiceAccount: textOrNull("dev"), Action: "version.yanked", MetadataJson: []byte(`{"source":"api"}`), PackageID: version.PackageID}); err != nil {
+		return VersionResource{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return VersionResource{}, err
+	}
+
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: result.Version, Lifecycle: result.Lifecycle, UpdatedAt: timestamptzString(result.UpdatedAt)}, nil
+}
+
+func (s *PostgresStore) CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error) {
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	id, err := newUUID()
+	if err != nil {
+		return OrgResource{}, err
+	}
+	row, err := s.queries.CreateOrganization(ctx, sqlc.CreateOrganizationParams{
+		ID:          id,
+		Slug:        req.Slug,
+		DisplayName: req.DisplayName,
+		Visibility:  req.Visibility,
+	})
+	if err != nil {
+		return OrgResource{}, mapWriteError(err)
+	}
+	return OrgResource{
+		ID:          uuid.UUID(row.ID.Bytes).String(),
+		Slug:        row.Slug,
+		DisplayName: row.DisplayName,
+		Visibility:  row.Visibility,
+		CreatedAt:   timestamptzString(row.CreatedAt),
+		UpdatedAt:   timestamptzString(row.UpdatedAt),
+	}, nil
+}
+
+func (s *PostgresStore) CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error) {
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	id, err := newUUID()
+	if err != nil {
+		return NamespaceResource{}, err
+	}
+	row, err := s.queries.CreateNamespace(ctx, sqlc.CreateNamespaceParams{
+		ID:            id,
+		OrgSlug:       req.Org,
+		NamespaceSlug: req.Slug,
+		DisplayName:   req.DisplayName,
+		Visibility:    req.Visibility,
+	})
+	if err != nil {
+		return NamespaceResource{}, mapWriteError(err)
+	}
+	return NamespaceResource{
+		ID:          uuid.UUID(row.ID.Bytes).String(),
+		OrgID:       uuid.UUID(row.OrgID.Bytes).String(),
+		Slug:        row.Slug,
+		DisplayName: row.DisplayName,
+		Visibility:  row.Visibility,
+		CreatedAt:   timestamptzString(row.CreatedAt),
+		UpdatedAt:   timestamptzString(row.UpdatedAt),
+	}, nil
+}
+
+func (s *PostgresStore) CreatePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error) {
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	id, err := newUUID()
+	if err != nil {
+		return PackageResource{}, err
+	}
+	row, err := s.queries.CreatePackage(ctx, sqlc.CreatePackageParams{
+		ID:            id,
+		OrgSlug:       req.Org,
+		NamespaceSlug: req.Namespace,
+		Name:          req.Name,
+		DisplayName:   req.DisplayName,
+		Description:   textOrNull(req.Description),
+		Visibility:    req.Visibility,
+	})
+	if err != nil {
+		return PackageResource{}, mapWriteError(err)
+	}
+	return PackageResource{
+		ID:          uuid.UUID(row.ID.Bytes).String(),
+		NamespaceID: uuid.UUID(row.NamespaceID.Bytes).String(),
+		Org:         req.Org,
+		Namespace:   req.Namespace,
+		Name:        row.Name,
+		DisplayName: row.DisplayName,
+		Description: textValue(row.Description),
+		Visibility:  row.Visibility,
+		Lifecycle:   row.Lifecycle,
+		CreatedAt:   timestamptzString(row.CreatedAt),
+		UpdatedAt:   timestamptzString(row.UpdatedAt),
+	}, nil
 }
 
 func (s *PostgresStore) Resolve(ctx context.Context, org string, namespace string, name string, selector string) (ResolvedVersion, error) {
@@ -401,6 +599,74 @@ func (s *PostgresStore) ListPackages(ctx context.Context, params ListPackagesPar
 	return ListPackagesResult{Items: items, NextCursor: nextCursor}, nil
 }
 
+func (s *PostgresStore) SearchPackages(ctx context.Context, params SearchParams) (SearchResult, error) {
+	limit := params.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	rows, err := s.queries.SearchPackages(ctx, sqlc.SearchPackagesParams{
+		Query:        params.Query,
+		Org:          params.Org,
+		Namespace:    params.Namespace,
+		ArtifactType: params.ArtifactType,
+		Tool:         params.Tool,
+		Cursor:       params.Cursor,
+		PageLimit:    int32(limit + 1),
+	})
+	if err != nil {
+		return SearchResult{}, err
+	}
+
+	items := make([]PackageSummary, 0, min(len(rows), limit))
+	for _, row := range rows {
+		items = append(items, packageSummaryFromRow(row.Org, row.Namespace, row.PackageName, row.DisplayName, row.Description, row.Visibility, row.Lifecycle, row.LatestVersion, row.StableVersion))
+	}
+
+	var nextCursor *string
+	if len(items) > limit {
+		next := items[limit-1].Org + "/" + items[limit-1].Namespace + "/" + items[limit-1].Name
+		nextCursor = &next
+		items = items[:limit]
+	}
+
+	return SearchResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *PostgresStore) GetPackageAdoption(ctx context.Context, org string, namespace string, name string) (PackageAdoption, error) {
+	adoption, err := s.queries.GetPackageAdoption(ctx, sqlc.GetPackageAdoptionParams{
+		Org:         org,
+		Namespace:   namespace,
+		PackageName: name,
+	})
+	if err != nil {
+		return PackageAdoption{}, mapReadError(err)
+	}
+
+	versionRows, err := s.queries.ListPackageVersionsByAdoption(ctx, sqlc.ListPackageVersionsByAdoptionParams{
+		Org:         org,
+		Namespace:   namespace,
+		PackageName: name,
+	})
+	if err != nil {
+		return PackageAdoption{}, err
+	}
+
+	versions := make([]AdoptionVersionSummary, 0, len(versionRows))
+	for _, row := range versionRows {
+		versions = append(versions, AdoptionVersionSummary{
+			Version:      row.Version,
+			InstallCount: row.InstallCount,
+		})
+	}
+
+	return PackageAdoption{
+		ProjectCount: adoption.ProjectCount,
+		VersionCount: adoption.VersionCount,
+		Versions:     versions,
+	}, nil
+}
+
 func (s *PostgresStore) GetPackage(ctx context.Context, org string, namespace string, name string) (PackageDetail, error) {
 	row, err := s.queries.GetPackageSummary(ctx, sqlc.GetPackageSummaryParams{Org: org, Namespace: namespace, PackageName: name})
 	if err != nil {
@@ -510,4 +776,50 @@ func mapWriteError(err error) error {
 		return ErrVersionExists
 	}
 	return err
+}
+
+func buildSearchText(parsed manifest.Manifest, org, namespace, name string, artifactRows []sqlc.ListArtifactMetadataForVersionRow) string {
+	parts := []string{org, namespace, name, parsed.Metadata.DisplayName, parsed.Metadata.Description}
+	for _, maintainer := range parsed.Spec.Maintainers {
+		if maintainer.Team != "" {
+			parts = append(parts, maintainer.Team)
+		}
+		if maintainer.User != "" {
+			parts = append(parts, maintainer.User)
+		}
+	}
+	for _, artifact := range parsed.Spec.Artifacts {
+		parts = append(parts, artifact.Path, artifact.Type)
+	}
+	for _, row := range artifactRows {
+		parts = append(parts, row.Path)
+	}
+	for label, value := range parsed.Metadata.Labels {
+		parts = append(parts, label, fmt.Sprintf("%v", value))
+	}
+	return strings.Join(parts, " ")
+}
+
+func extractArtifactTypes(parsed manifest.Manifest) []string {
+	seen := map[string]bool{}
+	var types []string
+	for _, artifact := range parsed.Spec.Artifacts {
+		if artifact.Type != "" && !seen[artifact.Type] {
+			seen[artifact.Type] = true
+			types = append(types, artifact.Type)
+		}
+	}
+	return types
+}
+
+func extractToolNames(parsed manifest.Manifest) []string {
+	seen := map[string]bool{}
+	var names []string
+	for _, tool := range parsed.Spec.Compatibility.Tools {
+		if tool.Name != "" && !seen[tool.Name] {
+			seen[tool.Name] = true
+			names = append(names, tool.Name)
+		}
+	}
+	return names
 }

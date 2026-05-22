@@ -446,7 +446,7 @@ func TestArchiveAliasRedirectsToExact(t *testing.T) {
 func TestPackageListAndDetail(t *testing.T) {
 	router := testRouter()
 
-	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/search/packages", nil)
+	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/packages", nil)
 	listRes := httptest.NewRecorder()
 	router.ServeHTTP(listRes, listReq)
 	if listRes.Code != http.StatusOK {
@@ -606,4 +606,40 @@ func readResponseZip(t *testing.T, data []byte) []responseArchiveEntry {
 		entries = append(entries, responseArchiveEntry{Path: file.Name, Content: content})
 	}
 	return entries
+}
+
+func TestSearchPackages(t *testing.T) {
+	router := testRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/search/packages?q=backend+agent", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("search status = %d, want %d; body=%s", res.Code, http.StatusOK, res.Body.String())
+	}
+
+	var body struct {
+		Items      []packages.PackageSummary `json:"items"`
+		NextCursor *string                   `json:"nextCursor"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decode search body: %v", err)
+	}
+	if len(body.Items) != 1 {
+		t.Fatalf("search items = %d, want 1", len(body.Items))
+	}
+	if body.Items[0].Name != "agent-backend" {
+		t.Fatalf("search item name = %q, want agent-backend", body.Items[0].Name)
+	}
+}
+
+func TestSearchRequiresQuery(t *testing.T) {
+	router := testRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/search/packages", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("search status = %d, want %d", res.Code, http.StatusBadRequest)
+	}
 }

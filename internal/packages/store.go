@@ -25,7 +25,10 @@ type Store interface {
 	GetRawArtifact(ctx context.Context, org string, namespace string, name string, version string, path string) (RawArtifact, error)
 	GetArchive(ctx context.Context, org string, namespace string, name string, version string, format ArchiveFormat) (Archive, error)
 	ListPackages(ctx context.Context, params ListPackagesParams) (ListPackagesResult, error)
+	SearchPackages(ctx context.Context, params SearchParams) (SearchResult, error)
 	GetPackage(ctx context.Context, org string, namespace string, name string) (PackageDetail, error)
+	CheckVisibility(ctx context.Context, org string, namespace string, name string, version string) (string, error)
+	GetPackageAdoption(ctx context.Context, org string, namespace string, name string) (PackageAdoption, error)
 }
 
 type WriteStore interface {
@@ -33,6 +36,73 @@ type WriteStore interface {
 	UploadArtifact(ctx context.Context, req UploadArtifactRequest) (ArtifactResource, error)
 	UploadArtifacts(ctx context.Context, req UploadArtifactsRequest) ([]ArtifactResource, error)
 	PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error)
+	DeprecateVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
+	YankVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
+	CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error)
+	CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error)
+	CreatePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error)
+}
+
+type LifecycleChangeRequest struct {
+	Org       string
+	Namespace string
+	Package   string
+	Version   string
+}
+
+type CreateOrgRequest struct {
+	Slug        string
+	DisplayName string
+	Visibility  string
+}
+
+type CreateNamespaceRequest struct {
+	Org         string
+	Slug        string
+	DisplayName string
+	Visibility  string
+}
+
+type CreatePackageRequest struct {
+	Org         string
+	Namespace   string
+	Name        string
+	DisplayName string
+	Description string
+	Visibility  string
+}
+
+type OrgResource struct {
+	ID          string `json:"id"`
+	Slug        string `json:"slug"`
+	DisplayName string `json:"displayName"`
+	Visibility  string `json:"visibility"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+type NamespaceResource struct {
+	ID          string `json:"id"`
+	OrgID       string `json:"orgId"`
+	Slug        string `json:"slug"`
+	DisplayName string `json:"displayName"`
+	Visibility  string `json:"visibility"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
+}
+
+type PackageResource struct {
+	ID          string `json:"id"`
+	NamespaceID string `json:"namespaceId"`
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	Name        string `json:"name"`
+	DisplayName string `json:"displayName"`
+	Description string `json:"description"`
+	Visibility  string `json:"visibility"`
+	Lifecycle   string `json:"lifecycle"`
+	CreatedAt   string `json:"createdAt"`
+	UpdatedAt   string `json:"updatedAt"`
 }
 
 type CreateDraftVersionRequest struct {
@@ -179,6 +249,33 @@ type ListPackagesParams struct {
 type ListPackagesResult struct {
 	Items      []PackageSummary `json:"items"`
 	NextCursor *string          `json:"nextCursor"`
+}
+
+type SearchParams struct {
+	Query        string
+	Org          string
+	Namespace    string
+	ArtifactType string
+	Tool         string
+	Limit        int
+	Cursor       string
+}
+
+type SearchResult struct {
+	Items      []PackageSummary `json:"items"`
+	NextCursor *string          `json:"nextCursor"`
+	TotalRank  float32          `json:"-"`
+}
+
+type PackageAdoption struct {
+	ProjectCount int64                    `json:"projectCount"`
+	VersionCount int64                    `json:"versionCount"`
+	Versions     []AdoptionVersionSummary `json:"versions"`
+}
+
+type AdoptionVersionSummary struct {
+	Version      string `json:"version"`
+	InstallCount int64  `json:"installCount"`
 }
 
 func FillResolvedURLs(result ResolvedVersion) ResolvedVersion {

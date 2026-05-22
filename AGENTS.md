@@ -2,9 +2,12 @@
 
 ## Current State
 
-- This repo is still at spec/scaffold stage: no `README`, CI, source packages, migrations, web app, or lockfiles exist yet.
-- `go.mod` is the only executable manifest: module `trove`, Go `1.26.1`.
-- Treat `trove_spec.md` as the spec index; canonical implementation details live in `docs/spec/` until executable code/config contradicts them.
+- Slices 1-4 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI) are substantially implemented.
+- Slice 5 (Search And Adoption) is in progress: full-text search, project registration, and adoption reporting APIs are added; UI search/adoption dashboard remain.
+- `go test ./...` passes (192 tests across 17 packages).
+- `go build ./...` succeeds.
+- Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects.
+- `sqlc` generated code is committed and covers read, write, and auth query paths.
 
 ## Spec Layout
 

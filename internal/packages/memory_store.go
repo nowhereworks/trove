@@ -231,6 +231,51 @@ func (s *MemoryStore) PublishVersion(ctx context.Context, req PublishVersionRequ
 	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.summary.Version, Lifecycle: "published", Visibility: parsed.Spec.Visibility, Digest: digest, PublishedAt: version.summary.PublishedAt}, nil
 }
 
+func (s *MemoryStore) DeprecateVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
+	_ = ctx
+	pkgIndex, versionIndex, err := s.findPublishedVersion(req.Org, req.Namespace, req.Package, req.Version)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	version := &s.packages[pkgIndex].versions[versionIndex]
+	if version.summary.Lifecycle != "published" {
+		return VersionResource{}, fmt.Errorf("version %s is not published", version.summary.Version)
+	}
+	version.summary.Lifecycle = "deprecated"
+	now := FormatTime(time.Now().UTC())
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.summary.Version, Lifecycle: "deprecated", UpdatedAt: now}, nil
+}
+
+func (s *MemoryStore) YankVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
+	_ = ctx
+	pkgIndex, versionIndex, err := s.findPublishedVersion(req.Org, req.Namespace, req.Package, req.Version)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	version := &s.packages[pkgIndex].versions[versionIndex]
+	if version.summary.Lifecycle != "published" && version.summary.Lifecycle != "deprecated" {
+		return VersionResource{}, fmt.Errorf("version %s cannot be yanked", version.summary.Version)
+	}
+	version.summary.Lifecycle = "yanked"
+	now := FormatTime(time.Now().UTC())
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.summary.Version, Lifecycle: "yanked", UpdatedAt: now}, nil
+}
+
+func (s *MemoryStore) CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error) {
+	_ = ctx
+	return OrgResource{}, ErrPackageNotFound
+}
+
+func (s *MemoryStore) CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error) {
+	_ = ctx
+	return NamespaceResource{}, ErrPackageNotFound
+}
+
+func (s *MemoryStore) CreatePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error) {
+	_ = ctx
+	return PackageResource{}, ErrPackageNotFound
+}
+
 func (s *MemoryStore) GetManifest(ctx context.Context, org string, namespace string, name string, version string) (Manifest, error) {
 	_ = ctx
 	pkg, ok := s.findPackage(org, namespace, name)
@@ -343,6 +388,82 @@ func (s *MemoryStore) GetPackage(ctx context.Context, org string, namespace stri
 	return PackageDetail{PackageSummary: pkg.summary, Versions: versions}, nil
 }
 
+func (s *MemoryStore) CheckVisibility(ctx context.Context, org, namespace, name, version string) (string, error) {
+	_ = ctx
+	pkg, ok := s.findPackage(org, namespace, name)
+	if !ok {
+		return "", ErrPackageNotFound
+	}
+	if version == "" || version == "latest" {
+		return pkg.summary.Visibility, nil
+	}
+	ver, ok := pkg.findVersion(version)
+	if !ok {
+		return pkg.summary.Visibility, nil
+	}
+	visibility := pkg.summary.Visibility
+	if ver.summary.Lifecycle == "published" {
+		if parsed, ok := decodeStoredManifest(ver.manifest); ok && parsed.Spec.Visibility != "" {
+			visibility = parsed.Spec.Visibility
+		}
+	}
+	return visibility, nil
+}
+
+func (s *MemoryStore) SearchPackages(ctx context.Context, params SearchParams) (SearchResult, error) {
+	_ = ctx
+	limit := params.Limit
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+
+	query := strings.ToLower(params.Query)
+	items := make([]PackageSummary, 0, len(s.packages))
+	for _, pkg := range s.packages {
+		if pkg.summary.Visibility != "public" {
+			continue
+		}
+		if params.Org != "" && pkg.summary.Org != params.Org {
+			continue
+		}
+		if params.Namespace != "" && pkg.summary.Namespace != params.Namespace {
+			continue
+		}
+		if query != "" {
+			haystack := strings.ToLower(pkg.summary.Name + " " + pkg.summary.DisplayName + " " + pkg.summary.Description)
+			if !strings.Contains(haystack, query) {
+				continue
+			}
+		}
+		cursor := pkg.summary.Org + "/" + pkg.summary.Namespace + "/" + pkg.summary.Name
+		if params.Cursor != "" && cursor <= params.Cursor {
+			continue
+		}
+		items = append(items, pkg.summary)
+	}
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Org+"/"+items[i].Namespace+"/"+items[i].Name < items[j].Org+"/"+items[j].Namespace+"/"+items[j].Name
+	})
+
+	var nextCursor *string
+	if len(items) > limit {
+		next := items[limit-1].Org + "/" + items[limit-1].Namespace + "/" + items[limit-1].Name
+		nextCursor = &next
+		items = items[:limit]
+	}
+
+	return SearchResult{Items: items, NextCursor: nextCursor}, nil
+}
+
+func (s *MemoryStore) GetPackageAdoption(ctx context.Context, org string, namespace string, name string) (PackageAdoption, error) {
+	_ = ctx
+	_, ok := s.findPackage(org, namespace, name)
+	if !ok {
+		return PackageAdoption{}, ErrPackageNotFound
+	}
+	return PackageAdoption{ProjectCount: 0, VersionCount: 0, Versions: nil}, nil
+}
+
 func (s *MemoryStore) findPackage(org string, namespace string, name string) (memoryPackage, bool) {
 	for _, pkg := range s.packages {
 		if pkg.summary.Org == org && pkg.summary.Namespace == namespace && pkg.summary.Name == name {
@@ -366,6 +487,28 @@ func (s *MemoryStore) findMutableVersion(org string, namespace string, name stri
 			}
 			if candidate.summary.Lifecycle == "published" {
 				return 0, 0, ErrVersionImmutable
+			}
+			return packageIndex, versionIndex, nil
+		}
+		return 0, 0, ErrVersionNotFound
+	}
+	return 0, 0, ErrPackageNotFound
+}
+
+func (s *MemoryStore) findPublishedVersion(org string, namespace string, name string, version string) (int, int, error) {
+	version = strings.TrimPrefix(version, "v")
+	for packageIndex := range s.packages {
+		pkg := &s.packages[packageIndex]
+		if pkg.summary.Org != org || pkg.summary.Namespace != namespace || pkg.summary.Name != name {
+			continue
+		}
+		for versionIndex := range pkg.versions {
+			candidate := &pkg.versions[versionIndex]
+			if candidate.summary.Version != version {
+				continue
+			}
+			if candidate.summary.Lifecycle != "published" && candidate.summary.Lifecycle != "deprecated" {
+				return 0, 0, fmt.Errorf("version %s cannot be modified", version)
 			}
 			return packageIndex, versionIndex, nil
 		}

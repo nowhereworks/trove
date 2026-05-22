@@ -64,6 +64,36 @@ func (q *Queries) GetManifest(ctx context.Context, arg GetManifestParams) (GetMa
 	return i, err
 }
 
+const getPackageAdoption = `-- name: GetPackageAdoption :one
+select count(distinct pai.project_id)::bigint as project_count,
+       count(distinct pai.package_version_id)::bigint as version_count
+from project_artifact_installs pai
+join packages p on p.id = pai.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = $1
+  and n.slug = $2
+  and p.name = $3
+`
+
+type GetPackageAdoptionParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+}
+
+type GetPackageAdoptionRow struct {
+	ProjectCount int64 `json:"project_count"`
+	VersionCount int64 `json:"version_count"`
+}
+
+func (q *Queries) GetPackageAdoption(ctx context.Context, arg GetPackageAdoptionParams) (GetPackageAdoptionRow, error) {
+	row := q.db.QueryRow(ctx, getPackageAdoption, arg.Org, arg.Namespace, arg.PackageName)
+	var i GetPackageAdoptionRow
+	err := row.Scan(&i.ProjectCount, &i.VersionCount)
+	return i, err
+}
+
 const getPackageSummary = `-- name: GetPackageSummary :one
 select o.slug as org,
        n.slug as namespace,
@@ -285,6 +315,52 @@ func (q *Queries) ListPackageVersions(ctx context.Context, arg ListPackageVersio
 			&i.Channel,
 			&i.PublishedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPackageVersionsByAdoption = `-- name: ListPackageVersionsByAdoption :many
+select pv.version,
+       count(pai.id)::bigint as install_count
+from project_artifact_installs pai
+join package_versions pv on pv.id = pai.package_version_id
+join packages p on p.id = pv.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = $1
+  and n.slug = $2
+  and p.name = $3
+group by pv.version
+order by install_count desc, pv.semver_major desc, pv.semver_minor desc, pv.semver_patch desc
+`
+
+type ListPackageVersionsByAdoptionParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+}
+
+type ListPackageVersionsByAdoptionRow struct {
+	Version      string `json:"version"`
+	InstallCount int64  `json:"install_count"`
+}
+
+func (q *Queries) ListPackageVersionsByAdoption(ctx context.Context, arg ListPackageVersionsByAdoptionParams) ([]ListPackageVersionsByAdoptionRow, error) {
+	rows, err := q.db.Query(ctx, listPackageVersionsByAdoption, arg.Org, arg.Namespace, arg.PackageName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListPackageVersionsByAdoptionRow{}
+	for rows.Next() {
+		var i ListPackageVersionsByAdoptionRow
+		if err := rows.Scan(&i.Version, &i.InstallCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -622,4 +698,97 @@ func (q *Queries) ResolveMinor(ctx context.Context, arg ResolveMinorParams) (Res
 		&i.Digest,
 	)
 	return i, err
+}
+
+const searchPackages = `-- name: SearchPackages :many
+select o.slug as org,
+       n.slug as namespace,
+       p.name as package_name,
+       p.display_name as display_name,
+       coalesce(p.description, '') as description,
+       p.visibility as visibility,
+       p.lifecycle as lifecycle,
+       coalesce(latest.version, '') as latest_version,
+       coalesce(stable.version, '') as stable_version,
+       ts_rank(sd.search_text, plainto_tsquery('english', $1::text)) as rank
+from package_search_documents sd
+join packages p on p.id = sd.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
+left join package_versions latest on latest.id = latest_channel.package_version_id
+left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
+left join package_versions stable on stable.id = stable_channel.package_version_id
+where sd.search_text @@ plainto_tsquery('english', $1::text)
+  and sd.lifecycle = 'active'
+  and sd.visibility = 'public'
+  and ($2::text = '' or o.slug = $2::text)
+  and ($3::text = '' or n.slug = $3::text)
+  and ($4::text = '' or $4::text = any(sd.artifact_types))
+  and ($5::text = '' or $5::text = any(sd.tool_names))
+  and (($6::text = '') or ((o.slug || '/' || n.slug || '/' || p.name) > $6::text))
+order by rank desc, o.slug, n.slug, p.name
+limit $7::int
+`
+
+type SearchPackagesParams struct {
+	Query        string `json:"query"`
+	Org          string `json:"org"`
+	Namespace    string `json:"namespace"`
+	ArtifactType string `json:"artifact_type"`
+	Tool         string `json:"tool"`
+	Cursor       string `json:"cursor"`
+	PageLimit    int32  `json:"page_limit"`
+}
+
+type SearchPackagesRow struct {
+	Org           string  `json:"org"`
+	Namespace     string  `json:"namespace"`
+	PackageName   string  `json:"package_name"`
+	DisplayName   string  `json:"display_name"`
+	Description   string  `json:"description"`
+	Visibility    string  `json:"visibility"`
+	Lifecycle     string  `json:"lifecycle"`
+	LatestVersion string  `json:"latest_version"`
+	StableVersion string  `json:"stable_version"`
+	Rank          float32 `json:"rank"`
+}
+
+func (q *Queries) SearchPackages(ctx context.Context, arg SearchPackagesParams) ([]SearchPackagesRow, error) {
+	rows, err := q.db.Query(ctx, searchPackages,
+		arg.Query,
+		arg.Org,
+		arg.Namespace,
+		arg.ArtifactType,
+		arg.Tool,
+		arg.Cursor,
+		arg.PageLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []SearchPackagesRow{}
+	for rows.Next() {
+		var i SearchPackagesRow
+		if err := rows.Scan(
+			&i.Org,
+			&i.Namespace,
+			&i.PackageName,
+			&i.DisplayName,
+			&i.Description,
+			&i.Visibility,
+			&i.Lifecycle,
+			&i.LatestVersion,
+			&i.StableVersion,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

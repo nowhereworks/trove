@@ -86,6 +86,242 @@ func (q *Queries) CreateDraftVersion(ctx context.Context, arg CreateDraftVersion
 	return i, err
 }
 
+const createNamespace = `-- name: CreateNamespace :one
+insert into namespaces (id, org_id, slug, display_name, visibility, created_at, updated_at)
+values (
+  $1,
+  (select o.id from organizations o where o.slug = $2),
+  $3,
+  $4,
+  $5,
+  now(),
+  now()
+)
+returning id, org_id, slug, display_name, visibility, created_at, updated_at
+`
+
+type CreateNamespaceParams struct {
+	ID            pgtype.UUID `json:"id"`
+	OrgSlug       string      `json:"org_slug"`
+	NamespaceSlug string      `json:"namespace_slug"`
+	DisplayName   string      `json:"display_name"`
+	Visibility    string      `json:"visibility"`
+}
+
+type CreateNamespaceRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	OrgID       pgtype.UUID        `json:"org_id"`
+	Slug        string             `json:"slug"`
+	DisplayName string             `json:"display_name"`
+	Visibility  string             `json:"visibility"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateNamespace(ctx context.Context, arg CreateNamespaceParams) (CreateNamespaceRow, error) {
+	row := q.db.QueryRow(ctx, createNamespace,
+		arg.ID,
+		arg.OrgSlug,
+		arg.NamespaceSlug,
+		arg.DisplayName,
+		arg.Visibility,
+	)
+	var i CreateNamespaceRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Slug,
+		&i.DisplayName,
+		&i.Visibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createOrganization = `-- name: CreateOrganization :one
+insert into organizations (id, slug, display_name, visibility, created_at, updated_at)
+values ($1, $2, $3, $4, now(), now())
+returning id, slug, display_name, visibility, created_at, updated_at
+`
+
+type CreateOrganizationParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Slug        string      `json:"slug"`
+	DisplayName string      `json:"display_name"`
+	Visibility  string      `json:"visibility"`
+}
+
+type CreateOrganizationRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	Slug        string             `json:"slug"`
+	DisplayName string             `json:"display_name"`
+	Visibility  string             `json:"visibility"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganizationParams) (CreateOrganizationRow, error) {
+	row := q.db.QueryRow(ctx, createOrganization,
+		arg.ID,
+		arg.Slug,
+		arg.DisplayName,
+		arg.Visibility,
+	)
+	var i CreateOrganizationRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.DisplayName,
+		&i.Visibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createPackage = `-- name: CreatePackage :one
+insert into packages (id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at)
+values (
+  $1,
+  (select n.id from namespaces n join organizations o on o.id = n.org_id where o.slug = $2 and n.slug = $3),
+  $4,
+  $5,
+  $6,
+  $7,
+  'active',
+  now(),
+  now()
+)
+returning id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at
+`
+
+type CreatePackageParams struct {
+	ID            pgtype.UUID `json:"id"`
+	OrgSlug       string      `json:"org_slug"`
+	NamespaceSlug string      `json:"namespace_slug"`
+	Name          string      `json:"name"`
+	DisplayName   string      `json:"display_name"`
+	Description   pgtype.Text `json:"description"`
+	Visibility    string      `json:"visibility"`
+}
+
+type CreatePackageRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	NamespaceID pgtype.UUID        `json:"namespace_id"`
+	Name        string             `json:"name"`
+	DisplayName string             `json:"display_name"`
+	Description pgtype.Text        `json:"description"`
+	Visibility  string             `json:"visibility"`
+	Lifecycle   string             `json:"lifecycle"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreatePackage(ctx context.Context, arg CreatePackageParams) (CreatePackageRow, error) {
+	row := q.db.QueryRow(ctx, createPackage,
+		arg.ID,
+		arg.OrgSlug,
+		arg.NamespaceSlug,
+		arg.Name,
+		arg.DisplayName,
+		arg.Description,
+		arg.Visibility,
+	)
+	var i CreatePackageRow
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.DisplayName,
+		&i.Description,
+		&i.Visibility,
+		&i.Lifecycle,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const createProjectRegistration = `-- name: CreateProjectRegistration :one
+insert into project_registrations (id, org_id, name, repo_url, team_id, metadata_json, last_seen_at, created_at)
+values (
+  $1,
+  (select o.id from organizations o where o.slug = $2),
+  $3,
+  $4,
+  $5,
+  $6,
+  now(),
+  now()
+)
+on conflict (org_id, repo_url) do update
+set name = excluded.name,
+    team_id = excluded.team_id,
+    metadata_json = excluded.metadata_json,
+    last_seen_at = now()
+returning id, org_id, name, repo_url, created_at
+`
+
+type CreateProjectRegistrationParams struct {
+	ID           pgtype.UUID `json:"id"`
+	OrgSlug      string      `json:"org_slug"`
+	Name         string      `json:"name"`
+	RepoUrl      string      `json:"repo_url"`
+	TeamID       pgtype.UUID `json:"team_id"`
+	MetadataJson []byte      `json:"metadata_json"`
+}
+
+type CreateProjectRegistrationRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	OrgID     pgtype.UUID        `json:"org_id"`
+	Name      string             `json:"name"`
+	RepoUrl   string             `json:"repo_url"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) CreateProjectRegistration(ctx context.Context, arg CreateProjectRegistrationParams) (CreateProjectRegistrationRow, error) {
+	row := q.db.QueryRow(ctx, createProjectRegistration,
+		arg.ID,
+		arg.OrgSlug,
+		arg.Name,
+		arg.RepoUrl,
+		arg.TeamID,
+		arg.MetadataJson,
+	)
+	var i CreateProjectRegistrationRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Name,
+		&i.RepoUrl,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const deprecateVersion = `-- name: DeprecateVersion :one
+update package_versions
+set lifecycle = 'deprecated',
+    updated_at = now()
+where id = $1
+  and lifecycle = 'published'
+returning version, lifecycle, updated_at
+`
+
+type DeprecateVersionRow struct {
+	Version   string             `json:"version"`
+	Lifecycle string             `json:"lifecycle"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) DeprecateVersion(ctx context.Context, id pgtype.UUID) (DeprecateVersionRow, error) {
+	row := q.db.QueryRow(ctx, deprecateVersion, id)
+	var i DeprecateVersionRow
+	err := row.Scan(&i.Version, &i.Lifecycle, &i.UpdatedAt)
+	return i, err
+}
+
 const getPackageID = `-- name: GetPackageID :one
 select p.id
 from packages p
@@ -107,6 +343,89 @@ func (q *Queries) GetPackageID(ctx context.Context, arg GetPackageIDParams) (pgt
 	var id pgtype.UUID
 	err := row.Scan(&id)
 	return id, err
+}
+
+const getPackageIDForProjectInstall = `-- name: GetPackageIDForProjectInstall :one
+select p.id
+from packages p
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = $1
+  and n.slug = $2
+  and p.name = $3
+`
+
+type GetPackageIDForProjectInstallParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+}
+
+func (q *Queries) GetPackageIDForProjectInstall(ctx context.Context, arg GetPackageIDForProjectInstallParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getPackageIDForProjectInstall, arg.Org, arg.Namespace, arg.PackageName)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getPackageVersionIDForProjectInstall = `-- name: GetPackageVersionIDForProjectInstall :one
+select v.id
+from package_versions v
+join packages p on p.id = v.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = $1
+  and n.slug = $2
+  and p.name = $3
+  and v.version = $4
+`
+
+type GetPackageVersionIDForProjectInstallParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+	Version     string `json:"version"`
+}
+
+func (q *Queries) GetPackageVersionIDForProjectInstall(ctx context.Context, arg GetPackageVersionIDForProjectInstallParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getPackageVersionIDForProjectInstall,
+		arg.Org,
+		arg.Namespace,
+		arg.PackageName,
+		arg.Version,
+	)
+	var id pgtype.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getProjectByRepoURL = `-- name: GetProjectByRepoURL :one
+select pr.id, pr.org_id, pr.name, pr.repo_url, pr.team_id, pr.metadata_json, pr.last_seen_at, pr.created_at
+from project_registrations pr
+join organizations o on o.id = pr.org_id
+where o.slug = $1
+  and pr.repo_url = $2
+`
+
+type GetProjectByRepoURLParams struct {
+	OrgSlug string `json:"org_slug"`
+	RepoUrl string `json:"repo_url"`
+}
+
+func (q *Queries) GetProjectByRepoURL(ctx context.Context, arg GetProjectByRepoURLParams) (ProjectRegistration, error) {
+	row := q.db.QueryRow(ctx, getProjectByRepoURL, arg.OrgSlug, arg.RepoUrl)
+	var i ProjectRegistration
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Name,
+		&i.RepoUrl,
+		&i.TeamID,
+		&i.MetadataJson,
+		&i.LastSeenAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getVersionForUpdate = `-- name: GetVersionForUpdate :one
@@ -404,4 +723,126 @@ func (q *Queries) UpsertChannel(ctx context.Context, arg UpsertChannelParams) er
 		arg.PackageVersionID,
 	)
 	return err
+}
+
+const upsertProjectArtifactInstall = `-- name: UpsertProjectArtifactInstall :exec
+insert into project_artifact_installs (id, project_id, package_id, package_version_id, installed_digest, installed_at, last_checked_at, metadata_json)
+values (
+  $1,
+  $2,
+  $3,
+  $4,
+  $5,
+  now(),
+  now(),
+  $6
+)
+on conflict (project_id, package_id) do update
+set package_version_id = excluded.package_version_id,
+    installed_digest = excluded.installed_digest,
+    installed_at = excluded.installed_at,
+    last_checked_at = now(),
+    metadata_json = excluded.metadata_json
+`
+
+type UpsertProjectArtifactInstallParams struct {
+	ID               pgtype.UUID `json:"id"`
+	ProjectID        pgtype.UUID `json:"project_id"`
+	PackageID        pgtype.UUID `json:"package_id"`
+	PackageVersionID pgtype.UUID `json:"package_version_id"`
+	InstalledDigest  string      `json:"installed_digest"`
+	MetadataJson     []byte      `json:"metadata_json"`
+}
+
+func (q *Queries) UpsertProjectArtifactInstall(ctx context.Context, arg UpsertProjectArtifactInstallParams) error {
+	_, err := q.db.Exec(ctx, upsertProjectArtifactInstall,
+		arg.ID,
+		arg.ProjectID,
+		arg.PackageID,
+		arg.PackageVersionID,
+		arg.InstalledDigest,
+		arg.MetadataJson,
+	)
+	return err
+}
+
+const upsertSearchDocument = `-- name: UpsertSearchDocument :exec
+insert into package_search_documents (
+  package_id,
+  latest_published_version_id,
+  search_text,
+  labels_json,
+  artifact_types,
+  tool_names,
+  lifecycle,
+  visibility,
+  updated_at
+)
+values (
+  $1,
+  $2,
+  to_tsvector('english', $3),
+  $4,
+  $5::text[],
+  $6::text[],
+  $7,
+  $8,
+  now()
+)
+on conflict (package_id) do update
+set latest_published_version_id = excluded.latest_published_version_id,
+    search_text = excluded.search_text,
+    labels_json = excluded.labels_json,
+    artifact_types = excluded.artifact_types,
+    tool_names = excluded.tool_names,
+    lifecycle = excluded.lifecycle,
+    visibility = excluded.visibility,
+    updated_at = excluded.updated_at
+`
+
+type UpsertSearchDocumentParams struct {
+	PackageID                pgtype.UUID `json:"package_id"`
+	LatestPublishedVersionID pgtype.UUID `json:"latest_published_version_id"`
+	SearchText               []byte      `json:"search_text"`
+	LabelsJson               []byte      `json:"labels_json"`
+	ArtifactTypes            []string    `json:"artifact_types"`
+	ToolNames                []string    `json:"tool_names"`
+	Lifecycle                string      `json:"lifecycle"`
+	Visibility               string      `json:"visibility"`
+}
+
+func (q *Queries) UpsertSearchDocument(ctx context.Context, arg UpsertSearchDocumentParams) error {
+	_, err := q.db.Exec(ctx, upsertSearchDocument,
+		arg.PackageID,
+		arg.LatestPublishedVersionID,
+		arg.SearchText,
+		arg.LabelsJson,
+		arg.ArtifactTypes,
+		arg.ToolNames,
+		arg.Lifecycle,
+		arg.Visibility,
+	)
+	return err
+}
+
+const yankVersion = `-- name: YankVersion :one
+update package_versions
+set lifecycle = 'yanked',
+    updated_at = now()
+where id = $1
+  and lifecycle in ('published', 'deprecated')
+returning version, lifecycle, updated_at
+`
+
+type YankVersionRow struct {
+	Version   string             `json:"version"`
+	Lifecycle string             `json:"lifecycle"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) YankVersion(ctx context.Context, id pgtype.UUID) (YankVersionRow, error) {
+	row := q.db.QueryRow(ctx, yankVersion, id)
+	var i YankVersionRow
+	err := row.Scan(&i.Version, &i.Lifecycle, &i.UpdatedAt)
+	return i, err
 }

@@ -186,6 +186,61 @@ where o.slug = sqlc.arg(org)
   and p.name = sqlc.arg(package_name)
   and p.lifecycle = 'active';
 
+-- name: SearchPackages :many
+select o.slug as org,
+       n.slug as namespace,
+       p.name as package_name,
+       p.display_name as display_name,
+       coalesce(p.description, '') as description,
+       p.visibility as visibility,
+       p.lifecycle as lifecycle,
+       coalesce(latest.version, '') as latest_version,
+       coalesce(stable.version, '') as stable_version,
+       ts_rank(sd.search_text, plainto_tsquery('english', sqlc.arg(query)::text)) as rank
+from package_search_documents sd
+join packages p on p.id = sd.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
+left join package_versions latest on latest.id = latest_channel.package_version_id
+left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
+left join package_versions stable on stable.id = stable_channel.package_version_id
+where sd.search_text @@ plainto_tsquery('english', sqlc.arg(query)::text)
+  and sd.lifecycle = 'active'
+  and sd.visibility = 'public'
+  and (sqlc.arg(org)::text = '' or o.slug = sqlc.arg(org)::text)
+  and (sqlc.arg(namespace)::text = '' or n.slug = sqlc.arg(namespace)::text)
+  and (sqlc.arg(artifact_type)::text = '' or sqlc.arg(artifact_type)::text = any(sd.artifact_types))
+  and (sqlc.arg(tool)::text = '' or sqlc.arg(tool)::text = any(sd.tool_names))
+  and ((sqlc.arg(cursor)::text = '') or ((o.slug || '/' || n.slug || '/' || p.name) > sqlc.arg(cursor)::text))
+order by rank desc, o.slug, n.slug, p.name
+limit sqlc.arg(page_limit)::int;
+
+-- name: GetPackageAdoption :one
+select count(distinct pai.project_id)::bigint as project_count,
+       count(distinct pai.package_version_id)::bigint as version_count
+from project_artifact_installs pai
+join packages p on p.id = pai.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = sqlc.arg(org)
+  and n.slug = sqlc.arg(namespace)
+  and p.name = sqlc.arg(package_name);
+
+-- name: ListPackageVersionsByAdoption :many
+select pv.version,
+       count(pai.id)::bigint as install_count
+from project_artifact_installs pai
+join package_versions pv on pv.id = pai.package_version_id
+join packages p on p.id = pv.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = sqlc.arg(org)
+  and n.slug = sqlc.arg(namespace)
+  and p.name = sqlc.arg(package_name)
+group by pv.version
+order by install_count desc, pv.semver_major desc, pv.semver_minor desc, pv.semver_patch desc;
+
 -- name: ListPackageVersions :many
 select v.version as version,
        coalesce(v.digest, '') as digest,

@@ -8,7 +8,7 @@ Current repo-wide command:
 go test ./...
 ```
 
-Current state: no Go packages exist yet, so `go test ./...` reports no packages to test.
+Current state: 192 tests across 17 packages.
 
 Future focused examples once packages exist:
 
