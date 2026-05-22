@@ -147,6 +147,64 @@ code {
   padding-left: 18px;
 }
 
+.publish-panel {
+  background: #1f3328;
+  color: #fffdf7;
+}
+
+.publish-panel .eyebrow,
+.publish-panel .package-ref,
+.publish-panel code {
+  color: #c8d8c2;
+}
+
+.publish-form {
+  display: grid;
+  gap: 16px;
+}
+
+.publish-form label {
+  display: grid;
+  gap: 8px;
+  color: #e6eddf;
+  font-weight: 800;
+}
+
+.publish-form input,
+.publish-form textarea {
+  width: 100%;
+  border: 1px solid rgb(255 255 255 / 18%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 10%);
+  color: #fffdf7;
+  font: inherit;
+  font-family: "SFMono-Regular", Consolas, monospace;
+  padding: 12px 14px;
+}
+
+.publish-form input:focus,
+.publish-form textarea:focus {
+  border-color: #dbeadc;
+  outline: 3px solid rgb(219 234 220 / 22%);
+}
+
+.publish-form button {
+  justify-self: start;
+  background: #dbeadc;
+  color: #1f3328;
+}
+
+.publish-result {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: rgb(255 255 255 / 10%);
+}
+
+.success {
+  color: #dbeadc;
+}
+
 .muted {
   color: #59675b;
 }

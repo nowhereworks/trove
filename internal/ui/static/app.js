@@ -1,6 +1,13 @@
 const packagesEl = document.querySelector("#packages");
 const detailEl = document.querySelector("#detail");
 const refreshEl = document.querySelector("#refresh");
+const publishFormEl = document.querySelector("#publish-form");
+const draftVersionEl = document.querySelector("#draft-version");
+const manifestContentEl = document.querySelector("#manifest-content");
+const agentsContentEl = document.querySelector("#agents-content");
+const publishResultEl = document.querySelector("#publish-result");
+
+const publishRef = "companyx/platform/agent-backend";
 
 async function fetchJSON(url) {
   const response = await fetch(url, { headers: { Accept: "application/json" } });
@@ -8,6 +15,40 @@ async function fetchJSON(url) {
     throw new Error(`${response.status} ${response.statusText}`);
   }
   return response.json();
+}
+
+async function sendJSON(url, method, body) {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  return readResponse(response);
+}
+
+async function sendText(url, method, contentType, body) {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": contentType,
+    },
+    body,
+  });
+  return readResponse(response);
+}
+
+async function readResponse(response) {
+  const text = await response.text();
+  const data = text ? JSON.parse(text) : null;
+  if (!response.ok) {
+    const message = data?.error?.message || `${response.status} ${response.statusText}`;
+    throw new Error(message);
+  }
+  return data;
 }
 
 function packageRef(pkg) {
@@ -61,6 +102,55 @@ function renderDetail(detail) {
   `;
 }
 
+function manifestTemplate(version) {
+  return `apiVersion: trove.io/v1
+kind: AgentArtifactPackage
+metadata:
+  org: companyx
+  namespace: platform
+  name: agent-backend
+  displayName: Backend Agent Defaults
+  description: Default agent instructions, skills, and commands for backend services.
+spec:
+  version: ${version}
+  channel: stable
+  visibility: public
+  lifecycle: draft
+  artifacts:
+    - path: AGENTS.md
+      type: agent-instructions
+      required: true
+      targetPath: AGENTS.md
+  maintainers:
+    - team: platform-engineering
+`;
+}
+
+function resetManifestTemplate() {
+  manifestContentEl.value = manifestTemplate(draftVersionEl.value || "1.0.1");
+}
+
+async function publishDraft(event) {
+  event.preventDefault();
+  const version = draftVersionEl.value.trim();
+  const base = `/api/v1/packages/${publishRef}/versions`;
+  publishResultEl.className = "publish-result muted";
+  publishResultEl.textContent = `Publishing ${publishRef}@${version}...`;
+
+  try {
+    await sendJSON(base, "POST", { version, visibility: "public" });
+    await sendText(`${base}/${version}/artifacts/trove.yaml`, "PUT", "application/yaml", manifestContentEl.value);
+    await sendText(`${base}/${version}/artifacts/AGENTS.md`, "PUT", "text/markdown; charset=utf-8", agentsContentEl.value);
+    const published = await sendJSON(`${base}/${version}/publish`, "POST", {});
+    publishResultEl.className = "publish-result success";
+    publishResultEl.innerHTML = `Published <strong>${publishRef}@${published.version}</strong><br /><code>${published.digest}</code>`;
+    await loadPackages();
+  } catch (error) {
+    publishResultEl.className = "publish-result error";
+    publishResultEl.textContent = `Publish failed: ${error.message}`;
+  }
+}
+
 async function loadPackages() {
   packagesEl.innerHTML = `<p class="muted">Loading packages...</p>`;
   try {
@@ -85,4 +175,7 @@ async function loadDetail(ref) {
 }
 
 refreshEl.addEventListener("click", loadPackages);
+draftVersionEl.addEventListener("input", resetManifestTemplate);
+publishFormEl.addEventListener("submit", publishDraft);
+resetManifestTemplate();
 loadPackages();

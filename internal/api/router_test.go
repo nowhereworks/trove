@@ -127,6 +127,55 @@ func TestPublishFailsWhenRequiredArtifactMissing(t *testing.T) {
 	}
 }
 
+func TestUploadRejectsInvalidManifest(t *testing.T) {
+	router := testRouter()
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.3","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	invalidManifest := strings.ReplaceAll(sliceTwoManifestYAML, "companyx", "wrongorg")
+	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.3/artifacts/trove.yaml", strings.NewReader(invalidManifest))
+	manifestReq.Header.Set("Content-Type", "application/yaml")
+	manifestRes := httptest.NewRecorder()
+	router.ServeHTTP(manifestRes, manifestReq)
+	if manifestRes.Code != http.StatusBadRequest {
+		t.Fatalf("manifest upload status = %d, want %d; body=%s", manifestRes.Code, http.StatusBadRequest, manifestRes.Body.String())
+	}
+
+	var body ErrorResponse
+	if err := json.NewDecoder(manifestRes.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	if body.Error.Code != "INVALID_MANIFEST" {
+		t.Fatalf("error.code = %q, want INVALID_MANIFEST", body.Error.Code)
+	}
+}
+
+func TestPublishedVersionCannotBeMutated(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/artifacts/AGENTS.md", strings.NewReader("# Mutated\n"))
+	req.Header.Set("Content-Type", "text/markdown; charset=utf-8")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusConflict, res.Body.String())
+	}
+	var body ErrorResponse
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	if body.Error.Code != "VERSION_IMMUTABLE" {
+		t.Fatalf("error.code = %q, want VERSION_IMMUTABLE", body.Error.Code)
+	}
+}
+
 func TestRequestIDPropagatesFromRequest(t *testing.T) {
 	router := testRouter()
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -326,6 +375,9 @@ func TestEmbeddedUIServed(t *testing.T) {
 	}
 	if body := res.Body.String(); !strings.Contains(body, "Trove Registry") {
 		t.Fatalf("UI body missing Trove Registry: %q", body)
+	}
+	if body := res.Body.String(); !strings.Contains(body, "Publish Draft") {
+		t.Fatalf("UI body missing Publish Draft: %q", body)
 	}
 }
 

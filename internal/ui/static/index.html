@@ -11,7 +11,7 @@
       <section class="hero">
         <p class="eyebrow">Trove Registry</p>
         <h1>Agent artifacts, resolved exactly.</h1>
-        <p class="lede">Browse seeded packages from the Slice 1 API and copy exact raw URLs for agent instructions.</p>
+        <p class="lede">Browse seeded packages, publish a draft version, and copy exact raw URLs for agent instructions.</p>
       </section>
 
       <section class="panel">
@@ -25,6 +25,34 @@
       <section class="panel detail-panel">
         <h2>Package Detail</h2>
         <div id="detail" class="detail" aria-live="polite">Select a package.</div>
+      </section>
+
+      <section class="panel publish-panel">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">Slice 2</p>
+            <h2>Publish Draft</h2>
+          </div>
+          <span class="package-ref">companyx/platform/agent-backend</span>
+        </div>
+        <form id="publish-form" class="publish-form">
+          <label>
+            Version
+            <input id="draft-version" name="version" value="1.0.1" required pattern="[0-9]+\.[0-9]+\.[0-9]+" />
+          </label>
+          <label>
+            Manifest trove.yaml
+            <textarea id="manifest-content" rows="16" spellcheck="false"></textarea>
+          </label>
+          <label>
+            AGENTS.md
+            <textarea id="agents-content" rows="8" spellcheck="false"># Updated Backend Agent Defaults
+
+Prefer small, reviewable Go changes with tests.</textarea>
+          </label>
+          <button type="submit">Create, Upload, Publish</button>
+        </form>
+        <div id="publish-result" class="publish-result" aria-live="polite"></div>
       </section>
     </main>
     <script src="/app.js"></script>
