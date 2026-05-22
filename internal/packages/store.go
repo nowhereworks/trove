@@ -29,6 +29,7 @@ type Store interface {
 type WriteStore interface {
 	CreateDraftVersion(ctx context.Context, req CreateDraftVersionRequest) (VersionResource, error)
 	UploadArtifact(ctx context.Context, req UploadArtifactRequest) (ArtifactResource, error)
+	UploadArtifacts(ctx context.Context, req UploadArtifactsRequest) ([]ArtifactResource, error)
 	PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error)
 }
 
@@ -45,6 +46,20 @@ type UploadArtifactRequest struct {
 	Namespace   string
 	Package     string
 	Version     string
+	Path        string
+	ContentType string
+	Content     []byte
+}
+
+type UploadArtifactsRequest struct {
+	Org       string
+	Namespace string
+	Package   string
+	Version   string
+	Artifacts []UploadArchiveArtifact
+}
+
+type UploadArchiveArtifact struct {
 	Path        string
 	ContentType string
 	Content     []byte

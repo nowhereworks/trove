@@ -1,6 +1,8 @@
 package api
 
 import (
+	"archive/zip"
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -33,6 +35,69 @@ func TestHealthIncludesRequestID(t *testing.T) {
 	}
 	if body.Status != "ok" {
 		t.Fatalf("status body = %q, want ok", body.Status)
+	}
+}
+
+func TestArchiveUploadPublishFlow(t *testing.T) {
+	router := testRouter()
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.4","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	manifest := strings.ReplaceAll(sliceTwoManifestYAML, "1.0.1", "1.0.4")
+	archive := makeUploadZip(t, map[string]string{"AGENTS.md": "# Archive Upload\n", "trove.yaml": manifest})
+	uploadReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.4/archive", bytes.NewReader(archive))
+	uploadReq.Header.Set("Content-Type", "application/zip")
+	uploadRes := httptest.NewRecorder()
+	router.ServeHTTP(uploadRes, uploadReq)
+	if uploadRes.Code != http.StatusOK {
+		t.Fatalf("archive upload status = %d, want %d; body=%s", uploadRes.Code, http.StatusOK, uploadRes.Body.String())
+	}
+
+	var uploadBody struct {
+		Items []struct {
+			Path string `json:"path"`
+			Type string `json:"type"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(uploadRes.Body).Decode(&uploadBody); err != nil {
+		t.Fatalf("decode upload body: %v", err)
+	}
+	if len(uploadBody.Items) != 2 || uploadBody.Items[0].Path != "trove.yaml" || uploadBody.Items[1].Type != "agent-instructions" {
+		t.Fatalf("upload body = %+v", uploadBody)
+	}
+
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.4/publish", nil)
+	publishRes := httptest.NewRecorder()
+	router.ServeHTTP(publishRes, publishReq)
+	if publishRes.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, want %d; body=%s", publishRes.Code, http.StatusOK, publishRes.Body.String())
+	}
+}
+
+func TestArchiveUploadRejectsUnsafePath(t *testing.T) {
+	router := testRouter()
+	archive := makeUploadZip(t, map[string]string{"../escape.md": "nope"})
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/archive", bytes.NewReader(archive))
+	req.Header.Set("Content-Type", "application/zip")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusBadRequest, res.Body.String())
+	}
+	var body ErrorResponse
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decode error body: %v", err)
+	}
+	if body.Error.Code != "INVALID_ARCHIVE" {
+		t.Fatalf("error.code = %q, want INVALID_ARCHIVE", body.Error.Code)
 	}
 }
 
@@ -406,3 +471,22 @@ spec:
   maintainers:
     - team: platform-engineering
 `
+
+func makeUploadZip(t *testing.T, files map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	writer := zip.NewWriter(&buf)
+	for name, content := range files {
+		entry, err := writer.Create(name)
+		if err != nil {
+			t.Fatalf("create zip entry: %v", err)
+		}
+		if _, err := entry.Write([]byte(content)); err != nil {
+			t.Fatalf("write zip entry: %v", err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close zip writer: %v", err)
+	}
+	return buf.Bytes()
+}

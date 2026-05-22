@@ -151,6 +151,19 @@ func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRe
 	return ArtifactResource{Path: row.Path, Type: row.Type, ContentType: row.ContentType, Digest: row.BlobDigest, SizeBytes: row.SizeBytes, TargetPath: textValue(row.TargetPath)}, nil
 }
 
+func (s *PostgresStore) UploadArtifacts(ctx context.Context, req UploadArtifactsRequest) ([]ArtifactResource, error) {
+	ordered := orderManifestFirst(req.Artifacts)
+	resources := make([]ArtifactResource, 0, len(ordered))
+	for _, artifact := range ordered {
+		resource, err := s.UploadArtifact(ctx, UploadArtifactRequest{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: req.Version, Path: artifact.Path, ContentType: artifact.ContentType, Content: artifact.Content})
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, resource)
+	}
+	return resources, nil
+}
+
 func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error) {
 	tx, err := s.pool.Begin(ctx)
 	if err != nil {

@@ -18,6 +18,7 @@ import (
 	"trove/internal/config"
 	"trove/internal/packages"
 	"trove/internal/ui"
+	"trove/internal/uploads"
 )
 
 const HeaderRequestID = "X-Request-Id"
@@ -58,6 +59,7 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/api/v1/packages", handleListPackages(store))
 	r.Get("/api/v1/resolve/{org}/{namespace}/{packageSelector}", handleResolve(store))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions", handleCreateDraft(writeStore))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive", handleUploadArchive(writeStore))
 	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", handleUploadArtifact(writeStore))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", handlePublishVersion(writeStore))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
@@ -137,6 +139,45 @@ func handleUploadArtifact(writeStore packages.WriteStore) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleUploadArchive(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		content, err := io.ReadAll(r.Body)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_ARCHIVE", "Archive body could not be read.")
+			return
+		}
+
+		files, err := extractUploadArchive(r.Header.Get("Content-Type"), content)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_ARCHIVE", err.Error())
+			return
+		}
+		artifacts := make([]packages.UploadArchiveArtifact, 0, len(files))
+		for _, file := range files {
+			artifacts = append(artifacts, packages.UploadArchiveArtifact{Path: file.Path, ContentType: contentTypeForPath(file.Path), Content: file.Content})
+		}
+
+		result, err := writeStore.UploadArtifacts(r.Context(), packages.UploadArtifactsRequest{
+			Org:       chi.URLParam(r, "org"),
+			Namespace: chi.URLParam(r, "namespace"),
+			Package:   chi.URLParam(r, "package"),
+			Version:   chi.URLParam(r, "version"),
+			Artifacts: artifacts,
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{"items": result})
 	}
 }
 
@@ -361,4 +402,27 @@ func writeRawJSON(w http.ResponseWriter, status int, body []byte) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
+}
+
+func extractUploadArchive(contentType string, content []byte) ([]uploads.File, error) {
+	contentType = strings.ToLower(strings.Split(contentType, ";")[0])
+	switch contentType {
+	case "application/zip", "application/x-zip-compressed":
+		return uploads.ExtractZip(content)
+	case "application/gzip", "application/x-gzip", "application/tar+gzip":
+		return uploads.ExtractTarGz(content)
+	default:
+		return nil, fmt.Errorf("unsupported archive content type %q", contentType)
+	}
+}
+
+func contentTypeForPath(path string) string {
+	switch {
+	case strings.HasSuffix(path, ".yaml"), strings.HasSuffix(path, ".yml"):
+		return "application/yaml"
+	case strings.HasSuffix(path, ".md"):
+		return "text/markdown; charset=utf-8"
+	default:
+		return "application/octet-stream"
+	}
 }

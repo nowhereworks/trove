@@ -167,6 +167,19 @@ func (s *MemoryStore) UploadArtifact(ctx context.Context, req UploadArtifactRequ
 	return ArtifactResource{Path: req.Path, Type: artifactType, ContentType: resource.ContentType, Digest: digest, SizeBytes: resource.SizeBytes, TargetPath: targetPath}, nil
 }
 
+func (s *MemoryStore) UploadArtifacts(ctx context.Context, req UploadArtifactsRequest) ([]ArtifactResource, error) {
+	ordered := orderManifestFirst(req.Artifacts)
+	resources := make([]ArtifactResource, 0, len(ordered))
+	for _, artifact := range ordered {
+		resource, err := s.UploadArtifact(ctx, UploadArtifactRequest{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: req.Version, Path: artifact.Path, ContentType: artifact.ContentType, Content: artifact.Content})
+		if err != nil {
+			return nil, err
+		}
+		resources = append(resources, resource)
+	}
+	return resources, nil
+}
+
 func (s *MemoryStore) PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error) {
 	_ = ctx
 	pkgIndex, versionIndex, err := s.findMutableVersion(req.Org, req.Namespace, req.Package, req.Version)
