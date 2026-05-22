@@ -21,6 +21,7 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	Auth     AuthConfig
+	OIDC     OIDCConfig
 	Storage  StorageConfig
 	Raw      RawConfig
 	Reviews  ReviewsConfig
@@ -40,6 +41,15 @@ type DatabaseConfig struct {
 type AuthConfig struct {
 	Mode           string
 	DevModeEnabled bool
+	DevToken       string
+}
+
+type OIDCConfig struct {
+	IssuerURL    string
+	ClientID     string
+	ClientSecret string
+	RedirectURL  string
+	Scopes       []string
 }
 
 type StorageConfig struct {
@@ -85,7 +95,12 @@ func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
 	assignString(lookup, "TROVE_PUBLIC_URL", &cfg.Server.PublicURL)
 	assignString(lookup, "TROVE_DATABASE_URL", &cfg.Database.URL)
 	assignString(lookup, "TROVE_AUTH_MODE", &cfg.Auth.Mode)
+	assignString(lookup, "TROVE_AUTH_DEV_TOKEN", &cfg.Auth.DevToken)
 	assignString(lookup, "TROVE_STORAGE_MODE", &cfg.Storage.Mode)
+	assignString(lookup, "TROVE_OIDC_ISSUER_URL", &cfg.OIDC.IssuerURL)
+	assignString(lookup, "TROVE_OIDC_CLIENT_ID", &cfg.OIDC.ClientID)
+	assignString(lookup, "TROVE_OIDC_CLIENT_SECRET", &cfg.OIDC.ClientSecret)
+	assignString(lookup, "TROVE_OIDC_REDIRECT_URL", &cfg.OIDC.RedirectURL)
 
 	assignBool(lookup, "TROVE_DATABASE_MIGRATE_ON_STARTUP", &cfg.Database.MigrateOnStartup, &errs)
 	assignBool(lookup, "TROVE_AUTH_DEV_MODE_ENABLED", &cfg.Auth.DevModeEnabled, &errs)

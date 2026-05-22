@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"trove/internal/api"
+	"trove/internal/cli"
 	"trove/internal/config"
 	"trove/internal/db"
 	"trove/internal/packages"
@@ -22,6 +23,12 @@ func main() {
 }
 
 func run() error {
+	args := os.Args[1:]
+
+	if cli.IsCLICommand(args) {
+		return cli.Run(args)
+	}
+
 	cfg, err := config.Load()
 	if err != nil {
 		return err

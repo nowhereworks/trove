@@ -7,6 +7,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+func NewUUID() string {
+	id, err := uuid.NewV7()
+	if err != nil {
+		return ""
+	}
+	return id.String()
+}
+
 func newUUID() (pgtype.UUID, error) {
 	id, err := uuid.NewV7()
 	if err != nil {
