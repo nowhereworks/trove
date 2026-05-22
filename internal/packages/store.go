@@ -41,6 +41,8 @@ type WriteStore interface {
 	CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error)
 	CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error)
 	CreatePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error)
+	CreateProject(ctx context.Context, req CreateProjectRequest) (ProjectResource, error)
+	ReportProjectAdoption(ctx context.Context, req ReportProjectAdoptionRequest) error
 }
 
 type LifecycleChangeRequest struct {
@@ -70,6 +72,33 @@ type CreatePackageRequest struct {
 	DisplayName string
 	Description string
 	Visibility  string
+}
+
+type CreateProjectRequest struct {
+	Org     string
+	Name    string
+	RepoURL string
+}
+
+type ReportProjectAdoptionRequest struct {
+	Org       string
+	Name      string
+	RepoURL   string
+	Installed []InstalledPackage
+}
+
+type InstalledPackage struct {
+	Package string
+	Version string
+	Digest  string
+}
+
+type ProjectResource struct {
+	ID        string `json:"id"`
+	Org       string `json:"org"`
+	Name      string `json:"name"`
+	RepoURL   string `json:"repoUrl"`
+	CreatedAt string `json:"createdAt"`
 }
 
 type OrgResource struct {

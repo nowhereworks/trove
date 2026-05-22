@@ -19,12 +19,17 @@
           <h2>Packages</h2>
           <button id="refresh" type="button">Refresh</button>
         </div>
+        <div class="search-bar">
+          <input id="search-input" type="search" placeholder="Search packages..." aria-label="Search packages" />
+        </div>
+        <div id="search-results" class="search-results" style="display: none;" aria-live="polite"></div>
         <div id="packages" class="package-list" aria-live="polite"></div>
       </section>
 
       <section class="panel detail-panel">
         <h2>Package Detail</h2>
         <div id="detail" class="detail" aria-live="polite">Select a package.</div>
+        <div id="adoption" class="adsection" aria-live="polite"></div>
       </section>
 
       <section class="panel publish-panel">

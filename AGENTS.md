@@ -3,8 +3,8 @@
 ## Current State
 
 - Slices 1-4 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI) are substantially implemented.
-- Slice 5 (Search And Adoption) is in progress: full-text search, project registration, and adoption reporting APIs are added; UI search/adoption dashboard remain.
-- `go test ./...` passes (192 tests across 17 packages).
+- Slice 5 (Search And Adoption) is substantially implemented: full-text search, project registration, adoption reporting APIs, and UI search/adoption dashboard are complete.
+- `go test ./...` passes (196 tests across 17 packages).
 - `go build ./...` succeeds.
 - Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects.
 - `sqlc` generated code is committed and covers read, write, and auth query paths.

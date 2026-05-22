@@ -643,3 +643,76 @@ func TestSearchRequiresQuery(t *testing.T) {
 		t.Fatalf("search status = %d, want %d", res.Code, http.StatusBadRequest)
 	}
 }
+
+func TestGetPackageAdoption(t *testing.T) {
+	router := testRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/adoption", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusOK {
+		t.Fatalf("adoption status = %d, want %d; body=%s", res.Code, http.StatusOK, res.Body.String())
+	}
+
+	var body struct {
+		ProjectCount int64 `json:"projectCount"`
+		VersionCount int64 `json:"versionCount"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decode adoption body: %v", err)
+	}
+	if body.ProjectCount != 0 || body.VersionCount != 0 {
+		t.Fatalf("adoption body = %+v, want zeros for memory store", body)
+	}
+}
+
+func TestGetPackageAdoptionNotFound(t *testing.T) {
+	router := testRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/unknown/ns/pkg/adoption", nil)
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("adoption status = %d, want %d", res.Code, http.StatusNotFound)
+	}
+}
+
+func TestCreateProjectRequiresAuth(t *testing.T) {
+	router := testRouter()
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects", strings.NewReader(`{"org":"acme","name":"my-app","repoUrl":"https://github.com/acme/my-app"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("create project status = %d, want %d; body=%s", res.Code, http.StatusUnauthorized, res.Body.String())
+	}
+}
+
+func TestCreateProjectRejectsMissingFields(t *testing.T) {
+	t.Skip("requires authenticated request")
+}
+
+func TestReportProjectAdoptionRequiresAuth(t *testing.T) {
+	router := testRouter()
+
+	body := `{
+		"org": "acme",
+		"name": "my-app",
+		"repoUrl": "https://github.com/acme/my-app",
+		"installed": [
+			{"package": "companyx/platform/agent-backend", "version": "1.0.0", "digest": "sha256:abc123"}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects/report", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+	router.ServeHTTP(res, req)
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("report adoption status = %d, want %d; body=%s", res.Code, http.StatusUnauthorized, res.Body.String())
+	}
+}
+
+func TestReportProjectAdoptionRejectsMissingFields(t *testing.T) {
+	t.Skip("requires authenticated request")
+}

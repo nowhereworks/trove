@@ -276,6 +276,22 @@ func (s *MemoryStore) CreatePackage(ctx context.Context, req CreatePackageReques
 	return PackageResource{}, ErrPackageNotFound
 }
 
+func (s *MemoryStore) CreateProject(ctx context.Context, req CreateProjectRequest) (ProjectResource, error) {
+	_ = ctx
+	return ProjectResource{
+		ID:        "proj_stub",
+		Org:       req.Org,
+		Name:      req.Name,
+		RepoURL:   req.RepoURL,
+		CreatedAt: FormatTime(time.Now().UTC()),
+	}, nil
+}
+
+func (s *MemoryStore) ReportProjectAdoption(ctx context.Context, req ReportProjectAdoptionRequest) error {
+	_ = ctx
+	return nil
+}
+
 func (s *MemoryStore) GetManifest(ctx context.Context, org string, namespace string, name string, version string) (Manifest, error) {
 	_ = ctx
 	pkg, ok := s.findPackage(org, namespace, name)

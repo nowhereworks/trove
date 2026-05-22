@@ -695,6 +695,85 @@ func (s *PostgresStore) GetPackage(ctx context.Context, org string, namespace st
 	}, nil
 }
 
+func (s *PostgresStore) CreateProject(ctx context.Context, req CreateProjectRequest) (ProjectResource, error) {
+	id, err := newUUID()
+	if err != nil {
+		return ProjectResource{}, err
+	}
+	row, err := s.queries.CreateProjectRegistration(ctx, sqlc.CreateProjectRegistrationParams{
+		ID:           id,
+		OrgSlug:      req.Org,
+		Name:         req.Name,
+		RepoUrl:      req.RepoURL,
+		TeamID:       pgtype.UUID{},
+		MetadataJson: []byte(`{}`),
+	})
+	if err != nil {
+		return ProjectResource{}, mapWriteError(err)
+	}
+	return ProjectResource{
+		ID:        uuid.UUID(row.ID.Bytes).String(),
+		Org:       req.Org,
+		Name:      row.Name,
+		RepoURL:   row.RepoUrl,
+		CreatedAt: timestamptzString(row.CreatedAt),
+	}, nil
+}
+
+func (s *PostgresStore) ReportProjectAdoption(ctx context.Context, req ReportProjectAdoptionRequest) error {
+	project, err := s.queries.GetProjectByRepoURL(ctx, sqlc.GetProjectByRepoURLParams{
+		OrgSlug: req.Org,
+		RepoUrl: req.RepoURL,
+	})
+	if err != nil {
+		return mapReadError(err)
+	}
+
+	for _, installed := range req.Installed {
+		parts := strings.SplitN(installed.Package, "/", 3)
+		if len(parts) != 3 {
+			continue
+		}
+		org, namespace, packageName := parts[0], parts[1], parts[2]
+
+		packageID, err := s.queries.GetPackageIDForProjectInstall(ctx, sqlc.GetPackageIDForProjectInstallParams{
+			Org:         org,
+			Namespace:   namespace,
+			PackageName: packageName,
+		})
+		if err != nil {
+			continue
+		}
+
+		versionID, err := s.queries.GetPackageVersionIDForProjectInstall(ctx, sqlc.GetPackageVersionIDForProjectInstallParams{
+			Org:         org,
+			Namespace:   namespace,
+			PackageName: packageName,
+			Version:     strings.TrimPrefix(installed.Version, "v"),
+		})
+		if err != nil {
+			continue
+		}
+
+		installID, err := newUUID()
+		if err != nil {
+			return err
+		}
+		if err := s.queries.UpsertProjectArtifactInstall(ctx, sqlc.UpsertProjectArtifactInstallParams{
+			ID:               installID,
+			ProjectID:        project.ID,
+			PackageID:        packageID,
+			PackageVersionID: versionID,
+			InstalledDigest:  installed.Digest,
+			MetadataJson:     []byte(`{}`),
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func resolvedFromParts(org string, namespace string, packageName string, selector string, version string, digest string) ResolvedVersion {
 	return ResolvedVersion{
 		Org:             org,

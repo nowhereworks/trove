@@ -6,6 +6,9 @@ const draftVersionEl = document.querySelector("#draft-version");
 const manifestContentEl = document.querySelector("#manifest-content");
 const agentsContentEl = document.querySelector("#agents-content");
 const publishResultEl = document.querySelector("#publish-result");
+const searchInputEl = document.querySelector("#search-input");
+const searchResultsEl = document.querySelector("#search-results");
+const adoptionEl = document.querySelector("#adoption");
 
 const publishRef = "companyx/platform/agent-backend";
 
@@ -154,7 +157,7 @@ async function publishDraft(event) {
 async function loadPackages() {
   packagesEl.innerHTML = `<p class="muted">Loading packages...</p>`;
   try {
-    const data = await fetchJSON("/api/v1/search/packages");
+    const data = await fetchJSON("/api/v1/packages");
     renderPackages(data.items || []);
     if ((data.items || []).length > 0) {
       loadDetail(packageRef(data.items[0]));
@@ -164,14 +167,93 @@ async function loadPackages() {
   }
 }
 
+async function searchPackages(query) {
+  if (!query || query.trim() === "") {
+    searchResultsEl.innerHTML = "";
+    searchResultsEl.style.display = "none";
+    return;
+  }
+  try {
+    const data = await fetchJSON(`/api/v1/search/packages?q=${encodeURIComponent(query)}`);
+    renderSearchResults(data.items || []);
+  } catch (error) {
+    searchResultsEl.innerHTML = `<p class="error">Search failed: ${error.message}</p>`;
+    searchResultsEl.style.display = "block";
+  }
+}
+
+function renderSearchResults(items) {
+  if (items.length === 0) {
+    searchResultsEl.innerHTML = `<p class="muted">No results found.</p>`;
+    searchResultsEl.style.display = "block";
+    return;
+  }
+
+  searchResultsEl.innerHTML = items.map((pkg) => `
+    <button class="package-card" type="button" data-ref="${packageRef(pkg)}">
+      <span class="package-name">${pkg.displayName}</span>
+      <span class="package-ref">${packageRef(pkg)}</span>
+      <span class="package-meta">${pkg.visibility}</span>
+      <span>${pkg.description}</span>
+    </button>
+  `).join("");
+
+  searchResultsEl.style.display = "block";
+  searchResultsEl.querySelectorAll(".package-card").forEach((button) => {
+    button.addEventListener("click", () => {
+      loadDetail(button.dataset.ref);
+      searchResultsEl.style.display = "none";
+      searchInputEl.value = "";
+    });
+  });
+}
+
+async function loadAdoption(ref) {
+  if (!adoptionEl) return;
+  adoptionEl.innerHTML = `<p class="muted">Loading adoption data...</p>`;
+  try {
+    const data = await fetchJSON(`/api/v1/packages/${ref}/adoption`);
+    renderAdoption(data);
+  } catch (error) {
+    adoptionEl.innerHTML = `<p class="error">Could not load adoption data: ${error.message}</p>`;
+  }
+}
+
+function renderAdoption(data) {
+  if (!data || data.projectCount === 0) {
+    adoptionEl.innerHTML = `<p class="muted">No adoption data yet.</p>`;
+    return;
+  }
+
+  let html = `<h4>Adoption</h4>`;
+  html += `<p><strong>${data.projectCount}</strong> project(s) using this package</p>`;
+  if (data.versions && data.versions.length > 0) {
+    html += `<ul class="versions">`;
+    for (const v of data.versions) {
+      html += `<li><strong>${v.version}</strong> - ${v.installCount} install(s)</li>`;
+    }
+    html += `</ul>`;
+  }
+  adoptionEl.innerHTML = html;
+}
+
 async function loadDetail(ref) {
   detailEl.innerHTML = `<p class="muted">Loading ${ref}...</p>`;
   try {
     const detail = await fetchJSON(`/api/v1/packages/${ref}`);
     renderDetail(detail);
+    loadAdoption(ref);
   } catch (error) {
     detailEl.innerHTML = `<p class="error">Could not load detail: ${error.message}</p>`;
   }
+}
+
+let searchTimeout;
+if (searchInputEl) {
+  searchInputEl.addEventListener("input", (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => searchPackages(e.target.value), 300);
+  });
 }
 
 refreshEl.addEventListener("click", loadPackages);

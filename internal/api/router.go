@@ -1165,6 +1165,25 @@ func handleReportProjectAdoption(writeStore packages.WriteStore) http.HandlerFun
 			return
 		}
 
+		installed := make([]packages.InstalledPackage, 0, len(body.Installed))
+		for _, item := range body.Installed {
+			installed = append(installed, packages.InstalledPackage{
+				Package: item.Package,
+				Version: item.Version,
+				Digest:  item.Digest,
+			})
+		}
+
+		if err := writeStore.ReportProjectAdoption(r.Context(), packages.ReportProjectAdoptionRequest{
+			Org:       body.Org,
+			Name:      body.Name,
+			RepoURL:   body.RepoURL,
+			Installed: installed,
+		}); err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
 		writeJSON(w, http.StatusOK, map[string]string{"status": "reported"})
 	}
 }
@@ -1197,11 +1216,18 @@ func handleCreateProject(writeStore packages.WriteStore) http.HandlerFunc {
 			return
 		}
 
-		writeJSON(w, http.StatusCreated, map[string]string{
-			"org":     body.Org,
-			"name":    body.Name,
-			"repoUrl": body.RepoURL,
+		result, err := writeStore.CreateProject(r.Context(), packages.CreateProjectRequest{
+			Org:     body.Org,
+			Name:    body.Name,
+			RepoURL: body.RepoURL,
 		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Location", "/api/v1/projects/"+result.ID)
+		writeJSON(w, http.StatusCreated, result)
 	}
 }
 
