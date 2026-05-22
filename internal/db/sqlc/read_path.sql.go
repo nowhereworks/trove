@@ -184,6 +184,60 @@ func (q *Queries) GetRawArtifact(ctx context.Context, arg GetRawArtifactParams) 
 	return i, err
 }
 
+const listArchiveArtifacts = `-- name: ListArchiveArtifacts :many
+select af.path as path,
+       ab.content as content
+from artifact_files af
+join package_versions v on v.id = af.package_version_id
+join packages p on p.id = v.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+join artifact_blobs ab on ab.digest = af.blob_digest
+where o.slug = $1
+  and n.slug = $2
+  and p.name = $3
+  and v.version = $4
+  and v.lifecycle in ('published', 'deprecated', 'yanked')
+order by af.path
+`
+
+type ListArchiveArtifactsParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+	Version     string `json:"version"`
+}
+
+type ListArchiveArtifactsRow struct {
+	Path    string `json:"path"`
+	Content []byte `json:"content"`
+}
+
+func (q *Queries) ListArchiveArtifacts(ctx context.Context, arg ListArchiveArtifactsParams) ([]ListArchiveArtifactsRow, error) {
+	rows, err := q.db.Query(ctx, listArchiveArtifacts,
+		arg.Org,
+		arg.Namespace,
+		arg.PackageName,
+		arg.Version,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListArchiveArtifactsRow{}
+	for rows.Next() {
+		var i ListArchiveArtifactsRow
+		if err := rows.Scan(&i.Path, &i.Content); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPackageVersions = `-- name: ListPackageVersions :many
 select v.version as version,
        coalesce(v.digest, '') as digest,

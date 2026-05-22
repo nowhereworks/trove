@@ -16,12 +16,14 @@ var (
 	ErrVersionImmutable = errors.New("version immutable")
 	ErrInvalidManifest  = errors.New("invalid manifest")
 	ErrMissingArtifact  = errors.New("required artifact missing")
+	ErrInvalidArchive   = errors.New("invalid archive format")
 )
 
 type Store interface {
 	Resolve(ctx context.Context, org string, namespace string, name string, selector string) (ResolvedVersion, error)
 	GetManifest(ctx context.Context, org string, namespace string, name string, version string) (Manifest, error)
 	GetRawArtifact(ctx context.Context, org string, namespace string, name string, version string, path string) (RawArtifact, error)
+	GetArchive(ctx context.Context, org string, namespace string, name string, version string, format ArchiveFormat) (Archive, error)
 	ListPackages(ctx context.Context, params ListPackagesParams) (ListPackagesResult, error)
 	GetPackage(ctx context.Context, org string, namespace string, name string) (PackageDetail, error)
 }
@@ -121,6 +123,20 @@ type RawArtifact struct {
 	SizeBytes    int64
 	Content      []byte
 	CacheControl string
+}
+
+type ArchiveFormat string
+
+const (
+	ArchiveTarGz ArchiveFormat = "tar.gz"
+	ArchiveZip   ArchiveFormat = "zip"
+)
+
+type Archive struct {
+	ContentType  string
+	ETag         string
+	CacheControl string
+	Content      []byte
 }
 
 type PackageSummary struct {

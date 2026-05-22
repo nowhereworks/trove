@@ -1,9 +1,12 @@
 package api
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -381,6 +384,65 @@ func TestRawAliasRedirectsToExact(t *testing.T) {
 	}
 }
 
+func TestArchiveTarGzExactReturnsDeterministicArchive(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/archive.tar.gz", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
+	}
+	if got := res.Header().Get("Content-Type"); got != "application/gzip" {
+		t.Fatalf("Content-Type = %q, want application/gzip", got)
+	}
+	if got := res.Header().Get("ETag"); got != "sha256:e794a7e6ed6c59d962237a4b1593fd158f10fa370beeebdd4bf9f6bf4734a050" {
+		t.Fatalf("ETag = %q", got)
+	}
+	entries := readResponseTarGz(t, res.Body.Bytes())
+	if len(entries) != 1 || entries[0].Path != "AGENTS.md" || !strings.Contains(string(entries[0].Content), "Backend Agent Defaults") {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
+func TestArchiveZipExactReturnsArchive(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/archive.zip", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
+	}
+	if got := res.Header().Get("Content-Type"); got != "application/zip" {
+		t.Fatalf("Content-Type = %q, want application/zip", got)
+	}
+	entries := readResponseZip(t, res.Body.Bytes())
+	if len(entries) != 1 || entries[0].Path != "AGENTS.md" || !strings.Contains(string(entries[0].Content), "Backend Agent Defaults") {
+		t.Fatalf("entries = %+v", entries)
+	}
+}
+
+func TestArchiveAliasRedirectsToExact(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/stable/archive.tar.gz", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusFound {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusFound)
+	}
+	if got := res.Header().Get("Location"); got != "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/archive.tar.gz" {
+		t.Fatalf("Location = %q", got)
+	}
+	if got := res.Header().Get("Cache-Control"); got != "no-cache" {
+		t.Fatalf("Cache-Control = %q", got)
+	}
+}
+
 func TestPackageListAndDetail(t *testing.T) {
 	router := testRouter()
 
@@ -489,4 +551,59 @@ func makeUploadZip(t *testing.T, files map[string]string) []byte {
 		t.Fatalf("close zip writer: %v", err)
 	}
 	return buf.Bytes()
+}
+
+type responseArchiveEntry struct {
+	Path    string
+	Content []byte
+}
+
+func readResponseTarGz(t *testing.T, data []byte) []responseArchiveEntry {
+	t.Helper()
+	gzipReader, err := gzip.NewReader(bytes.NewReader(data))
+	if err != nil {
+		t.Fatalf("open gzip response: %v", err)
+	}
+	defer gzipReader.Close()
+	tarReader := tar.NewReader(gzipReader)
+	var entries []responseArchiveEntry
+	for {
+		header, err := tarReader.Next()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			t.Fatalf("read tar response: %v", err)
+		}
+		content, err := io.ReadAll(tarReader)
+		if err != nil {
+			t.Fatalf("read tar entry: %v", err)
+		}
+		entries = append(entries, responseArchiveEntry{Path: header.Name, Content: content})
+	}
+	return entries
+}
+
+func readResponseZip(t *testing.T, data []byte) []responseArchiveEntry {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatalf("open zip response: %v", err)
+	}
+	entries := make([]responseArchiveEntry, 0, len(reader.File))
+	for _, file := range reader.File {
+		entry, err := file.Open()
+		if err != nil {
+			t.Fatalf("open zip entry: %v", err)
+		}
+		content, err := io.ReadAll(entry)
+		if err != nil {
+			t.Fatalf("read zip entry: %v", err)
+		}
+		if err := entry.Close(); err != nil {
+			t.Fatalf("close zip entry: %v", err)
+		}
+		entries = append(entries, responseArchiveEntry{Path: file.Name, Content: content})
+	}
+	return entries
 }

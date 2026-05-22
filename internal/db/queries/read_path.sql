@@ -125,6 +125,22 @@ where o.slug = sqlc.arg(org)
   and af.path = sqlc.arg(path)
   and v.lifecycle in ('published', 'deprecated', 'yanked');
 
+-- name: ListArchiveArtifacts :many
+select af.path as path,
+       ab.content as content
+from artifact_files af
+join package_versions v on v.id = af.package_version_id
+join packages p on p.id = v.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+join artifact_blobs ab on ab.digest = af.blob_digest
+where o.slug = sqlc.arg(org)
+  and n.slug = sqlc.arg(namespace)
+  and p.name = sqlc.arg(package_name)
+  and v.version = sqlc.arg(version)
+  and v.lifecycle in ('published', 'deprecated', 'yanked')
+order by af.path;
+
 -- name: ListPackages :many
 select o.slug as org,
        n.slug as namespace,

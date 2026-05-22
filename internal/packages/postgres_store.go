@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"trove/internal/archives"
 	"trove/internal/db/sqlc"
 	"trove/internal/manifest"
 )
@@ -337,6 +338,41 @@ func (s *PostgresStore) GetRawArtifact(ctx context.Context, org string, namespac
 		Content:      row.Content,
 		CacheControl: row.CacheControl,
 	}, nil
+}
+
+func (s *PostgresStore) GetArchive(ctx context.Context, org string, namespace string, name string, version string, format ArchiveFormat) (Archive, error) {
+	manifestResult, err := s.GetManifest(ctx, org, namespace, name, version)
+	if err != nil {
+		return Archive{}, err
+	}
+	var parsed manifest.Manifest
+	if err := json.Unmarshal(manifestResult.Manifest, &parsed); err != nil {
+		return Archive{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
+	}
+
+	rows, err := s.queries.ListArchiveArtifacts(ctx, sqlc.ListArchiveArtifactsParams{Org: org, Namespace: namespace, PackageName: name, Version: strings.TrimPrefix(version, "v")})
+	if err != nil {
+		return Archive{}, err
+	}
+	byPath := map[string][]byte{}
+	for _, row := range rows {
+		byPath[row.Path] = row.Content
+	}
+	files := make([]archives.File, 0, len(parsed.Spec.Artifacts))
+	for _, artifact := range parsed.Spec.Artifacts {
+		content, ok := byPath[artifact.Path]
+		if !ok {
+			return Archive{}, ErrArtifactNotFound
+		}
+		files = append(files, archives.File{Path: artifact.Path, Content: content})
+	}
+
+	content, contentType, err := generateArchive(format, files)
+	if err != nil {
+		return Archive{}, err
+	}
+	cacheControl := "private, max-age=31536000, immutable"
+	return Archive{ContentType: contentType, ETag: manifestResult.Digest, CacheControl: cacheControl, Content: content}, nil
 }
 
 func (s *PostgresStore) ListPackages(ctx context.Context, params ListPackagesParams) (ListPackagesResult, error) {

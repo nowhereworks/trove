@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"trove/internal/archives"
 	"trove/internal/manifest"
 )
 
@@ -259,6 +260,45 @@ func (s *MemoryStore) GetRawArtifact(ctx context.Context, org string, namespace 
 		}
 	}
 	return RawArtifact{}, ErrArtifactNotFound
+}
+
+func (s *MemoryStore) GetArchive(ctx context.Context, org string, namespace string, name string, version string, format ArchiveFormat) (Archive, error) {
+	_ = ctx
+	pkg, ok := s.findPackage(org, namespace, name)
+	if !ok {
+		return Archive{}, ErrPackageNotFound
+	}
+	resolved, ok := pkg.findVersion(version)
+	if !ok {
+		return Archive{}, ErrVersionNotFound
+	}
+	parsed, ok := decodeStoredManifest(resolved.manifest)
+	if !ok {
+		return Archive{}, ErrInvalidManifest
+	}
+
+	byPath := map[string]RawArtifact{}
+	for _, artifact := range resolved.artifacts {
+		byPath[artifact.Path] = artifact
+	}
+	files := make([]archives.File, 0, len(parsed.Spec.Artifacts))
+	for _, artifact := range parsed.Spec.Artifacts {
+		raw, ok := byPath[artifact.Path]
+		if !ok {
+			return Archive{}, ErrArtifactNotFound
+		}
+		files = append(files, archives.File{Path: artifact.Path, Content: raw.Content})
+	}
+
+	content, contentType, err := generateArchive(format, files)
+	if err != nil {
+		return Archive{}, err
+	}
+	cacheControl := "private, max-age=31536000, immutable"
+	if pkg.summary.Visibility == "public" {
+		cacheControl = "public, max-age=31536000, immutable"
+	}
+	return Archive{ContentType: contentType, ETag: resolved.summary.Digest, CacheControl: cacheControl, Content: content}, nil
 }
 
 func (s *MemoryStore) ListPackages(ctx context.Context, params ListPackagesParams) (ListPackagesResult, error) {

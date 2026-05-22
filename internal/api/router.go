@@ -64,6 +64,8 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", handlePublishVersion(writeStore))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz", handleGetArchive(store, packages.ArchiveTarGz))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip", handleGetArchive(store, packages.ArchiveZip))
 	r.Get("/raw/{org}/{namespace}/{package}/{selector}/*", handleRawArtifact(store))
 	uiHandler := ui.Handler()
 	r.Get("/", uiHandler.ServeHTTP)
@@ -280,6 +282,42 @@ func handleGetManifest(store packages.Store) http.HandlerFunc {
 	}
 }
 
+func handleGetArchive(store packages.Store, format packages.ArchiveFormat) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		version := chi.URLParam(r, "version")
+		parsed, err := packages.ParseSelector(version)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		if parsed.Kind != packages.SelectorExact {
+			resolved, err := store.Resolve(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), version)
+			if err != nil {
+				writeStoreError(w, r, err)
+				return
+			}
+			extension := "archive.tar.gz"
+			if format == packages.ArchiveZip {
+				extension = "archive.zip"
+			}
+			w.Header().Set("Cache-Control", "no-cache")
+			http.Redirect(w, r, "/api/v1/packages/"+resolved.Org+"/"+resolved.Namespace+"/"+resolved.Package+"/versions/"+resolved.ResolvedVersion+"/"+extension, http.StatusFound)
+			return
+		}
+
+		archive, err := store.GetArchive(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), parsed.Version, format)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		w.Header().Set("Content-Type", archive.ContentType)
+		w.Header().Set("ETag", archive.ETag)
+		w.Header().Set("Cache-Control", archive.CacheControl)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(archive.Content)
+	}
+}
+
 func handleRawArtifact(store packages.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		selector := chi.URLParam(r, "selector")
@@ -379,6 +417,8 @@ func writeStoreError(w http.ResponseWriter, r *http.Request, err error) {
 		writeError(w, r, http.StatusBadRequest, "INVALID_MANIFEST", err.Error())
 	case errors.Is(err, packages.ErrMissingArtifact):
 		writeError(w, r, http.StatusBadRequest, "INVALID_MANIFEST", err.Error())
+	case errors.Is(err, packages.ErrInvalidArchive):
+		writeError(w, r, http.StatusBadRequest, "INVALID_ARCHIVE", "Archive format is invalid.")
 	case errors.Is(err, packages.ErrInvalidSelector):
 		writeError(w, r, http.StatusBadRequest, "INVALID_SELECTOR", "Selector is invalid.")
 	case errors.Is(err, packages.ErrArtifactNotFound):
