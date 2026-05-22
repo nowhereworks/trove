@@ -1,0 +1,137 @@
+# Implementation Plan
+
+## Target Repo Structure
+
+```text
+agenthub/
+  cmd/agenthub/main.go
+  internal/api/
+  internal/auth/
+  internal/config/
+  internal/db/
+    queries/
+  internal/manifest/
+  internal/packages/
+  internal/raw/
+  internal/reviews/
+  internal/search/
+  internal/security/
+  internal/updates/
+  internal/ui/
+  migrations/
+  sqlc.yaml
+  web/
+    package.json
+    vite.config.ts
+    src/
+  docs/spec/
+  examples/
+```
+
+## Slice 1: Thin Read Path
+
+Goal: prove the single-binary registry shape.
+
+1. Start Go HTTP server.
+2. Add config loading.
+3. Add PostgreSQL connection.
+4. Add `golang-migrate/migrate` SQL migrations for org, namespace, package, version, artifact blob, artifact location, channel, and audit tables.
+5. Seed one sample published package.
+6. Implement resolve endpoint.
+7. Implement manifest endpoint.
+8. Implement exact raw file endpoint.
+9. Serve embedded placeholder SPA.
+10. Add package list and package detail UI backed by APIs.
+
+Acceptance:
+
+- `go test ./...` passes.
+- `sqlc` generated query code is committed once `sqlc.yaml` exists.
+- A seeded package resolves from `@stable` to an exact version.
+- A raw exact URL returns `AGENTS.md` with digest ETag.
+- API responses include `X-Request-Id`.
+- JSON responses use camelCase fields.
+- The UI can show the seeded package.
+
+## Slice 2: Draft Upload And Publish
+
+Goal: make package publishing real.
+
+1. Add draft version creation.
+2. Add artifact upload API.
+3. Add `agenthub.yaml` parsing and validation.
+4. Add path validation.
+5. Add digest computation.
+6. Add publish endpoint.
+7. Enforce immutability for published versions.
+8. Add audit events for publish actions.
+9. Add UI upload and publish flow.
+
+Acceptance:
+
+- A maintainer can upload a package draft.
+- Invalid manifests are rejected with actionable errors.
+- Published content cannot be mutated.
+- Publishing writes audit events.
+
+## Slice 3: Auth, Visibility, And Review
+
+Goal: make the registry enterprise-safe.
+
+1. Add OIDC browser login.
+2. Add API tokens.
+3. Add RBAC checks.
+4. Add namespace and package visibility.
+5. Add public namespace/package read behavior.
+6. Add submit/review/approve workflow.
+7. Add secret scanning and unsafe instruction scanning hooks.
+
+Acceptance:
+
+- Private raw URLs require auth.
+- Public package raw URLs can be read anonymously.
+- Self-approval is blocked by default.
+- Publishing requires configured approvals.
+
+## Slice 4: Updates And CLI Prototype
+
+Goal: make installed packages maintainable.
+
+1. Add `.agenthub.lock.yaml` parser.
+2. Add update check API.
+3. Add compatibility checks.
+4. Add `agenthub resolve`.
+5. Add `agenthub fetch`.
+6. Add `agenthub install`.
+7. Add `agenthub check`.
+8. Add dry-run-by-default `agenthub update` and explicit `agenthub update --apply`.
+
+Acceptance:
+
+- CLI can install a package and write a lock file.
+- CLI can report a newer compatible stable version.
+- CLI can warn for yanked or incompatible installed versions.
+
+## Slice 5: Search And Adoption
+
+Goal: improve discovery and governance visibility.
+
+1. Add PostgreSQL full-text search.
+2. Add search UI.
+3. Add project registration API.
+4. Add project artifact install tracking.
+5. Add adoption dashboard.
+
+Acceptance:
+
+- Users can search by name, description, labels, language, framework, tool compatibility, and artifact type.
+- Default search returns published active packages only.
+- Platform engineers can see projects using a package version.
+- Public package adoption views show aggregate counts unless the user has detailed access.
+
+## Initial Test Strategy
+
+- Unit test manifest validation, path validation, selector resolution, digest calculation, and lock-file parsing.
+- Handler test resolve, manifest, raw, upload, publish, and update check endpoints.
+- DB integration test migrations, SQL queries, and immutability triggers against real PostgreSQL.
+- UI smoke test package browse and package detail once the web app exists.
