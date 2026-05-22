@@ -4,21 +4,238 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"trove/internal/db/sqlc"
+	"trove/internal/manifest"
 )
 
 type PostgresStore struct {
+	pool    *pgxpool.Pool
 	queries *sqlc.Queries
 }
 
 func NewPostgresStore(pool *pgxpool.Pool) *PostgresStore {
-	return &PostgresStore{queries: sqlc.New(pool)}
+	return &PostgresStore{pool: pool, queries: sqlc.New(pool)}
+}
+
+func (s *PostgresStore) CreateDraftVersion(ctx context.Context, req CreateDraftVersionRequest) (VersionResource, error) {
+	major, minor, patch, err := ParseStrictSemver(req.Version)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+
+	packageID, err := s.queries.GetPackageID(ctx, sqlc.GetPackageIDParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package})
+	if err != nil {
+		return VersionResource{}, mapReadError(err)
+	}
+	id, err := newUUID()
+	if err != nil {
+		return VersionResource{}, err
+	}
+
+	row, err := s.queries.CreateDraftVersion(ctx, sqlc.CreateDraftVersionParams{
+		ID:          id,
+		PackageID:   packageID,
+		Version:     req.Version,
+		SemverMajor: int4(major),
+		SemverMinor: int4(minor),
+		SemverPatch: int4(patch),
+		Visibility:  req.Visibility,
+	})
+	if err != nil {
+		return VersionResource{}, mapWriteError(err)
+	}
+
+	return VersionResource{
+		Org:        req.Org,
+		Namespace:  req.Namespace,
+		Package:    req.Package,
+		Version:    row.Version,
+		Lifecycle:  row.Lifecycle,
+		Visibility: row.Visibility,
+		CreatedAt:  timestamptzString(row.CreatedAt),
+		UpdatedAt:  timestamptzString(row.UpdatedAt),
+	}, nil
+}
+
+func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRequest) (ArtifactResource, error) {
+	if req.Path == "" || strings.HasPrefix(req.Path, "/") || strings.Contains(req.Path, "..") {
+		return ArtifactResource{}, ErrArtifactNotFound
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return ArtifactResource{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.queries.WithTx(tx)
+
+	version, err := q.GetVersionForUpdate(ctx, sqlc.GetVersionForUpdateParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package, Version: strings.TrimPrefix(req.Version, "v")})
+	if err != nil {
+		return ArtifactResource{}, mapReadError(err)
+	}
+	if version.Lifecycle == "published" {
+		return ArtifactResource{}, ErrVersionImmutable
+	}
+
+	digest := FileDigest(req.Content)
+	if err := q.UpsertArtifactBlob(ctx, sqlc.UpsertArtifactBlobParams{Digest: digest, Content: req.Content, SizeBytes: int64(len(req.Content))}); err != nil {
+		return ArtifactResource{}, err
+	}
+	if err := q.UpsertArtifactLocation(ctx, digest); err != nil {
+		return ArtifactResource{}, err
+	}
+
+	artifactType := "artifact"
+	targetPath := req.Path
+	if req.Path == "trove.yaml" {
+		parsed, err := manifest.Parse(req.Content)
+		if err != nil {
+			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
+		}
+		if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.Version}); err != nil {
+			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
+		}
+		manifestJSON, err := json.Marshal(parsed)
+		if err != nil {
+			return ArtifactResource{}, err
+		}
+		if err := q.UpdateVersionManifest(ctx, sqlc.UpdateVersionManifestParams{ManifestJson: manifestJSON, Visibility: parsed.Spec.Visibility, Channel: textOrNull(parsed.Spec.Channel), ID: version.ID}); err != nil {
+			return ArtifactResource{}, err
+		}
+		artifactType = "manifest"
+	} else if parsed, ok := decodeStoredManifest(version.ManifestJson); ok {
+		for _, artifact := range parsed.Spec.Artifacts {
+			if artifact.Path == req.Path {
+				artifactType = artifact.Type
+				if artifact.TargetPath != "" {
+					targetPath = artifact.TargetPath
+				}
+				break
+			}
+		}
+	}
+
+	id, err := newUUID()
+	if err != nil {
+		return ArtifactResource{}, err
+	}
+	row, err := q.UpsertArtifactFile(ctx, sqlc.UpsertArtifactFileParams{
+		ID:               id,
+		PackageVersionID: version.ID,
+		Path:             req.Path,
+		Type:             artifactType,
+		ContentType:      contentTypeOrDefault(req.ContentType),
+		BlobDigest:       digest,
+		SizeBytes:        int64(len(req.Content)),
+		TargetPath:       textOrNull(targetPath),
+	})
+	if err != nil {
+		return ArtifactResource{}, mapWriteError(err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return ArtifactResource{}, err
+	}
+
+	return ArtifactResource{Path: row.Path, Type: row.Type, ContentType: row.ContentType, Digest: row.BlobDigest, SizeBytes: row.SizeBytes, TargetPath: textValue(row.TargetPath)}, nil
+}
+
+func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.queries.WithTx(tx)
+
+	version, err := q.GetVersionForUpdate(ctx, sqlc.GetVersionForUpdateParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package, Version: strings.TrimPrefix(req.Version, "v")})
+	if err != nil {
+		return VersionResource{}, mapReadError(err)
+	}
+	if version.Lifecycle == "published" {
+		return VersionResource{}, ErrVersionImmutable
+	}
+
+	parsed, ok := decodeStoredManifest(version.ManifestJson)
+	if !ok || parsed.APIVersion == "" {
+		return VersionResource{}, ErrInvalidManifest
+	}
+	if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.Version}); err != nil {
+		return VersionResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
+	}
+
+	rows, err := q.ListArtifactMetadataForVersion(ctx, version.ID)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	byPath := map[string]sqlc.ListArtifactMetadataForVersionRow{}
+	for _, row := range rows {
+		byPath[row.Path] = row
+	}
+
+	digestArtifacts := make([]DigestArtifact, 0, len(parsed.Spec.Artifacts))
+	for _, artifact := range parsed.Spec.Artifacts {
+		row, ok := byPath[artifact.Path]
+		if !ok {
+			return VersionResource{}, fmt.Errorf("%w: %s", ErrMissingArtifact, artifact.Path)
+		}
+		targetPath := artifact.TargetPath
+		if targetPath == "" {
+			targetPath = artifact.Path
+		}
+		digestArtifacts = append(digestArtifacts, DigestArtifact{Path: artifact.Path, Type: artifact.Type, TargetPath: targetPath, Digest: row.BlobDigest, SizeBytes: row.SizeBytes})
+	}
+
+	digest, err := PackageDigest(parsed, digestArtifacts)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	published, err := q.PublishVersion(ctx, sqlc.PublishVersionParams{Digest: textOrNull(digest), ID: version.ID})
+	if err != nil {
+		return VersionResource{}, mapWriteError(err)
+	}
+
+	latestID, err := newUUID()
+	if err != nil {
+		return VersionResource{}, err
+	}
+	if err := q.UpsertChannel(ctx, sqlc.UpsertChannelParams{ID: latestID, PackageID: version.PackageID, Name: "latest", PackageVersionID: version.ID}); err != nil {
+		return VersionResource{}, err
+	}
+	if parsed.Spec.Channel == "stable" {
+		stableID, err := newUUID()
+		if err != nil {
+			return VersionResource{}, err
+		}
+		if err := q.UpsertChannel(ctx, sqlc.UpsertChannelParams{ID: stableID, PackageID: version.PackageID, Name: "stable", PackageVersionID: version.ID}); err != nil {
+			return VersionResource{}, err
+		}
+	}
+
+	auditID, err := newUUID()
+	if err != nil {
+		return VersionResource{}, err
+	}
+	if err := q.InsertAuditEvent(ctx, sqlc.InsertAuditEventParams{ID: auditID, PackageVersionID: version.ID, ActorServiceAccount: textOrNull("dev"), Action: "package.published", MetadataJson: []byte(`{"source":"api"}`), PackageID: version.PackageID}); err != nil {
+		return VersionResource{}, err
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return VersionResource{}, err
+	}
+
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: published.Version, Lifecycle: published.Lifecycle, Visibility: parsed.Spec.Visibility, Digest: textValue(published.Digest), PublishedAt: timestamptzString(published.PublishedAt)}, nil
 }
 
 func (s *PostgresStore) Resolve(ctx context.Context, org string, namespace string, name string, selector string) (ResolvedVersion, error) {
@@ -192,9 +409,56 @@ func int4(value int) pgtype.Int4 {
 	return pgtype.Int4{Int32: int32(value), Valid: true}
 }
 
+func textOrNull(value string) pgtype.Text {
+	if value == "" {
+		return pgtype.Text{}
+	}
+	return pgtype.Text{String: value, Valid: true}
+}
+
+func textValue(value pgtype.Text) string {
+	if !value.Valid {
+		return ""
+	}
+	return value.String
+}
+
+func timestamptzString(value pgtype.Timestamptz) string {
+	if !value.Valid {
+		return ""
+	}
+	return FormatTime(value.Time)
+}
+
+func contentTypeOrDefault(value string) string {
+	if strings.TrimSpace(value) == "" {
+		return "application/octet-stream"
+	}
+	return value
+}
+
+func decodeStoredManifest(data []byte) (manifest.Manifest, bool) {
+	if len(data) == 0 || string(data) == "{}" {
+		return manifest.Manifest{}, false
+	}
+	var parsed manifest.Manifest
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		return manifest.Manifest{}, false
+	}
+	return parsed, true
+}
+
 func mapReadError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrPackageNotFound
+	}
+	return err
+}
+
+func mapWriteError(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return ErrVersionExists
 	}
 	return err
 }

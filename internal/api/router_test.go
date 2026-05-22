@@ -36,6 +36,97 @@ func TestHealthIncludesRequestID(t *testing.T) {
 	}
 }
 
+func TestDraftUploadPublishFlow(t *testing.T) {
+	router := testRouter()
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.1","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.1/artifacts/trove.yaml", strings.NewReader(sliceTwoManifestYAML))
+	manifestReq.Header.Set("Content-Type", "application/yaml")
+	manifestRes := httptest.NewRecorder()
+	router.ServeHTTP(manifestRes, manifestReq)
+	if manifestRes.Code != http.StatusOK {
+		t.Fatalf("manifest upload status = %d, want %d; body=%s", manifestRes.Code, http.StatusOK, manifestRes.Body.String())
+	}
+
+	agentsReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.1/artifacts/AGENTS.md", strings.NewReader("# Updated\n"))
+	agentsReq.Header.Set("Content-Type", "text/markdown; charset=utf-8")
+	agentsRes := httptest.NewRecorder()
+	router.ServeHTTP(agentsRes, agentsReq)
+	if agentsRes.Code != http.StatusOK {
+		t.Fatalf("artifact upload status = %d, want %d; body=%s", agentsRes.Code, http.StatusOK, agentsRes.Body.String())
+	}
+
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.1/publish", nil)
+	publishRes := httptest.NewRecorder()
+	router.ServeHTTP(publishRes, publishReq)
+	if publishRes.Code != http.StatusOK {
+		t.Fatalf("publish status = %d, want %d; body=%s", publishRes.Code, http.StatusOK, publishRes.Body.String())
+	}
+
+	var publishBody struct {
+		Version   string `json:"version"`
+		Lifecycle string `json:"lifecycle"`
+		Digest    string `json:"digest"`
+	}
+	if err := json.NewDecoder(publishRes.Body).Decode(&publishBody); err != nil {
+		t.Fatalf("decode publish body: %v", err)
+	}
+	if publishBody.Version != "1.0.1" || publishBody.Lifecycle != "published" || !strings.HasPrefix(publishBody.Digest, "sha256:") {
+		t.Fatalf("publish body = %+v", publishBody)
+	}
+
+	resolveReq := httptest.NewRequest(http.MethodGet, "/api/v1/resolve/companyx/platform/agent-backend@stable", nil)
+	resolveRes := httptest.NewRecorder()
+	router.ServeHTTP(resolveRes, resolveReq)
+	if resolveRes.Code != http.StatusOK {
+		t.Fatalf("resolve status = %d, want %d", resolveRes.Code, http.StatusOK)
+	}
+	var resolveBody struct {
+		ResolvedVersion string `json:"resolvedVersion"`
+	}
+	if err := json.NewDecoder(resolveRes.Body).Decode(&resolveBody); err != nil {
+		t.Fatalf("decode resolve body: %v", err)
+	}
+	if resolveBody.ResolvedVersion != "1.0.1" {
+		t.Fatalf("resolvedVersion = %q, want 1.0.1", resolveBody.ResolvedVersion)
+	}
+}
+
+func TestPublishFailsWhenRequiredArtifactMissing(t *testing.T) {
+	router := testRouter()
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.2","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	manifest := strings.ReplaceAll(sliceTwoManifestYAML, "1.0.1", "1.0.2")
+	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.2/artifacts/trove.yaml", strings.NewReader(manifest))
+	manifestReq.Header.Set("Content-Type", "application/yaml")
+	manifestRes := httptest.NewRecorder()
+	router.ServeHTTP(manifestRes, manifestReq)
+	if manifestRes.Code != http.StatusOK {
+		t.Fatalf("manifest upload status = %d, want %d; body=%s", manifestRes.Code, http.StatusOK, manifestRes.Body.String())
+	}
+
+	publishReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.2/publish", nil)
+	publishRes := httptest.NewRecorder()
+	router.ServeHTTP(publishRes, publishReq)
+	if publishRes.Code != http.StatusBadRequest {
+		t.Fatalf("publish status = %d, want %d; body=%s", publishRes.Code, http.StatusBadRequest, publishRes.Body.String())
+	}
+}
+
 func TestRequestIDPropagatesFromRequest(t *testing.T) {
 	router := testRouter()
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
@@ -241,3 +332,25 @@ func TestEmbeddedUIServed(t *testing.T) {
 func testRouter() http.Handler {
 	return NewRouter(config.Defaults(), packages.NewSeedMemoryStore(), nil)
 }
+
+const sliceTwoManifestYAML = `apiVersion: trove.io/v1
+kind: AgentArtifactPackage
+metadata:
+  org: companyx
+  namespace: platform
+  name: agent-backend
+  displayName: Backend Agent Defaults
+  description: Default agent instructions, skills, and commands for backend services.
+spec:
+  version: 1.0.1
+  channel: stable
+  visibility: public
+  lifecycle: draft
+  artifacts:
+    - path: AGENTS.md
+      type: agent-instructions
+      required: true
+      targetPath: AGENTS.md
+  maintainers:
+    - team: platform-engineering
+`

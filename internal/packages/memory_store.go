@@ -3,9 +3,13 @@ package packages
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
+
+	"trove/internal/manifest"
 )
 
 type MemoryStore struct {
@@ -85,6 +89,132 @@ func (s *MemoryStore) Resolve(ctx context.Context, org string, namespace string,
 		ResolvedVersion: version.summary.Version,
 		Digest:          version.summary.Digest,
 	}), nil
+}
+
+func (s *MemoryStore) CreateDraftVersion(ctx context.Context, req CreateDraftVersionRequest) (VersionResource, error) {
+	_ = ctx
+	if _, _, _, err := ParseStrictSemver(req.Version); err != nil {
+		return VersionResource{}, err
+	}
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+
+	for packageIndex := range s.packages {
+		pkg := &s.packages[packageIndex]
+		if pkg.summary.Org != req.Org || pkg.summary.Namespace != req.Namespace || pkg.summary.Name != req.Package {
+			continue
+		}
+		if _, ok := pkg.findVersion(req.Version); ok {
+			return VersionResource{}, ErrVersionExists
+		}
+		now := time.Now().UTC()
+		pkg.versions = append(pkg.versions, memoryVersion{summary: PackageVersionSummary{Version: req.Version, Lifecycle: "draft"}, manifest: json.RawMessage(`{}`)})
+		return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: req.Version, Lifecycle: "draft", Visibility: req.Visibility, CreatedAt: FormatTime(now), UpdatedAt: FormatTime(now)}, nil
+	}
+	return VersionResource{}, ErrPackageNotFound
+}
+
+func (s *MemoryStore) UploadArtifact(ctx context.Context, req UploadArtifactRequest) (ArtifactResource, error) {
+	_ = ctx
+	pkgIndex, versionIndex, err := s.findMutableVersion(req.Org, req.Namespace, req.Package, req.Version)
+	if err != nil {
+		return ArtifactResource{}, err
+	}
+	version := &s.packages[pkgIndex].versions[versionIndex]
+
+	digest := FileDigest(req.Content)
+	artifactType := "artifact"
+	targetPath := req.Path
+	if req.Path == "trove.yaml" {
+		parsed, err := manifest.Parse(req.Content)
+		if err != nil {
+			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
+		}
+		if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: req.Version}); err != nil {
+			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
+		}
+		manifestJSON, err := json.Marshal(parsed)
+		if err != nil {
+			return ArtifactResource{}, err
+		}
+		version.manifest = manifestJSON
+		artifactType = "manifest"
+	} else if parsed, ok := decodeStoredManifest(version.manifest); ok {
+		for _, artifact := range parsed.Spec.Artifacts {
+			if artifact.Path == req.Path {
+				artifactType = artifact.Type
+				if artifact.TargetPath != "" {
+					targetPath = artifact.TargetPath
+				}
+				break
+			}
+		}
+	}
+
+	resource := RawArtifact{Path: req.Path, ContentType: contentTypeOrDefault(req.ContentType), BlobDigest: digest, SizeBytes: int64(len(req.Content)), Content: req.Content, CacheControl: "private, max-age=31536000, immutable"}
+	updated := false
+	for i := range version.artifacts {
+		if version.artifacts[i].Path == req.Path {
+			version.artifacts[i] = resource
+			updated = true
+			break
+		}
+	}
+	if !updated {
+		version.artifacts = append(version.artifacts, resource)
+	}
+	return ArtifactResource{Path: req.Path, Type: artifactType, ContentType: resource.ContentType, Digest: digest, SizeBytes: resource.SizeBytes, TargetPath: targetPath}, nil
+}
+
+func (s *MemoryStore) PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error) {
+	_ = ctx
+	pkgIndex, versionIndex, err := s.findMutableVersion(req.Org, req.Namespace, req.Package, req.Version)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	pkg := &s.packages[pkgIndex]
+	version := &pkg.versions[versionIndex]
+
+	parsed, ok := decodeStoredManifest(version.manifest)
+	if !ok || parsed.APIVersion == "" {
+		return VersionResource{}, ErrInvalidManifest
+	}
+	if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: req.Version}); err != nil {
+		return VersionResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
+	}
+
+	byPath := map[string]RawArtifact{}
+	for _, artifact := range version.artifacts {
+		byPath[artifact.Path] = artifact
+	}
+	digestArtifacts := make([]DigestArtifact, 0, len(parsed.Spec.Artifacts))
+	for _, artifact := range parsed.Spec.Artifacts {
+		raw, ok := byPath[artifact.Path]
+		if !ok {
+			return VersionResource{}, fmt.Errorf("%w: %s", ErrMissingArtifact, artifact.Path)
+		}
+		targetPath := artifact.TargetPath
+		if targetPath == "" {
+			targetPath = artifact.Path
+		}
+		digestArtifacts = append(digestArtifacts, DigestArtifact{Path: artifact.Path, Type: artifact.Type, TargetPath: targetPath, Digest: raw.BlobDigest, SizeBytes: raw.SizeBytes})
+	}
+
+	digest, err := PackageDigest(parsed, digestArtifacts)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	version.summary.Lifecycle = "published"
+	version.summary.Digest = digest
+	version.summary.Channel = parsed.Spec.Channel
+	version.summary.PublishedAt = FormatTime(time.Now().UTC())
+	pkg.summary.LatestVersion = version.summary.Version
+	if parsed.Spec.Channel == "stable" {
+		pkg.summary.StableVersion = version.summary.Version
+	}
+
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.summary.Version, Lifecycle: "published", Visibility: parsed.Spec.Visibility, Digest: digest, PublishedAt: version.summary.PublishedAt}, nil
 }
 
 func (s *MemoryStore) GetManifest(ctx context.Context, org string, namespace string, name string, version string) (Manifest, error) {
@@ -169,6 +299,28 @@ func (s *MemoryStore) findPackage(org string, namespace string, name string) (me
 	return memoryPackage{}, false
 }
 
+func (s *MemoryStore) findMutableVersion(org string, namespace string, name string, version string) (int, int, error) {
+	version = strings.TrimPrefix(version, "v")
+	for packageIndex := range s.packages {
+		pkg := &s.packages[packageIndex]
+		if pkg.summary.Org != org || pkg.summary.Namespace != namespace || pkg.summary.Name != name {
+			continue
+		}
+		for versionIndex := range pkg.versions {
+			candidate := &pkg.versions[versionIndex]
+			if candidate.summary.Version != version {
+				continue
+			}
+			if candidate.summary.Lifecycle == "published" {
+				return 0, 0, ErrVersionImmutable
+			}
+			return packageIndex, versionIndex, nil
+		}
+		return 0, 0, ErrVersionNotFound
+	}
+	return 0, 0, ErrPackageNotFound
+}
+
 func (pkg memoryPackage) findVersion(version string) (memoryVersion, bool) {
 	version = strings.TrimPrefix(version, "v")
 	for _, candidate := range pkg.versions {
@@ -191,8 +343,20 @@ func (pkg memoryPackage) resolve(selector string) (memoryVersion, error) {
 			return version, nil
 		}
 	case SelectorChannel:
+		targetVersion := ""
+		if parsed.Value == "latest" {
+			targetVersion = pkg.summary.LatestVersion
+		}
+		if parsed.Value == "stable" {
+			targetVersion = pkg.summary.StableVersion
+		}
+		if targetVersion != "" {
+			if version, ok := pkg.findVersion(targetVersion); ok {
+				return version, nil
+			}
+		}
 		for _, version := range pkg.versions {
-			if version.summary.Channel == parsed.Value || (parsed.Value == "latest" && version.summary.Version == pkg.summary.LatestVersion) || (parsed.Value == "stable" && version.summary.Version == pkg.summary.StableVersion) {
+			if version.summary.Channel == parsed.Value {
 				return version, nil
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -40,6 +41,7 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	if store == nil {
 		store = packages.NewSeedMemoryStore()
 	}
+	writeStore, _ := store.(packages.WriteStore)
 
 	r := chi.NewRouter()
 	r.Use(requestIDMiddleware)
@@ -55,6 +57,9 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/api/v1/search/packages", handleListPackages(store))
 	r.Get("/api/v1/packages", handleListPackages(store))
 	r.Get("/api/v1/resolve/{org}/{namespace}/{packageSelector}", handleResolve(store))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions", handleCreateDraft(writeStore))
+	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", handleUploadArtifact(writeStore))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", handlePublishVersion(writeStore))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
 	r.Get("/raw/{org}/{namespace}/{package}/{selector}/*", handleRawArtifact(store))
@@ -65,6 +70,95 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/styles.css", uiHandler.ServeHTTP)
 
 	return r
+}
+
+func handleCreateDraft(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		var body struct {
+			Version    string `json:"version"`
+			Visibility string `json:"visibility"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		result, err := writeStore.CreateDraftVersion(r.Context(), packages.CreateDraftVersionRequest{
+			Org:        chi.URLParam(r, "org"),
+			Namespace:  chi.URLParam(r, "namespace"),
+			Package:    chi.URLParam(r, "package"),
+			Version:    body.Version,
+			Visibility: body.Visibility,
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		w.Header().Set("Location", "/api/v1/packages/"+result.Org+"/"+result.Namespace+"/"+result.Package+"/versions/"+result.Version)
+		writeJSON(w, http.StatusCreated, result)
+	}
+}
+
+func handleUploadArtifact(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		path := chi.URLParam(r, "*")
+		if path == "" || strings.HasPrefix(path, "/") || strings.Contains(path, "..") {
+			writeError(w, r, http.StatusBadRequest, "INVALID_ARTIFACT_PATH", "Artifact path is invalid.")
+			return
+		}
+		content, err := io.ReadAll(r.Body)
+		if err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_ARTIFACT", "Artifact body could not be read.")
+			return
+		}
+
+		result, err := writeStore.UploadArtifact(r.Context(), packages.UploadArtifactRequest{
+			Org:         chi.URLParam(r, "org"),
+			Namespace:   chi.URLParam(r, "namespace"),
+			Package:     chi.URLParam(r, "package"),
+			Version:     chi.URLParam(r, "version"),
+			Path:        path,
+			ContentType: r.Header.Get("Content-Type"),
+			Content:     content,
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handlePublishVersion(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		result, err := writeStore.PublishVersion(r.Context(), packages.PublishVersionRequest{
+			Org:       chi.URLParam(r, "org"),
+			Namespace: chi.URLParam(r, "namespace"),
+			Package:   chi.URLParam(r, "package"),
+			Version:   chi.URLParam(r, "version"),
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
+	}
 }
 
 func RequestIDFromContext(ctx context.Context) string {
@@ -236,6 +330,14 @@ func writeError(w http.ResponseWriter, r *http.Request, status int, code string,
 
 func writeStoreError(w http.ResponseWriter, r *http.Request, err error) {
 	switch {
+	case errors.Is(err, packages.ErrVersionExists):
+		writeError(w, r, http.StatusConflict, "VERSION_ALREADY_EXISTS", "Package version already exists.")
+	case errors.Is(err, packages.ErrVersionImmutable):
+		writeError(w, r, http.StatusConflict, "VERSION_IMMUTABLE", "Published package versions are immutable.")
+	case errors.Is(err, packages.ErrInvalidManifest):
+		writeError(w, r, http.StatusBadRequest, "INVALID_MANIFEST", err.Error())
+	case errors.Is(err, packages.ErrMissingArtifact):
+		writeError(w, r, http.StatusBadRequest, "INVALID_MANIFEST", err.Error())
 	case errors.Is(err, packages.ErrInvalidSelector):
 		writeError(w, r, http.StatusBadRequest, "INVALID_SELECTOR", "Selector is invalid.")
 	case errors.Is(err, packages.ErrArtifactNotFound):

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"time"
 )
 
 var (
@@ -11,6 +12,10 @@ var (
 	ErrVersionNotFound  = errors.New("version not found")
 	ErrArtifactNotFound = errors.New("artifact not found")
 	ErrInvalidSelector  = errors.New("invalid selector")
+	ErrVersionExists    = errors.New("version already exists")
+	ErrVersionImmutable = errors.New("version immutable")
+	ErrInvalidManifest  = errors.New("invalid manifest")
+	ErrMissingArtifact  = errors.New("required artifact missing")
 )
 
 type Store interface {
@@ -19,6 +24,59 @@ type Store interface {
 	GetRawArtifact(ctx context.Context, org string, namespace string, name string, version string, path string) (RawArtifact, error)
 	ListPackages(ctx context.Context, params ListPackagesParams) (ListPackagesResult, error)
 	GetPackage(ctx context.Context, org string, namespace string, name string) (PackageDetail, error)
+}
+
+type WriteStore interface {
+	CreateDraftVersion(ctx context.Context, req CreateDraftVersionRequest) (VersionResource, error)
+	UploadArtifact(ctx context.Context, req UploadArtifactRequest) (ArtifactResource, error)
+	PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error)
+}
+
+type CreateDraftVersionRequest struct {
+	Org        string
+	Namespace  string
+	Package    string
+	Version    string
+	Visibility string
+}
+
+type UploadArtifactRequest struct {
+	Org         string
+	Namespace   string
+	Package     string
+	Version     string
+	Path        string
+	ContentType string
+	Content     []byte
+}
+
+type PublishVersionRequest struct {
+	Org       string
+	Namespace string
+	Package   string
+	Version   string
+}
+
+type VersionResource struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	Package     string `json:"package"`
+	Version     string `json:"version"`
+	Lifecycle   string `json:"lifecycle"`
+	Visibility  string `json:"visibility"`
+	Digest      string `json:"digest,omitempty"`
+	PublishedAt string `json:"publishedAt,omitempty"`
+	CreatedAt   string `json:"createdAt,omitempty"`
+	UpdatedAt   string `json:"updatedAt,omitempty"`
+}
+
+type ArtifactResource struct {
+	Path        string `json:"path"`
+	Type        string `json:"type"`
+	ContentType string `json:"contentType"`
+	Digest      string `json:"digest"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	TargetPath  string `json:"targetPath,omitempty"`
 }
 
 type ResolvedVersion struct {
@@ -73,6 +131,13 @@ type PackageVersionSummary struct {
 	Lifecycle   string `json:"lifecycle"`
 	Channel     string `json:"channel,omitempty"`
 	PublishedAt string `json:"publishedAt,omitempty"`
+}
+
+func FormatTime(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	return t.UTC().Format(time.RFC3339)
 }
 
 type ListPackagesParams struct {

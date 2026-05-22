@@ -25,6 +25,26 @@ type ParsedSelector struct {
 	Version string
 }
 
+func ParseStrictSemver(version string) (major int, minor int, patch int, err error) {
+	if !strictSemverRE.MatchString(version) {
+		return 0, 0, 0, ErrInvalidSelector
+	}
+	parts := strings.Split(version, ".")
+	major, err = strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, 0, 0, ErrInvalidSelector
+	}
+	minor, err = strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, 0, 0, ErrInvalidSelector
+	}
+	patch, err = strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, 0, 0, ErrInvalidSelector
+	}
+	return major, minor, patch, nil
+}
+
 var strictSemverRE = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 
 func SplitPackageSelector(segment string) (string, string, error) {
