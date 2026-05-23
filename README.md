@@ -150,7 +150,7 @@ The Helm chart deploys Trove with PostgreSQL configured as an external dependenc
 
 ```bash
 helm install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.0 \
+  --version 0.1.1 \
   --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
   --set database.migrateOnStartup=true
 ```

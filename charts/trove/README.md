@@ -6,7 +6,7 @@ Published chart releases are available from GitHub Container Registry:
 
 ```bash
 helm install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.0 \
+  --version 0.1.1 \
   --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
   --set database.migrateOnStartup=true
 ```
@@ -73,7 +73,7 @@ Install or upgrade with the values file:
 
 ```bash
 helm upgrade --install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.0 \
+  --version 0.1.1 \
   --values values.production.yaml
 ```
 

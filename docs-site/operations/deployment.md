@@ -140,7 +140,7 @@ Use the GHCR-published OCI chart for normal installs:
 
 ```bash
 helm install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.0 \
+  --version 0.1.1 \
   --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
   --set database.migrateOnStartup=true
 ```
@@ -169,7 +169,7 @@ Enable Ingress or Gateway API routing through `values.yaml`. Example Ingress ins
 
 ```bash
 helm install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.0 \
+  --version 0.1.1 \
   --set database.existingSecret.name=trove-database \
   --set config.publicUrl=https://trove.nwks.com \
   --set ingress.enabled=true \
