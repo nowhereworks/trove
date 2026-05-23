@@ -500,11 +500,8 @@ func TestEmbeddedUIServed(t *testing.T) {
 	if res.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
 	}
-	if body := res.Body.String(); !strings.Contains(body, "Trove Registry") {
-		t.Fatalf("UI body missing Trove Registry: %q", body)
-	}
-	if body := res.Body.String(); !strings.Contains(body, "Publish Draft") {
-		t.Fatalf("UI body missing Publish Draft: %q", body)
+	if body := res.Body.String(); !strings.Contains(body, "<title>Trove</title>") {
+		t.Fatalf("UI body missing Trove title: %q", body)
 	}
 }
 

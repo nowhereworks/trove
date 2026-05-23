@@ -4,6 +4,7 @@ import (
 	"embed"
 	"io/fs"
 	"net/http"
+	"strings"
 )
 
 //go:embed static/*
@@ -21,11 +22,17 @@ func Handler() http.Handler {
 	files := http.FileServer(http.FS(sub))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/" || r.URL.Path == "/packages" {
+		path := r.URL.Path
+		if path == "/" || path == "/search" || path == "/adoption" || path == "/upload" || path == "/reviews" ||
+			strings.HasPrefix(path, "/packages/") || strings.HasPrefix(path, "/assets/") {
+			if strings.HasPrefix(path, "/assets/") {
+				files.ServeHTTP(w, r)
+				return
+			}
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			_, _ = w.Write(index)
 			return
 		}
-		files.ServeHTTP(w, r)
+		http.NotFound(w, r)
 	})
 }

@@ -81,15 +81,15 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/api/v1/search/packages", handleSearchPackages(store))
 	r.Get("/api/v1/packages", handleListPackages(store))
 	r.Get("/api/v1/resolve/{org}/{namespace}/{packageSelector}", handleResolve(store))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions", handleCreateDraft(writeStore))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive", handleUploadArchive(writeStore, scanner, cfg))
-	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", handleUploadArtifact(writeStore, scanner, cfg))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", handlePublishVersion(writeStore, reviewService, cfg))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/deprecate", handleDeprecateVersion(writeStore))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/yank", handleYankVersion(writeStore))
-	r.Post("/api/v1/orgs", handleCreateOrg(writeStore))
-	r.Post("/api/v1/orgs/{org}/namespaces", handleCreateNamespace(writeStore))
-	r.Post("/api/v1/packages", handleCreatePackage(writeStore))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions", auth.RequireAuth(auth.RequireScope("package:write")(handleCreateDraft(writeStore))))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive", auth.RequireAuth(auth.RequireScope("package:write")(handleUploadArchive(writeStore, scanner, cfg))))
+	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", auth.RequireAuth(auth.RequireScope("package:write")(handleUploadArtifact(writeStore, scanner, cfg))))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", auth.RequireAuth(auth.RequireScope("version:publish")(handlePublishVersion(writeStore, reviewService, cfg))))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/deprecate", auth.RequireAuth(auth.RequireScope("package:write")(handleDeprecateVersion(writeStore))))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/yank", auth.RequireAuth(auth.RequireScope("package:write")(handleYankVersion(writeStore))))
+	r.Post("/api/v1/orgs", auth.RequireAuth(auth.RequireScope("org:write")(handleCreateOrg(writeStore))))
+	r.Post("/api/v1/orgs/{org}/namespaces", auth.RequireAuth(auth.RequireScope("namespace:write")(handleCreateNamespace(writeStore))))
+	r.Post("/api/v1/packages", auth.RequireAuth(auth.RequireScope("package:write")(handleCreatePackage(writeStore))))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz", handleGetArchive(store, packages.ArchiveTarGz))
@@ -99,8 +99,8 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 
 	r.Post("/api/v1/updates/check", handleCheckUpdate(updateService))
 	r.Post("/api/v1/compatibility/check", handleCheckCompatibility(updateService))
-	r.Post("/api/v1/projects/report", handleReportProjectAdoption(writeStore))
-	r.Post("/api/v1/projects", handleCreateProject(writeStore))
+	r.Post("/api/v1/projects/report", auth.RequireAuth(handleReportProjectAdoption(writeStore)))
+	r.Post("/api/v1/projects", auth.RequireAuth(handleCreateProject(writeStore)))
 
 	r.Group(func(r chi.Router) {
 		r.Post("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit", handleSubmitReview(reviewService))
@@ -121,9 +121,12 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 
 	uiHandler := ui.Handler()
 	r.Get("/", uiHandler.ServeHTTP)
-	r.Get("/packages", uiHandler.ServeHTTP)
-	r.Get("/app.js", uiHandler.ServeHTTP)
-	r.Get("/styles.css", uiHandler.ServeHTTP)
+	r.Get("/search", uiHandler.ServeHTTP)
+	r.Get("/adoption", uiHandler.ServeHTTP)
+	r.Get("/upload", uiHandler.ServeHTTP)
+	r.Get("/reviews", uiHandler.ServeHTTP)
+	r.Get("/packages/{org}/{namespace}/{name}", uiHandler.ServeHTTP)
+	r.Get("/assets/*", uiHandler.ServeHTTP)
 
 	return r
 }

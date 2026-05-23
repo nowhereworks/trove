@@ -8,7 +8,7 @@ Current repo-wide command:
 go test ./...
 ```
 
-Current state: 192 tests across 17 packages.
+Current state: 196 tests across 17 packages.
 
 Future focused examples once packages exist:
 

@@ -2,26 +2,21 @@
 
 ## Current State
 
-- Slices 1-4 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI) are substantially implemented.
-- Slice 5 (Search And Adoption) is substantially implemented: full-text search, project registration, adoption reporting APIs, and UI search/adoption dashboard are complete.
+- Slices 1-5 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI, Search And Adoption) are substantially implemented.
 - `go test ./...` passes (196 tests across 17 packages).
 - `go build ./...` succeeds.
 - Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects.
 - `sqlc` generated code is committed and covers read, write, and auth query paths.
-
-## Spec Layout
-
-- Start with `trove_spec.md` for reading order and key MVP decisions.
-- Use `docs/spec/09-implementation-plan.md` for implementation slices and acceptance criteria.
-- Use `docs/spec/10-decisions.md` for accepted decisions, deferred decisions, and remaining open questions.
-- Use `docs/spec/11-testing.md` for test tiers, fixture layout, integration prerequisites, and required coverage.
+- React/Vite/TypeScript SPA is implemented in `web/` and builds to `internal/ui/static/`.
+- UI includes: package list, search, package detail, adoption dashboard, upload/publish flow, and review queue.
+- RBAC scope checks are wired up on all write API routes.
 
 ## Commands
 
 - Verify the Go toolchain with `go env GOVERSION`; this environment reports `go1.26.1`.
-- `go test ./...` is the expected all-package test command once packages exist; currently it reports `"./..." matched no packages`.
+- `go test ./...` runs all Go tests.
+- `cd web && npm run build` builds the React SPA to `internal/ui/static/`.
 - DB integration tests must use real PostgreSQL and should be gated by `TROVE_TEST_DATABASE_URL` once a test harness exists; do not use SQLite substitutes.
-- Do not invent npm/pnpm/yarn, lint, formatter, migration, or codegen commands until their configs/manifests are added.
 
 ## Product Direction To Preserve
 

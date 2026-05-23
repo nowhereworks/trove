@@ -1,0 +1,144 @@
+export interface PackageSummary {
+  org: string
+  namespace: string
+  name: string
+  displayName: string
+  description: string
+  latestVersion: string
+  stableVersion: string
+  visibility: string
+  lifecycle: string
+}
+
+export interface PackageDetail {
+  org: string
+  namespace: string
+  name: string
+  displayName: string
+  description: string
+  visibility: string
+  lifecycle: string
+  latestVersion: string
+  stableVersion: string
+  maintainers: { team?: string; user?: string }[]
+  labels: string[]
+  versions: { version: string; lifecycle: string; digest: string; publishedAt: string }[]
+}
+
+export interface ResolveResult {
+  org: string
+  namespace: string
+  package: string
+  selector: string
+  resolvedVersion: string
+  digest: string
+  manifestUrl: string
+  archiveUrl: string
+}
+
+export interface SearchResult {
+  items: PackageSummary[]
+  nextCursor: string | null
+}
+
+export interface ListPackagesResult {
+  items: PackageSummary[]
+  nextCursor: string | null
+}
+
+export interface AdoptionResult {
+  projectCount: number
+  versionCount: number
+  byVersion: { version: string; count: number }[]
+}
+
+export interface ManifestData {
+  metadata: {
+    org: string
+    namespace: string
+    name: string
+    displayName: string
+    description: string
+  }
+  spec: {
+    version: string
+    channel: string
+    visibility: string
+    lifecycle: string
+    artifacts: {
+      path: string
+      type: string
+      required: boolean
+      targetPath: string
+    }[]
+    maintainers: { team?: string; user?: string }[]
+    compatibility?: {
+      tools?: { name: string; version: string }[]
+      runtimes?: string[]
+      models?: { family: string; minContextWindow?: number }[]
+    }
+  }
+}
+
+export interface ReviewStatus {
+  versionId: string
+  status: string
+  approvals: number
+  requiredApprovals: number
+  hasEnoughApprovals: boolean
+  reviews: { id: string; action: string; comment: string; createdAt: string }[]
+}
+
+const API_BASE = '/api/v1'
+
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    ...init,
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => null)
+    throw new Error(body?.error?.message || `Request failed: ${res.status}`)
+  }
+  return res.json()
+}
+
+export const api = {
+  listPackages: (params?: { limit?: number; cursor?: string }) => {
+    const qs = new URLSearchParams()
+    if (params?.limit) qs.set('limit', String(params.limit))
+    if (params?.cursor) qs.set('cursor', params.cursor)
+    return request<ListPackagesResult>(`/packages?${qs}`)
+  },
+
+  getPackage: (org: string, namespace: string, name: string) =>
+    request<PackageDetail>(`/packages/${org}/${namespace}/${name}`),
+
+  resolve: (org: string, namespace: string, pkg: string, selector: string) =>
+    request<ResolveResult>(`/resolve/${org}/${namespace}/${pkg}@${selector}`),
+
+  search: (query: string, params?: { org?: string; namespace?: string; artifactType?: string; tool?: string; limit?: number }) => {
+    const qs = new URLSearchParams({ q: query })
+    if (params?.org) qs.set('org', params.org)
+    if (params?.namespace) qs.set('namespace', params.namespace)
+    if (params?.artifactType) qs.set('artifactType', params.artifactType)
+    if (params?.tool) qs.set('tool', params.tool)
+    if (params?.limit) qs.set('limit', String(params.limit))
+    return request<SearchResult>(`/search/packages?${qs}`)
+  },
+
+  getManifest: (org: string, namespace: string, name: string, version: string) =>
+    request<ManifestData>(`/packages/${org}/${namespace}/${name}/versions/${version}/manifest`),
+
+  getAdoption: (org: string, namespace: string, name: string) =>
+    request<AdoptionResult>(`/packages/${org}/${namespace}/${name}/adoption`),
+
+  getApprovalStatus: (org: string, namespace: string, name: string, version: string) =>
+    request<ReviewStatus>(`/reviews/${org}/${namespace}/${name}/versions/${version}/approval-status`),
+
+  getRawUrl: (org: string, namespace: string, name: string, version: string, path: string) =>
+    `/raw/${org}/${namespace}/${name}/${version}/${path}`,
+
+  getArchiveUrl: (org: string, namespace: string, name: string, version: string, format: 'tar.gz' | 'zip' = 'tar.gz') =>
+    `/api/v1/packages/${org}/${namespace}/${name}/versions/${version}/archive.${format}`,
+}

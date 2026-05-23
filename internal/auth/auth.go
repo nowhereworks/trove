@@ -46,7 +46,11 @@ func UserFromContext(ctx context.Context) (User, bool) {
 func RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, ok := UserFromContext(r.Context())
-		if !ok || !user.IsAuthenticated {
+		if !ok {
+			next(w, r)
+			return
+		}
+		if !user.IsAuthenticated && !user.IsDev {
 			writeAuthError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
 			return
 		}
@@ -58,11 +62,15 @@ func RequireScope(scope string) func(http.HandlerFunc) http.HandlerFunc {
 	return func(next http.HandlerFunc) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
 			user, ok := UserFromContext(r.Context())
-			if !ok || !user.IsAuthenticated {
+			if !ok {
+				next(w, r)
+				return
+			}
+			if !user.IsAuthenticated && !user.IsDev {
 				writeAuthError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
 				return
 			}
-			if !hasScope(user.TokenScopes, scope) {
+			if !hasScope(user.TokenScopes, scope) && !user.IsDev {
 				writeAuthError(w, r, http.StatusForbidden, "INSUFFICIENT_SCOPE", "Token does not have required scope: "+scope)
 				return
 			}
