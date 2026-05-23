@@ -1,6 +1,7 @@
 import { defineConfig } from 'vitepress'
 
 export default defineConfig({
+  base: '/trove/docs/',
   title: 'Trove',
   description: 'Concepts and Examples Guide',
   themeConfig: {
