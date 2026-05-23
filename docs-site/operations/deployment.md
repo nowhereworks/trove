@@ -132,6 +132,69 @@ The image release workflow publishes these tags:
 | `main` branch | `latest` |
 | `vMAJOR.MINOR.PATCH` tag | `latest`, `MAJOR.MINOR.PATCH`, `MAJOR.MINOR`, `MAJOR` |
 
+#### Deploy With Helm
+
+The Helm chart lives in `charts/trove/` and deploys only the Trove application. PostgreSQL is external and must already exist.
+
+Quick install with an external PostgreSQL URL:
+
+```bash
+helm install trove ./charts/trove \
+  --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
+  --set database.migrateOnStartup=true
+```
+
+Published chart releases are available from GitHub Container Registry:
+
+```bash
+helm install trove oci://ghcr.io/nowhereworks/charts/trove \
+  --version 0.1.0 \
+  --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
+  --set database.migrateOnStartup=true
+```
+
+The Helm chart version is stored in `charts/trove/Chart.yaml` as `version` and follows SemVer independently from Trove's application version. The chart's `appVersion` records the related Trove application version for display and tooling, but it does not need to match the chart version.
+
+Chart releases are immutable in GHCR. Bump `version` in `charts/trove/Chart.yaml` before publishing changed chart content.
+
+Use `database.migrateOnStartup=true` only for quick development-style installs. Production should run migrations explicitly before starting or rolling Trove pods.
+
+Prefer an existing Kubernetes Secret for database credentials:
+
+```bash
+kubectl create secret generic trove-database \
+  --from-literal=TROVE_DATABASE_URL='postgres://trove:trove@postgres.example:5432/trove?sslmode=require'
+
+helm install trove ./charts/trove \
+  --set database.existingSecret.name=trove-database
+```
+
+Enable Ingress when your cluster uses the Kubernetes Ingress API:
+
+```bash
+helm install trove ./charts/trove \
+  --set database.existingSecret.name=trove-database \
+  --set config.publicUrl=https://trove.nwks.com \
+  --set ingress.enabled=true \
+  --set ingress.className=nginx \
+  --set ingress.hosts[0].host=trove.nwks.com
+```
+
+Enable Gateway API when your cluster uses `HTTPRoute`:
+
+```bash
+helm install trove ./charts/trove \
+  --set database.existingSecret.name=trove-database \
+  --set config.publicUrl=https://trove.nwks.com \
+  --set gateway.enabled=true \
+  --set gateway.parentRefs[0].name=public-gateway \
+  --set gateway.hostnames[0]=trove.nwks.com
+```
+
+Leave both `ingress.enabled` and `gateway.enabled` disabled for internal-only deployments. Enable only one external routing option for a given release unless you intentionally want both resources.
+
+Before exposing Trove outside the cluster, configure OIDC with `auth.mode=oidc` and the `oidc.*` values, or set a non-default dev token for non-production testing.
+
 #### Run Migrations
 
 ```bash

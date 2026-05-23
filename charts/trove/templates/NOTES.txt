@@ -1,0 +1,18 @@
+Trove has been deployed.
+
+Service name:
+  {{ include "trove.fullname" . }}
+
+{{- if .Values.ingress.enabled }}
+Ingress is enabled. Configure DNS for the hosts in ingress.hosts.
+{{- else if .Values.gateway.enabled }}
+Gateway API is enabled. Configure DNS for the hostnames in gateway.hostnames.
+{{- else }}
+No external route is enabled. Port-forward to test the service:
+
+  kubectl port-forward svc/{{ include "trove.fullname" . }} 8080:{{ .Values.service.port }}
+
+Then open http://localhost:8080.
+{{- end }}
+
+PostgreSQL is external to this chart. Set database.url or database.existingSecret before using PostgreSQL-backed storage.

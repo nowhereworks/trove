@@ -1,0 +1,140 @@
+# Default values for Trove.
+# PostgreSQL is intentionally external; this chart does not install a database.
+
+replicaCount: 1
+
+image:
+  repository: nowhereworks/trove
+  tag: latest
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+podSecurityContext:
+  runAsUser: 10001
+  runAsGroup: 10001
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  runAsNonRoot: true
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+  annotations: {}
+
+config:
+  serverListen: ":8080"
+  publicUrl: ""
+  storageMode: postgres
+
+database:
+  url: ""
+  migrateOnStartup: false
+  existingSecret:
+    name: ""
+    key: TROVE_DATABASE_URL
+
+auth:
+  # Defaults favor quick internal installs. Configure OIDC before exposing Trove publicly.
+  mode: dev
+  devModeEnabled: true
+  devToken: ""
+  devTokenExistingSecret:
+    name: ""
+    key: TROVE_AUTH_DEV_TOKEN
+
+oidc:
+  issuerUrl: ""
+  clientId: ""
+  clientSecret: ""
+  clientSecretExistingSecret:
+    name: ""
+    key: TROVE_OIDC_CLIENT_SECRET
+  redirectUrl: ""
+
+raw:
+  requireAuthByDefault: true
+  allowPublicNamespaces: true
+  allowPublicPackages: true
+
+reviews:
+  requireApproval: true
+  minimumApprovals: 1
+  allowSelfApproval: false
+
+security:
+  secretScanning: true
+  unsafeInstructionScanning: true
+
+storage:
+  limits:
+    maxArtifactFileBytes: 10485760
+    maxUnpackedPackageBytes: 104857600
+    maxArtifactsPerVersion: 1000
+
+# Enable either ingress or gateway for external access. Leave both disabled for
+# internal-only quick deployments.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: trove.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+gateway:
+  enabled: false
+  annotations: {}
+  parentRefs: []
+  hostnames: []
+  sectionName: ""
+
+livenessProbe:
+  enabled: true
+  path: /healthz
+  initialDelaySeconds: 5
+  periodSeconds: 10
+  timeoutSeconds: 1
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  path: /readyz
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 1
+  failureThreshold: 3
+
+resources: {}
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+
+extraEnv: []
+extraEnvFrom: []

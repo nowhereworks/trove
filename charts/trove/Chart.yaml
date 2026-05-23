@@ -1,0 +1,12 @@
+apiVersion: v2
+name: trove
+description: A Helm chart for deploying Trove with an external PostgreSQL database
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/nowhereworks/trove
+sources:
+  - https://github.com/nowhereworks/trove
+maintainers:
+  - name: Nowhereworks
+    url: https://github.com/nowhereworks

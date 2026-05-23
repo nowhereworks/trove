@@ -143,6 +143,18 @@ Image tags are published by the release workflow as follows:
 
 Use an exact version tag in production instead of `latest`.
 
+## Deploy With Helm
+
+The Helm chart in `charts/trove/` deploys Trove with PostgreSQL configured as an external dependency:
+
+```bash
+helm install trove ./charts/trove \
+  --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
+  --set database.migrateOnStartup=true
+```
+
+The chart supports both Kubernetes Ingress and Gateway API `HTTPRoute` resources through `values.yaml`. See the [deployment docs](https://nowhereworks.github.io/trove/docs/operations/deployment.html) for production-oriented examples with existing Secrets.
+
 ## Development
 
 Prerequisites:

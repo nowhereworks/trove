@@ -1,0 +1,179 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "trove.fullname" . }}
+  labels:
+    {{- include "trove.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "trove.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "trove.selectorLabels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "trove.serviceAccountName" . }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: TROVE_SERVER_LISTEN
+              value: {{ .Values.config.serverListen | quote }}
+            {{- with .Values.config.publicUrl }}
+            - name: TROVE_PUBLIC_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.database.existingSecret.name }}
+            - name: TROVE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.database.existingSecret.name | quote }}
+                  key: {{ .Values.database.existingSecret.key | quote }}
+            {{- else if .Values.database.url }}
+            - name: TROVE_DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "trove.secretName" . }}
+                  key: TROVE_DATABASE_URL
+            {{- end }}
+            - name: TROVE_DATABASE_MIGRATE_ON_STARTUP
+              value: {{ .Values.database.migrateOnStartup | toString | quote }}
+            - name: TROVE_AUTH_MODE
+              value: {{ .Values.auth.mode | quote }}
+            - name: TROVE_AUTH_DEV_MODE_ENABLED
+              value: {{ .Values.auth.devModeEnabled | toString | quote }}
+            {{- if .Values.auth.devTokenExistingSecret.name }}
+            - name: TROVE_AUTH_DEV_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.auth.devTokenExistingSecret.name | quote }}
+                  key: {{ .Values.auth.devTokenExistingSecret.key | quote }}
+            {{- else if .Values.auth.devToken }}
+            - name: TROVE_AUTH_DEV_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "trove.secretName" . }}
+                  key: TROVE_AUTH_DEV_TOKEN
+            {{- end }}
+            {{- with .Values.oidc.issuerUrl }}
+            - name: TROVE_OIDC_ISSUER_URL
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.oidc.clientId }}
+            - name: TROVE_OIDC_CLIENT_ID
+              value: {{ . | quote }}
+            {{- end }}
+            {{- if .Values.oidc.clientSecretExistingSecret.name }}
+            - name: TROVE_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.oidc.clientSecretExistingSecret.name | quote }}
+                  key: {{ .Values.oidc.clientSecretExistingSecret.key | quote }}
+            {{- else if .Values.oidc.clientSecret }}
+            - name: TROVE_OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "trove.secretName" . }}
+                  key: TROVE_OIDC_CLIENT_SECRET
+            {{- end }}
+            {{- with .Values.oidc.redirectUrl }}
+            - name: TROVE_OIDC_REDIRECT_URL
+              value: {{ . | quote }}
+            {{- end }}
+            - name: TROVE_STORAGE_MODE
+              value: {{ .Values.config.storageMode | quote }}
+            - name: TROVE_RAW_REQUIRE_AUTH_BY_DEFAULT
+              value: {{ .Values.raw.requireAuthByDefault | toString | quote }}
+            - name: TROVE_RAW_ALLOW_PUBLIC_NAMESPACES
+              value: {{ .Values.raw.allowPublicNamespaces | toString | quote }}
+            - name: TROVE_RAW_ALLOW_PUBLIC_PACKAGES
+              value: {{ .Values.raw.allowPublicPackages | toString | quote }}
+            - name: TROVE_REVIEWS_REQUIRE_APPROVAL
+              value: {{ .Values.reviews.requireApproval | toString | quote }}
+            - name: TROVE_REVIEWS_MINIMUM_APPROVALS
+              value: {{ .Values.reviews.minimumApprovals | toString | quote }}
+            - name: TROVE_REVIEWS_ALLOW_SELF_APPROVAL
+              value: {{ .Values.reviews.allowSelfApproval | toString | quote }}
+            - name: TROVE_SECURITY_SECRET_SCANNING
+              value: {{ .Values.security.secretScanning | toString | quote }}
+            - name: TROVE_SECURITY_UNSAFE_INSTRUCTION_SCANNING
+              value: {{ .Values.security.unsafeInstructionScanning | toString | quote }}
+            - name: TROVE_STORAGE_MAX_ARTIFACT_FILE_BYTES
+              value: {{ .Values.storage.limits.maxArtifactFileBytes | toString | quote }}
+            - name: TROVE_STORAGE_MAX_UNPACKED_PACKAGE_BYTES
+              value: {{ .Values.storage.limits.maxUnpackedPackageBytes | toString | quote }}
+            - name: TROVE_STORAGE_MAX_ARTIFACTS_PER_VERSION
+              value: {{ .Values.storage.limits.maxArtifactsPerVersion | toString | quote }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- with .Values.extraEnvFrom }}
+          envFrom:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.livenessProbe.enabled }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.livenessProbe.path | quote }}
+              port: http
+            initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          {{- end }}
+          {{- if .Values.readinessProbe.enabled }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.readinessProbe.path | quote }}
+              port: http
+            initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+            timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+            failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          {{- end }}
+          {{- with .Values.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
