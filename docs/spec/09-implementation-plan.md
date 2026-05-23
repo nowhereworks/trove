@@ -20,11 +20,13 @@ trove/
   internal/ui/
   migrations/
   sqlc.yaml
+  docs/
+    trove_spec.md
+    spec/
   web/
     package.json
     vite.config.ts
     src/
-  docs/spec/
   examples/
 ```
 
