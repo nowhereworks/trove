@@ -1,5 +1,11 @@
 # What is Trove?
 
+::: warning Pre-v1.0 Software
+Trove is pre-v1.0 software. It is highly unstable and subject to heavy changes, including additions, removals, and breaking changes to functionality.
+
+The API contract is not guaranteed at this stage. Use at your own risk.
+:::
+
 ## Why
 
 Agent tooling has a discovery and governance problem. Teams write `AGENTS.md` files, reusable skills, command definitions, prompts, and review rubrics — but there is no central place to publish, version, review, and distribute them. Files get duplicated across repos, drift out of sync, and no one knows who is using which version.

@@ -6,6 +6,12 @@ hero:
   tagline: A curated registry for agent-consumable engineering artifacts. Browse, publish, and manage AGENTS.md files, skills, commands, prompts, and more.
 ---
 
+::: warning Pre-v1.0 Software
+Trove is pre-v1.0 software. It is highly unstable and subject to heavy changes, including additions, removals, and breaking changes to functionality.
+
+The API contract is not guaranteed at this stage. Use at your own risk.
+:::
+
 <script setup>
 import { ref } from 'vue'
 import { withBase } from 'vitepress'
