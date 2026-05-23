@@ -3,6 +3,8 @@ name: Release CLI
 on:
   push:
     branches: [main]
+    tags:
+      - 'v*'
     paths:
       - '.github/workflows/release-cli.yml'
       - 'cmd/trove/**'
@@ -97,18 +99,45 @@ jobs:
         run: |
           set -euo pipefail
           cd dist
-          sha256sum * > checksums.txt
+          sha256sum -- * > checksums.txt
 
-      - name: Publish release
+      - name: Remove previous rolling release
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release delete latest --cleanup-tag --yes || true
+          gh api --method DELETE "repos/${GITHUB_REPOSITORY}/git/refs/tags/latest" || true
+
+      - name: Publish rolling release
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: trove-cli-${{ github.sha }}
+          tag_name: latest
           target_commitish: ${{ github.sha }}
-          name: Trove CLI ${{ github.sha }}
+          name: Trove CLI latest
           body: |
-            Automated Trove CLI build from `${{ github.sha }}` on `main`.
+            Rolling Trove CLI build from `${{ github.sha }}` on `main`.
 
-            This prerelease is published when CLI-related files change.
+            This prerelease is replaced when CLI-related files change on `main`.
           prerelease: true
           make_latest: false
+          fail_on_unmatched_files: true
+          files: dist/*
+
+      - name: Publish tagged release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          target_commitish: ${{ github.sha }}
+          name: Trove CLI ${{ github.ref_name }}
+          body: |
+            Trove CLI release `${{ github.ref_name }}`.
+
+            Built from `${{ github.sha }}`.
+          prerelease: false
+          make_latest: true
+          fail_on_unmatched_files: true
           files: dist/*

@@ -92,9 +92,14 @@ go build -o trove ./cmd/trove
 
 #### Published CLI Builds
 
-Trove publishes prerelease CLI binaries to GitHub Releases when CLI-related files change on `main`.
+Trove publishes CLI binaries to GitHub Releases for rolling and tagged releases.
 
-The release workflow builds `trove` for Linux, macOS, and Windows on `amd64` and `arm64`, then uploads the archives plus `checksums.txt` to a release tagged with the source commit SHA.
+The release workflow builds `trove` for Linux, macOS, and Windows on `amd64` and `arm64`, then uploads the archives plus `checksums.txt`.
+
+| Source | GitHub Release |
+|---|---|
+| `main` branch | Rolling prerelease tagged `latest`; replaced when CLI-related files change |
+| `vMAJOR.MINOR.PATCH` tag | Immutable release tagged `vMAJOR.MINOR.PATCH` |
 
 #### Container Image
 
@@ -124,8 +129,8 @@ The image release workflow publishes these tags:
 
 | Source | Tags |
 |---|---|
-| `main` branch | `edge`, `main`, `sha-<commit>` |
-| `vMAJOR.MINOR.PATCH` tag | `vMAJOR.MINOR.PATCH`, `MAJOR.MINOR.PATCH`, `MAJOR.MINOR`, `MAJOR`, `latest` |
+| `main` branch | `latest` |
+| `vMAJOR.MINOR.PATCH` tag | `latest`, `MAJOR.MINOR.PATCH`, `MAJOR.MINOR`, `MAJOR` |
 
 #### Run Migrations
 
