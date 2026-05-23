@@ -90,6 +90,12 @@ cd web && npm install && npm run build && cd ..
 go build -o trove ./cmd/trove
 ```
 
+#### Published CLI Builds
+
+Trove publishes prerelease CLI binaries to GitHub Releases when CLI-related files change on `main`.
+
+The release workflow builds `trove` for Linux, macOS, and Windows on `amd64` and `arm64`, then uploads the archives plus `checksums.txt` to a release tagged with the source commit SHA.
+
 #### Run Migrations
 
 ```bash

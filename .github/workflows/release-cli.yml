@@ -1,0 +1,114 @@
+name: Release CLI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/release-cli.yml'
+      - 'cmd/trove/**'
+      - 'internal/cli/**'
+      - 'internal/lockfile/**'
+      - 'internal/manifest/**'
+      - 'go.mod'
+      - 'go.sum'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.goos }} ${{ matrix.goarch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            archive: tar.gz
+          - goos: linux
+            goarch: arm64
+            archive: tar.gz
+          - goos: darwin
+            goarch: amd64
+            archive: tar.gz
+          - goos: darwin
+            goarch: arm64
+            archive: tar.gz
+          - goos: windows
+            goarch: amd64
+            archive: zip
+          - goos: windows
+            goarch: arm64
+            archive: zip
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Test CLI packages
+        run: go test ./cmd/trove ./internal/cli ./internal/lockfile ./internal/manifest
+
+      - name: Build archive
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: '0'
+        run: |
+          set -euo pipefail
+
+          binary=trove
+          if [ "$GOOS" = "windows" ]; then
+            binary=trove.exe
+          fi
+
+          artifact="trove-cli-${GOOS}-${GOARCH}"
+          mkdir -p build dist
+          go build -trimpath -o "build/${binary}" ./cmd/trove
+
+          if [ "${{ matrix.archive }}" = "zip" ]; then
+            (cd build && zip "../dist/${artifact}.zip" "${binary}")
+          else
+            tar -C build -czf "dist/${artifact}.tar.gz" "${binary}"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: trove-cli-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub Release
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum * > checksums.txt
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: trove-cli-${{ github.sha }}
+          target_commitish: ${{ github.sha }}
+          name: Trove CLI ${{ github.sha }}
+          body: |
+            Automated Trove CLI build from `${{ github.sha }}` on `main`.
+
+            This prerelease is published when CLI-related files change.
+          prerelease: true
+          make_latest: false
+          files: dist/*
