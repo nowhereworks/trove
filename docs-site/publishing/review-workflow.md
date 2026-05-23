@@ -1,0 +1,138 @@
+# Review Workflow
+
+## Why
+
+Before a package version reaches consumers, it needs human review. A maintainer might accidentally include a secret, write incorrect instructions, or miss an important skill. The review workflow ensures that at least one other person validates the content before it becomes immutable and published.
+
+## How
+
+### Review Lifecycle
+
+```
+draft → submit → automated checks → human review → approved → published
+```
+
+### Roles
+
+| Role | Can | Cannot |
+|---|---|---|
+| **Maintainer** | Create drafts, upload artifacts, submit for review, publish | Approve their own submissions |
+| **Reviewer** | Approve or request changes, add comments | Publish versions |
+
+### Step 1: Submit for Review
+
+After uploading all artifacts and confirming the manifest validates:
+
+```bash
+POST /api/v1/reviews/nwks/platform/agent-backend/versions/1.0.0/submit
+Authorization: Bearer <token-with-review:write>
+```
+
+The version transitions from `draft` to `review`.
+
+### Step 2: Automated Checks
+
+Immediately after submission, the system runs:
+
+**Blocking checks** (must pass before approval):
+
+- Manifest schema validation
+- Route/version consistency
+- Artifact path validation
+- Size limit enforcement
+- Required metadata checks
+- High-confidence secret scanning
+- High-risk unsafe instruction scanning
+
+**Warning checks** (advisory, don't block):
+
+- Broken external links
+- Markdown linting
+- Missing or unknown compatibility metadata
+
+### Step 3: Human Review
+
+A reviewer opens the submitted version and sees:
+
+- Full manifest content
+- Artifact file list with sizes and types
+- Automated check results (pass/fail/warning)
+- Markdown-rendered artifact previews
+- Review history and comments
+
+The reviewer can:
+
+**Approve:**
+
+```bash
+POST /api/v1/reviews/{reviewId}/approve
+{
+  "comment": "Manifest looks correct, all artifacts present."
+}
+```
+
+**Request changes:**
+
+```bash
+POST /api/v1/reviews/{reviewId}/request-changes
+{
+  "comment": "The AGENTS.md references a skill that doesn't exist in the package."
+}
+```
+
+Requesting changes returns the version to `draft`. The maintainer must fix the issues and resubmit.
+
+### Step 4: Publish
+
+After at least one approval, the maintainer publishes:
+
+```bash
+POST /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/publish
+Authorization: Bearer <token-with-version:publish>
+```
+
+Publishing:
+
+- Computes the package digest
+- Locks all artifact blobs
+- Updates the `stable` channel pointer
+- Writes an audit event
+- Emits a webhook (if configured)
+
+### Key Rules
+
+| Rule | Description |
+|---|---|
+| **Self-approval blocked** | The same actor cannot approve their own submission |
+| **One approval required** | MVP requires at least one human approval before publish |
+| **Content changes reset reviews** | Modifying a submitted version returns it to draft and invalidates approvals |
+| **Approved content is locked** | Once approved, content cannot change without returning to draft |
+| **Reviewer ≠ publisher** | The reviewer approves; the maintainer decides when to publish |
+
+### Review Comments
+
+MVP review comments are simple, version-level comments attached to review decisions:
+
+```bash
+POST /api/v1/reviews/{reviewId}/comments
+{
+  "body": "Consider adding a context-pack for the database schema."
+}
+```
+
+Threaded comments and line-level artifact comments are deferred.
+
+### Viewing Reviews
+
+```bash
+# List all reviews for a version
+GET /api/v1/reviews/nwks/platform/agent-backend/versions/1.0.0
+
+# Get approval status
+GET /api/v1/reviews/nwks/platform/agent-backend/versions/1.0.0/approval-status
+```
+
+### Next Steps
+
+- Learn about [Security Scanning](/publishing/security-scanning) that runs during review
+- See the full [Upload & Publish Flow](/publishing/upload-publish-flow)

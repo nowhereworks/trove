@@ -1,0 +1,196 @@
+# Deployment
+
+## Why
+
+Trove is designed to be simple to deploy: a single Go binary and a PostgreSQL database. No external dependencies, no complex orchestration. This page covers how to run Trove in development and production.
+
+## How
+
+### Architecture
+
+```
+┌─────────────────────────┐
+│     Go Single Binary     │
+│  ┌────────────────────┐  │
+│  │   JSON APIs         │  │
+│  │   Raw Endpoints     │  │
+│  │   Embedded SPA UI   │  │
+│  │   Health / Metrics  │  │
+│  │   CLI               │  │
+│  └────────────────────┘  │
+└──────────┬───────────────┘
+           │
+┌──────────▼───────────────┐
+│      PostgreSQL           │
+│  Metadata + Blob Storage  │
+└──────────────────────────┘
+```
+
+### Development Setup
+
+#### Prerequisites
+
+- Go 1.26+
+- PostgreSQL 15+
+- Node.js 20+ (for building the UI)
+
+#### Quick Start
+
+```bash
+# 1. Start PostgreSQL
+docker run -d --name trove-postgres \
+  -e POSTGRES_USER=trove \
+  -e POSTGRES_PASSWORD=trove \
+  -e POSTGRES_DB=trove \
+  -p 5432:5432 \
+  postgres:16
+
+# 2. Run migrations
+export TROVE_DATABASE_URL="postgres://trove:trove@localhost:5432/trove?sslmode=disable"
+
+# 3. Build the UI
+cd web && npm install && npm run build && cd ..
+
+# 4. Run the server (with dev auth mode)
+go run cmd/trove/main.go --config config.dev.yaml
+```
+
+#### Dev Configuration
+
+```yaml
+# config.dev.yaml
+server:
+  listen: ":8080"
+  publicUrl: "http://localhost:8080"
+
+database:
+  url: "postgres://trove:trove@localhost:5432/trove?sslmode=disable"
+  migrateOnStartup: true
+
+auth:
+  mode: dev
+  devModeEnabled: true
+
+raw:
+  requireAuthByDefault: false
+
+reviews:
+  requireApproval: false
+```
+
+### Production Deployment
+
+#### Build the Binary
+
+```bash
+# Build the UI first
+cd web && npm install && npm run build && cd ..
+
+# Build the Go binary
+go build -o trove ./cmd/trove
+```
+
+#### Run Migrations
+
+```bash
+# Run migrations explicitly (not on startup)
+trove migrate --database-url "$DATABASE_URL"
+```
+
+#### Start the Server
+
+```bash
+./trove --config /etc/trove/config.yaml
+```
+
+#### Production Configuration
+
+```yaml
+server:
+  listen: ":8080"
+  publicUrl: "https://trove.nwks.com"
+
+database:
+  url: "${DATABASE_URL}"
+  migrateOnStartup: false
+
+auth:
+  mode: oidc
+  oidc:
+    issuerUrl: "${OIDC_ISSUER_URL}"
+    clientId: "${OIDC_CLIENT_ID}"
+    clientSecretRef: "TROVE_OIDC_CLIENT_SECRET"
+    redirectUrl: "https://trove.nwks.com/auth/oidc/callback"
+
+storage:
+  mode: postgres
+  limits:
+    maxArtifactFileBytes: 10485760
+    maxUnpackedPackageBytes: 104857600
+    maxArtifactsPerVersion: 1000
+
+raw:
+  requireAuthByDefault: true
+  allowPublicNamespaces: true
+  allowPublicPackages: true
+
+reviews:
+  requireApproval: true
+  minimumApprovals: 1
+  allowSelfApproval: false
+
+security:
+  secretScanning: true
+  unsafeInstructionScanning: true
+```
+
+### Health Endpoints
+
+| Path | Purpose | Response |
+|---|---|---|
+| `/healthz` | Process liveness | `{"status": "ok"}` |
+| `/readyz` | Database-backed readiness | `{"status": "ok"}` or 503 |
+
+Use these for Kubernetes health probes or load balancer checks:
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: 8080
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: 8080
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
+
+### Metrics
+
+The `/metrics` endpoint exposes Prometheus-compatible metrics:
+
+- API request count, duration, and status
+- Raw artifact request count, duration, and status
+- Publish attempts and failures
+- Validation failures by reason
+- Auth failures
+- Update check count
+
+### Migration Strategy
+
+| Environment | Migration Approach |
+|---|---|
+| Development | `migrateOnStartup: true` — runs on server start |
+| Production | Explicit `trove migrate` command before starting servers |
+| CI/Tests | `migrateOnStartup: true` in test containers |
+
+Down migrations are provided for local development when safe. Production rollbacks are an operational decision.
+
+### Next Steps
+
+- See [Configuration](/operations/configuration) for all config options
+- Learn about [Compatibility](/operations/compatibility) rules

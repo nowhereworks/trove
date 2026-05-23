@@ -72,3 +72,49 @@
 - Preserve durable user instructions or project facts in `AGENTS.md` or another discoverable Markdown file when asked to persist them.
 - Keep `AGENTS.md` up to date, but make the smallest accurate edit instead of rewriting unrelated guidance.
 - Before publishing or approval workflows are implemented, keep blocking checks in mind: manifest validation, route/version consistency, path validation, size limits, required metadata, secret scanning, and high-risk unsafe-instruction scanning.
+
+## Documentation
+
+User-facing docs live in `docs-site/` (VitePress static site). Keep docs synchronized with implementation.
+
+### Rule: Feature Change → Docs Update
+
+When adding, modifying, or removing a feature, update the matching docs page:
+
+| Feature area | Docs page(s) to update |
+|---|---|
+| New API endpoint | `api/public-apis.md` or `api/management-apis.md` |
+| API response shape change | Matching page under `api/` |
+| New CLI command or flag | Matching page under `cli/` |
+| CLI output format change | Matching page under `cli/` |
+| New config option | `operations/configuration.md` |
+| New artifact type | `concepts/artifact-types.md` |
+| New lifecycle state | `concepts/lifecycle-states.md` |
+| New visibility rule | `concepts/visibility.md` |
+| New auth mode or scope | `security/authentication.md` or `security/rbac-scopes.md` |
+| New review/approval behavior | `publishing/review-workflow.md` |
+| New security scan pattern | `publishing/security-scanning.md` |
+| New manifest field or validation rule | `publishing/manifests.md` |
+| New search filter or behavior | `discovery/search.md` |
+| New adoption metric | `discovery/adoption-dashboard.md` |
+| New migration or schema change | `operations/deployment.md` |
+| New compatibility rule | `operations/compatibility.md` |
+
+### Rule: New Feature → New Docs Page
+
+When implementing a feature that has no matching docs page:
+
+1. Create the page under the appropriate `docs-site/` subdirectory
+2. Follow the Why → How → Reference → Next pattern
+3. Use `nwks` org in all examples (e.g., `nwks/platform/agent-backend@stable`)
+4. Add the page to the sidebar in `.vitepress/config.ts`
+5. Link to it from the landing page `docs-site/index.md`
+6. Add a row to the feature-to-page mapping table above
+
+### Documentation Standards
+
+- Tutorial-first: explain the problem (Why), then step-by-step usage (How), then reference tables
+- Use `nwks` (Nowhereworks) as the fictional org in all examples
+- Document only what is implemented; do not document deferred features
+- Keep examples copy-paste runnable where possible
+- Reference tables should include: fields, types, required/optional, defaults, and descriptions
