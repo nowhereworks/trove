@@ -78,6 +78,7 @@ const categories = ref([
     items: [
       { title: 'Configuration', desc: 'Full config reference for server, auth, storage, and more.', link: withBase('/operations/configuration') },
       { title: 'Deployment', desc: 'Single binary + PostgreSQL, migrations, and health checks.', link: withBase('/operations/deployment') },
+      { title: 'Helm Chart', desc: 'Install from GHCR and configure Kubernetes values.', link: withBase('/operations/helm-chart') },
       { title: 'Compatibility', desc: 'Tool, model, and runtime compatibility rules.', link: withBase('/operations/compatibility') },
     ],
   },

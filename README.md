@@ -13,6 +13,7 @@ It runs as a single Go binary that serves JSON APIs, raw artifact endpoints, hea
 - Docs: [nowhereworks.github.io/trove/docs](https://nowhereworks.github.io/trove/docs/)
 - Releases: [github.com/nowhereworks/trove/releases](https://github.com/nowhereworks/trove/releases)
 - Container image: [nowhereworks/trove](https://hub.docker.com/r/nowhereworks/trove)
+- Helm chart: `oci://ghcr.io/nowhereworks/charts/trove`
 
 ## What Trove Provides
 
@@ -145,7 +146,16 @@ Use an exact version tag in production instead of `latest`.
 
 ## Deploy With Helm
 
-The Helm chart in `charts/trove/` deploys Trove with PostgreSQL configured as an external dependency:
+The Helm chart deploys Trove with PostgreSQL configured as an external dependency. Use the GHCR-published OCI chart for normal installs:
+
+```bash
+helm install trove oci://ghcr.io/nowhereworks/charts/trove \
+  --version 0.1.0 \
+  --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
+  --set database.migrateOnStartup=true
+```
+
+Use the local chart while developing chart changes:
 
 ```bash
 helm install trove ./charts/trove \
@@ -153,7 +163,22 @@ helm install trove ./charts/trove \
   --set database.migrateOnStartup=true
 ```
 
-The chart supports both Kubernetes Ingress and Gateway API `HTTPRoute` resources through `values.yaml`. See the [deployment docs](https://nowhereworks.github.io/trove/docs/operations/deployment.html) for production-oriented examples with existing Secrets.
+Production installs should use existing Kubernetes Secrets for credentials and set `database.migrateOnStartup=false`. The chart supports both Kubernetes Ingress and Gateway API `HTTPRoute` resources through `values.yaml`.
+
+Common values:
+
+| Value | Purpose |
+|---|---|
+| `image.repository`, `image.tag` | Trove container image and version |
+| `database.url` | Inline PostgreSQL URL for quick installs |
+| `database.existingSecret.name`, `database.existingSecret.key` | Existing Secret containing `TROVE_DATABASE_URL` |
+| `auth.mode`, `auth.devModeEnabled` | Auth mode selection |
+| `oidc.*` | OIDC issuer, client, secret, and redirect settings |
+| `ingress.*` | Kubernetes Ingress routing |
+| `gateway.*` | Gateway API `HTTPRoute` routing |
+| `resources`, `nodeSelector`, `tolerations`, `affinity` | Pod sizing and scheduling |
+
+See the [Helm chart docs](https://nowhereworks.github.io/trove/docs/operations/helm-chart.html) for GHCR usage, upgrade examples, production values files, and the full `values.yaml` reference.
 
 ## Development
 
