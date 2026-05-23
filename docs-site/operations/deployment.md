@@ -96,6 +96,37 @@ Trove publishes prerelease CLI binaries to GitHub Releases when CLI-related file
 
 The release workflow builds `trove` for Linux, macOS, and Windows on `amd64` and `arm64`, then uploads the archives plus `checksums.txt` to a release tagged with the source commit SHA.
 
+#### Container Image
+
+Trove publishes a multi-architecture Docker Hub image for `linux/amd64` and `linux/arm64`:
+
+```bash
+docker pull nowhereworks/trove:latest
+```
+
+Run the image with PostgreSQL-backed storage:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e TROVE_SERVER_LISTEN=:8080 \
+  -e TROVE_DATABASE_URL="postgres://trove:trove@host.docker.internal:5432/trove?sslmode=disable" \
+  -e TROVE_DATABASE_MIGRATE_ON_STARTUP=false \
+  nowhereworks/trove:latest
+```
+
+Use an exact version tag in production rather than `latest`:
+
+```bash
+docker pull nowhereworks/trove:0.1.0
+```
+
+The image release workflow publishes these tags:
+
+| Source | Tags |
+|---|---|
+| `main` branch | `edge`, `main`, `sha-<commit>` |
+| `vMAJOR.MINOR.PATCH` tag | `vMAJOR.MINOR.PATCH`, `MAJOR.MINOR.PATCH`, `MAJOR.MINOR`, `MAJOR`, `latest` |
+
 #### Run Migrations
 
 ```bash
