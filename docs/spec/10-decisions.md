@@ -78,6 +78,7 @@
 | Return resource JSON from write endpoints | Accepted | Avoids extra client GETs after create or state transitions |
 | Include `X-Request-Id` on every API response | Accepted | Improves tracing for success and error cases |
 | Keep `package@selector` route segments | Accepted | Preserves ergonomic registry-like references |
+| Use trailing `@selector` raw artifact URLs | Accepted | Matches GitHub Actions ergonomics for file references and keeps selector syntax close to the fetched resource |
 | Registry does not directly edit downstream repos by default | Accepted | Repo changes should happen through CLI, CI, Backstage, or agent proposal workflows |
 
 ## Deferred Decisions

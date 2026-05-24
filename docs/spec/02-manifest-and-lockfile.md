@@ -128,6 +128,7 @@ Rules:
 - Paths use `/` separators.
 - Paths must not be absolute.
 - Paths must not contain `..` segments.
+- Paths must not contain `@`; raw artifact URLs reserve `@` for selectors.
 - Paths must not point outside the package archive.
 
 If an artifact omits `targetPath`, the install target defaults to the artifact `path`.

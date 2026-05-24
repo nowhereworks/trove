@@ -23,6 +23,14 @@ Registry-style package references stay in one route segment where applicable:
 
 Handlers parse the final path segment into `{package}` and `{selector}`. The selector separator is the last `@` in that segment. Package slugs cannot contain `@`.
 
+Raw artifact URLs use the trailing selector syntax defined in [`12-command-semantics.md`](12-command-semantics.md):
+
+```text
+/raw/{org}/{namespace}/{package}/{artifactPath...}[@selector]
+```
+
+If the selector is omitted, raw artifact URLs resolve `stable`.
+
 ## Authentication
 
 Supported MVP authentication modes:
@@ -48,8 +56,9 @@ Anonymous users may read public package metadata, manifests, archives, raw artif
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest` | visibility-dependent | Get the package manifest |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz` | visibility-dependent | Download package archive |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip` | visibility-dependent | Download package archive |
-| `GET` | `/raw/{org}/{namespace}/{package}/{version}/{path...}` | visibility-dependent | Fetch one immutable artifact file |
-| `GET` | `/raw/{org}/{namespace}/{package}/{selector}/{path...}` | visibility-dependent | Resolve selector, then redirect or serve exact file |
+| `GET` | `/raw/{org}/{namespace}/{package}/{path...}@{version}` | visibility-dependent | Fetch one immutable artifact file |
+| `GET` | `/raw/{org}/{namespace}/{package}/{path...}@{selector}` | visibility-dependent | Resolve selector, then redirect to exact file |
+| `GET` | `/raw/{org}/{namespace}/{package}/{path...}` | visibility-dependent | Resolve omitted selector as `stable`, then redirect to exact file |
 | `POST` | `/api/v1/updates/check` | token/session | Check for newer compatible releases |
 | `POST` | `/api/v1/projects/report` | token/session | Report project lockfile/adoption summary |
 | `POST` | `/api/v1/compatibility/check` | token/session | Check if a package is compatible with a target |
@@ -131,6 +140,8 @@ For aliases:
 - include `Cache-Control: no-cache` for alias responses
 
 Alias raw URLs must not serve artifact bytes directly in the MVP. Redirecting keeps caching and debugging behavior explicit.
+
+Artifact paths must not contain `@` because `@` is reserved for raw URL selectors.
 
 ## Archive Behavior
 

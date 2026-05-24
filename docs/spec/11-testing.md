@@ -128,7 +128,8 @@ Do not store real tokens, private URLs, or customer/project names in fixtures.
 - Commands default to human-readable text output.
 - Structured commands support `--json`.
 - `resolve` prints exact version and digest.
-- `fetch` can write to stdout or a target path.
+- `download` can write to stdout or a target path.
+- `fetch`, if retained, behaves as a compatibility alias for `download`.
 - `install` installs required artifacts by default.
 - Optional artifacts require explicit selection.
 - `install` fails instead of overwriting a different existing target file unless overwrite is explicit.

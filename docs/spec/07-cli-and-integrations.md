@@ -2,13 +2,13 @@
 
 ## MVP CLI Prototype
 
-The MVP includes a small CLI prototype for agent and CI flows.
+The MVP includes a small CLI prototype for agent and CI flows. Trove-wide command naming, selector defaults, raw URL behavior, and worktree semantics are defined in [`12-command-semantics.md`](12-command-semantics.md).
 
 Initial commands:
 
 ```bash
 trove resolve companyx/platform/agent-backend@stable
-trove fetch companyx/platform/agent-backend@stable AGENTS.md
+trove download companyx/platform/agent-backend@stable AGENTS.md
 trove install companyx/platform/agent-backend@stable --target .
 trove check --lock .trove.lock.yaml
 trove update --lock .trove.lock.yaml
@@ -20,7 +20,8 @@ The CLI can be implemented inside the Go binary as subcommands or as a separate 
 ## CLI Behavior
 
 - `resolve` calls the resolve API and prints the exact version and digest.
-- `fetch` downloads one artifact to stdout or a target path.
+- `download` downloads one artifact to stdout or a target path.
+- `fetch` may remain as an MVP compatibility alias for `download`.
 - `install` downloads required artifacts by default and writes `.trove.lock.yaml`.
 - `check` reads `.trove.lock.yaml` and calls the update check API.
 - `update` shows available updates and diffs without writing files.

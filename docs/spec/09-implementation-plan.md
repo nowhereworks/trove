@@ -103,7 +103,7 @@ Goal: make installed packages maintainable.
 2. Add update check API.
 3. Add compatibility checks.
 4. Add `trove resolve`.
-5. Add `trove fetch`.
+5. Add `trove download` with `trove fetch` as an MVP compatibility alias if needed.
 6. Add `trove install`.
 7. Add `trove check`.
 8. Add dry-run-by-default `trove update` and explicit `trove update --apply`.

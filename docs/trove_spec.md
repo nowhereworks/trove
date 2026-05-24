@@ -18,6 +18,7 @@ The monolithic product spec has been split into focused implementation documents
 10. [`spec/09-implementation-plan.md`](spec/09-implementation-plan.md) defines the target repo structure, vertical slices, and acceptance criteria.
 11. [`spec/10-decisions.md`](spec/10-decisions.md) records accepted decisions, deferred decisions, and remaining open questions.
 12. [`spec/11-testing.md`](spec/11-testing.md) defines test tiers, fixtures, commands, integration prerequisites, and required coverage.
+13. [`spec/12-command-semantics.md`](spec/12-command-semantics.md) defines Trove-wide package references, selectors, raw URLs, and CLI command families.
 
 ## Key MVP Decisions
 
@@ -25,7 +26,7 @@ The monolithic product spec has been split into focused implementation documents
 - Use PostgreSQL as the MVP source of truth for metadata and artifact blobs.
 - Use exactly one namespace level in MVP: `org/namespace/package`.
 - Require authentication for raw artifacts by default, while allowing explicitly public namespaces and packages.
-- Include an MVP CLI prototype for resolve, fetch, install, check, and dry-run update flows.
+- Include an MVP CLI prototype for resolve, download/fetch, install, check, dry-run update, and editable worktree flows.
 - Keep MVP web content management upload-only; browser-based artifact editing is deferred.
 - Published package versions are immutable; fixes require a new version.
 - Aliases such as `latest`, `stable`, `v3`, and `v3.2` resolve server-side to exact immutable versions.
