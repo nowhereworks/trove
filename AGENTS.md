@@ -18,6 +18,12 @@
 - `cd web && npm run build` builds the React SPA to `internal/ui/static/`.
 - DB integration tests must use real PostgreSQL and should be gated by `TROVE_TEST_DATABASE_URL` once a test harness exists; do not use SQLite substitutes.
 
+## Brand Guidance
+
+- `docs/trove_one_page_brand_kit_for_agents.md` is the source of truth for Trove's visual brand, UI styling direction, logo guidance, color palette, typography, iconography, and product copy tone.
+- Apply the brand kit when changing frontend UI, docs visual presentation, landing pages, logos/icons, screenshots, and marketing-style copy.
+- When brand direction is unclear, optimize for a secure developer-infrastructure product: dark, precise, durable, practical, self-hosted, technical, and easy to scan.
+
 ## Product Direction To Preserve
 
 - Build Trove as a self-hosted Go single binary that serves JSON APIs, raw artifact endpoints, health/metrics, and an embedded React/Vite SPA.

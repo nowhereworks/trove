@@ -17,6 +17,12 @@ The UI must compile to static assets embedded in the Go binary.
 
 Avoid a Next.js runtime unless the single-binary deployment goal changes.
 
+## Brand Direction
+
+`docs/trove_one_page_brand_kit_for_agents.md` is the source of truth for Trove visual design, logo direction, colors, typography, iconography, component styling, and product copy tone.
+
+UI changes must follow the brand kit's secure developer-infrastructure direction: dark, precise, durable, practical, self-hosted, technical, and easy to scan.
+
 ## MVP Screens
 
 - Login/logout.

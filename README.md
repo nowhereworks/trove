@@ -230,3 +230,5 @@ The user-facing documentation is maintained in `docs-site/` and published with G
 - Operations: configuration, deployment, and compatibility.
 
 Start with [What is Trove?](https://nowhereworks.github.io/trove/docs/concepts/what-is-trove.html).
+
+Contributor and agent-facing brand guidance lives in [`docs/trove_one_page_brand_kit_for_agents.md`](docs/trove_one_page_brand_kit_for_agents.md).
