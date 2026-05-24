@@ -3,6 +3,7 @@ NPM ?= npm
 
 CLI_ARGS ?= help
 TROVE_DATABASE_URL ?= postgres://trove:trove@localhost:5432/trove?sslmode=disable
+TROVE_CLI_INSTALL_PATH ?= /usr/local/bin/trove
 
 .PHONY: help
 help:
@@ -10,6 +11,7 @@ help:
 	@printf '  make server              Run the Trove server with seeded in-memory data\n'
 	@printf '  make server-db           Run the Trove server with local PostgreSQL and dev auth\n'
 	@printf '  make cli CLI_ARGS="help" Run the Trove CLI through go run\n'
+	@printf '  make install-cli         Build and install the Trove CLI to /usr/local/bin/trove\n'
 	@printf '  make postgres            Start a local PostgreSQL container\n'
 	@printf '  make test                Run Go tests\n'
 	@printf '  make build               Build all Go packages\n'
@@ -37,6 +39,11 @@ server-db:
 .PHONY: cli
 cli:
 	$(GO) run ./cmd/trove $(CLI_ARGS)
+
+.PHONY: install-cli
+install-cli:
+	$(GO) build -o /tmp/trove ./cmd/trove
+	sudo install -m 0755 /tmp/trove $(TROVE_CLI_INSTALL_PATH)
 
 .PHONY: postgres
 postgres:
