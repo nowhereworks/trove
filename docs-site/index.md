@@ -48,8 +48,13 @@ const categories = ref([
   {
     title: 'CLI',
     items: [
+      { title: 'init', desc: 'Create an editable AGENTS.md package worktree.', link: withBase('/cli/init') },
+      { title: 'remote', desc: 'Manage local publishing remotes.', link: withBase('/cli/remote') },
+      { title: 'status', desc: 'Check local publishing readiness.', link: withBase('/cli/status') },
+      { title: 'push', desc: 'Upload, publish, or submit AGENTS.md for review.', link: withBase('/cli/push') },
+      { title: 'clone', desc: 'Clone a published package for maintainer edits.', link: withBase('/cli/clone') },
       { title: 'resolve', desc: 'Get the exact version from a selector.', link: withBase('/cli/resolve') },
-      { title: 'fetch', desc: 'Download individual artifacts.', link: withBase('/cli/fetch') },
+      { title: 'download', desc: 'Download individual artifacts.', link: withBase('/cli/download') },
       { title: 'install', desc: 'Install required artifacts and pin versions.', link: withBase('/cli/install') },
       { title: 'check', desc: 'Detect updates, yanked versions, and incompatibilities.', link: withBase('/cli/check') },
       { title: 'update', desc: 'Safe dry-run updates with explicit apply.', link: withBase('/cli/update') },
@@ -67,7 +72,7 @@ const categories = ref([
   {
     title: 'API',
     items: [
-      { title: 'Public APIs', desc: 'Agent-facing endpoints for resolve, search, and fetch.', link: withBase('/api/public-apis') },
+      { title: 'Public APIs', desc: 'Agent-facing endpoints for resolve, search, and raw downloads.', link: withBase('/api/public-apis') },
       { title: 'Management APIs', desc: 'Write endpoints for the full package lifecycle.', link: withBase('/api/management-apis') },
       { title: 'Raw Artifacts', desc: 'Direct artifact access with ETags and caching.', link: withBase('/api/raw-artifacts') },
       { title: 'Archives', desc: 'Download full package archives on demand.', link: withBase('/api/archives') },

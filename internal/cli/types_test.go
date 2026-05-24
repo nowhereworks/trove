@@ -6,9 +6,9 @@ import (
 
 func TestParsePackageRef(t *testing.T) {
 	tests := []struct {
-		input    string
-		want     PackageRef
-		wantErr  bool
+		input   string
+		want    PackageRef
+		wantErr bool
 	}{
 		{
 			input: "companyx/platform/agent-backend@stable",
@@ -38,15 +38,20 @@ func TestParsePackageRef(t *testing.T) {
 			},
 		},
 		{
+			input: "org/ns/pkg",
+			want: PackageRef{
+				Org:       "org",
+				Namespace: "ns",
+				Name:      "pkg",
+				Selector:  "stable",
+			},
+		},
+		{
 			input:   "invalid",
 			wantErr: true,
 		},
 		{
 			input:   "org/ns@selector",
-			wantErr: true,
-		},
-		{
-			input:   "org/ns/pkg",
 			wantErr: true,
 		},
 		{

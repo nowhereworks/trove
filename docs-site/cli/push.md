@@ -1,0 +1,72 @@
+# trove push
+
+## Why
+
+Use `trove push` to run the complete `AGENTS.md` publishing workflow: create or reuse a draft, upload `trove.yaml`, upload `AGENTS.md`, publish, or submit for review when approval is required.
+
+## How
+
+### Publish The Default Patch Version
+
+```bash
+export TROVE_TOKEN=trove_token_...
+trove push
+```
+
+When publishing succeeds:
+
+```text
+Published nwks/platform/agent-defaults@1.0.0
+Install with:
+  trove install nwks/platform/agent-defaults@stable
+```
+
+When review approval is required, the default mode submits for review instead of failing:
+
+```text
+Uploaded nwks/platform/agent-defaults@1.0.0
+Submitted for review:
+  https://trove.company.com/reviews
+```
+
+### Choose A Version
+
+```bash
+trove push --patch
+trove push --minor
+trove push --major
+trove push --version 1.2.3
+```
+
+### Control Publishing Mode
+
+```bash
+trove push --draft
+trove push --submit-only
+trove push --publish
+```
+
+`--publish` fails if review approval blocks publication. Default mode catches only the structured `APPROVAL_REQUIRED` error and submits for review.
+
+## Reference
+
+| Flag | Required | Description |
+|---|---|---|
+| `--patch` | No | Select next patch version; default |
+| `--minor` | No | Increment minor and reset patch |
+| `--major` | No | Increment major and reset minor and patch |
+| `--version <x.y.z>` | No | Use an explicit strict SemVer version |
+| `--remote <name>` | No | Push to a configured remote |
+| `--visibility private\|internal\|public` | No | Override visibility for this push |
+| `--channel stable` | No | Publish with the stable channel |
+| `--draft` | No | Upload draft only |
+| `--submit-only` | No | Upload and submit for review |
+| `--publish` | No | Require publish to succeed |
+| `--json` | No | Emit machine-readable output |
+
+`trove push` never rewrites `AGENTS.md`. It may rewrite generated fields in `trove.yaml` so the uploaded manifest matches the selected remote and version.
+
+## Next
+
+- [review workflow](/publishing/review-workflow) explains approval behavior
+- [install](/cli/install) consumes the published package

@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-var packageRefRE = regexp.MustCompile(`^([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])/([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])/([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])@(.+)$`)
+var packageRefRE = regexp.MustCompile(`^([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])/([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])/([a-z0-9][a-z0-9-]*[a-z0-9]|[a-z0-9])(?:@(.+))?$`)
 
 type PackageRef struct {
 	Org       string
@@ -19,13 +19,17 @@ func ParsePackageRef(raw string) (PackageRef, error) {
 	raw = strings.TrimSpace(raw)
 	m := packageRefRE.FindStringSubmatch(raw)
 	if m == nil {
-		return PackageRef{}, fmt.Errorf("invalid package reference %q; expected org/namespace/package@selector", raw)
+		return PackageRef{}, fmt.Errorf("invalid package reference %q; expected org/namespace/package[@selector]", raw)
+	}
+	selector := m[4]
+	if selector == "" {
+		selector = "stable"
 	}
 	return PackageRef{
 		Org:       m[1],
 		Namespace: m[2],
 		Name:      m[3],
-		Selector:  m[4],
+		Selector:  selector,
 	}, nil
 }
 

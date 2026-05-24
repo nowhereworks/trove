@@ -2,6 +2,7 @@ package cli
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -78,6 +79,7 @@ func TestIsCLICommand(t *testing.T) {
 		want bool
 	}{
 		{[]string{"resolve"}, true},
+		{[]string{"download"}, true},
 		{[]string{"fetch"}, true},
 		{[]string{"install"}, true},
 		{[]string{"check"}, true},
@@ -99,5 +101,12 @@ func TestIsCLICommand(t *testing.T) {
 				t.Errorf("IsCLICommand(%v) = %v, want %v", tt.args, got, tt.want)
 			}
 		})
+	}
+}
+
+func TestFetchIsUnknownSubcommand(t *testing.T) {
+	err := Run([]string{"fetch", "nwks/platform/agent-backend", "AGENTS.md"})
+	if err == nil || !strings.Contains(err.Error(), "unknown subcommand: fetch") {
+		t.Fatalf("Run(fetch) error = %v, want unknown subcommand", err)
 	}
 }

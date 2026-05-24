@@ -85,7 +85,7 @@ POST /api/v1/packages
 
 # Anyone can now read the package anonymously:
 GET /api/v1/packages/nwks/open-source/react-defaults
-GET /raw/nwks/open-source/react-defaults/1.0.0/AGENTS.md
+GET /raw/nwks/open-source/react-defaults/AGENTS.md@1.0.0
 ```
 
 ### Next Steps

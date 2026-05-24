@@ -43,8 +43,13 @@ export default defineConfig({
       {
         text: 'CLI',
         items: [
+          { text: 'init', link: '/cli/init' },
+          { text: 'remote', link: '/cli/remote' },
+          { text: 'status', link: '/cli/status' },
+          { text: 'push', link: '/cli/push' },
+          { text: 'clone', link: '/cli/clone' },
           { text: 'resolve', link: '/cli/resolve' },
-          { text: 'fetch', link: '/cli/fetch' },
+          { text: 'download', link: '/cli/download' },
           { text: 'install', link: '/cli/install' },
           { text: 'check', link: '/cli/check' },
           { text: 'update', link: '/cli/update' },

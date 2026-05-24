@@ -74,10 +74,10 @@ func RunFetch(args []string, outputDir string, jsonOutput bool) error {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(map[string]string{
-			"package":  ref.PackagePath(),
-			"version":  result.ResolvedVersion,
-			"digest":   result.Digest,
-			"output":   outputDir,
+			"package": ref.PackagePath(),
+			"version": result.ResolvedVersion,
+			"digest":  result.Digest,
+			"output":  outputDir,
 		})
 	}
 

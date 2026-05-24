@@ -6,6 +6,25 @@ Publishing a package isn't a single action — it's a workflow. You create a dra
 
 ## How
 
+### AGENTS.md CLI Flow
+
+For the standard repo-root `AGENTS.md` package, use the CLI. It hides draft creation, manifest upload, review submission, and publishing behind a Git-like flow:
+
+```bash
+trove init agents-md \
+  --remote https://trove.company.com/nwks/platform/agent-defaults \
+  --maintainer-team platform-engineering \
+  --yes
+trove status
+trove push
+```
+
+`trove push` uploads `trove.yaml` first, uploads `AGENTS.md` second, then publishes or submits for review if approval is required.
+
+### Raw API Flow
+
+Use the raw API when building automation that cannot shell out to the CLI.
+
 ### Step-by-Step Flow
 
 ```

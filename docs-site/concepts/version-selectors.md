@@ -45,8 +45,8 @@ Response:
 Selector-based raw URLs redirect to exact version URLs:
 
 ```
-GET /raw/nwks/platform/agent-backend/stable/AGENTS.md
-→ 302 Found → /raw/nwks/platform/agent-backend/2.0.0/AGENTS.md
+GET /raw/nwks/platform/agent-backend/AGENTS.md@stable
+→ 302 Found → /raw/nwks/platform/agent-backend/AGENTS.md@2.0.0
 ```
 
 This keeps caching behavior explicit — alias responses use `Cache-Control: no-cache`, while exact version responses use immutable caching.

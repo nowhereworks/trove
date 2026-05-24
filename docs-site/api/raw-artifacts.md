@@ -9,13 +9,13 @@ Agents and tools need direct access to individual artifact files — `AGENTS.md`
 ### Exact Version URLs
 
 ```
-GET /raw/{org}/{namespace}/{package}/{version}/{path...}
+GET /raw/{org}/{namespace}/{package}/{path...}@{version}
 ```
 
 Example:
 
 ```
-GET /raw/nwks/platform/agent-backend/1.0.0/AGENTS.md
+GET /raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
 ```
 
 Response:
@@ -35,14 +35,14 @@ Cache-Control: public, max-age=31536000, immutable
 When you use a selector instead of an exact version, the server resolves and redirects:
 
 ```
-GET /raw/nwks/platform/agent-backend/stable/AGENTS.md
+GET /raw/nwks/platform/agent-backend/AGENTS.md@stable
 ```
 
 Response:
 
 ```
 HTTP/1.1 302 Found
-Location: /raw/nwks/platform/agent-backend/1.0.0/AGENTS.md
+Location: /raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
 Cache-Control: no-cache
 ```
 
@@ -51,7 +51,7 @@ The client follows the redirect to the exact version URL.
 ### Caching Behavior
 
 | URL Type | Cache-Control | ETag |
-|---|---|---|---|
+|---|---|---|
 | Exact version (public) | `public, max-age=31536000, immutable` | Artifact digest |
 | Exact version (private) | `private, max-age=31536000, immutable` | Artifact digest |
 | Selector (alias) | `no-cache` | — |
@@ -61,7 +61,7 @@ The client follows the redirect to the exact version URL.
 Use the `If-None-Match` header with the ETag:
 
 ```bash
-GET /raw/nwks/platform/agent-backend/1.0.0/AGENTS.md
+GET /raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
 If-None-Match: "sha256:def456..."
 ```
 
@@ -99,10 +99,12 @@ spec:
 Accessible URLs:
 
 ```
-/raw/nwks/platform/agent-backend/1.0.0/AGENTS.md
-/raw/nwks/platform/agent-backend/1.0.0/skills/backend-api/SKILL.md
-/raw/nwks/platform/agent-backend/1.0.0/commands/lint.md
+/raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
+/raw/nwks/platform/agent-backend/skills/backend-api/SKILL.md@1.0.0
+/raw/nwks/platform/agent-backend/commands/lint.md@1.0.0
 ```
+
+Artifact paths cannot contain `@`; raw URLs reserve `@` for selectors. If the selector is omitted, Trove resolves `stable` and redirects to the exact immutable URL.
 
 ### Error Responses
 
@@ -119,12 +121,16 @@ Accessible URLs:
 ```bash
 # With authentication
 curl -H "Authorization: Bearer $TROVE_TOKEN" \
-  https://trove.nwks.com/raw/nwks/platform/agent-backend/1.0.0/AGENTS.md
+  https://trove.nwks.com/raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
+
+# Omitted selector resolves stable and redirects to the exact version
+curl -L -H "Authorization: Bearer $TROVE_TOKEN" \
+  https://trove.nwks.com/raw/nwks/platform/agent-backend/AGENTS.md
 
 # Conditional request (only download if changed)
 curl -H "Authorization: Bearer $TROVE_TOKEN" \
   -H 'If-None-Match: "sha256:def456..."' \
-  https://trove.nwks.com/raw/nwks/platform/agent-backend/1.0.0/AGENTS.md
+  https://trove.nwks.com/raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
 ```
 
 ### Next Steps

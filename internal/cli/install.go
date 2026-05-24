@@ -54,15 +54,20 @@ func RunInstall(args []string, outputDir string, optional bool, overwrite bool, 
 
 		fullPath := filepath.Join(outputDir, targetPath)
 
-		if !overwrite {
-			if _, err := os.Stat(fullPath); err == nil {
-				return fmt.Errorf("target file %s already exists; use --overwrite to replace", targetPath)
-			}
-		}
-
 		artifactBytes, err := client.GetRawArtifact(ref.Org, ref.Namespace, ref.Name, result.ResolvedVersion, artifact.Path)
 		if err != nil {
 			return fmt.Errorf("fetch artifact %s: %w", artifact.Path, err)
+		}
+		if existing, err := os.ReadFile(fullPath); err == nil {
+			if string(existing) == string(artifactBytes) {
+				artifactPins = append(artifactPins, lockfile.ArtifactPin{Source: artifact.Path, Target: targetPath, Digest: computeDigest(artifactBytes)})
+				continue
+			}
+			if !overwrite {
+				return fmt.Errorf("target file %s already exists and differs; use --overwrite to replace", targetPath)
+			}
+		} else if err != nil && !os.IsNotExist(err) {
+			return fmt.Errorf("read target file %s: %w", targetPath, err)
 		}
 
 		if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
@@ -85,9 +90,9 @@ func RunInstall(args []string, outputDir string, optional bool, overwrite bool, 
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(map[string]any{
-			"package":  ref.PackagePath(),
-			"version":  result.ResolvedVersion,
-			"digest":   result.Digest,
+			"package":   ref.PackagePath(),
+			"version":   result.ResolvedVersion,
+			"digest":    result.Digest,
 			"artifacts": len(artifactPins),
 		})
 	}

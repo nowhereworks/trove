@@ -90,5 +90,5 @@ server:
 
 ### Next Steps
 
-- [fetch](/cli/fetch) — download individual artifacts
+- [download](/cli/download) — download individual artifacts
 - [install](/cli/install) — install required artifacts and pin versions

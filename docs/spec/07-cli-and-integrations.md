@@ -21,7 +21,7 @@ The CLI can be implemented inside the Go binary as subcommands or as a separate 
 
 - `resolve` calls the resolve API and prints the exact version and digest.
 - `download` downloads one artifact to stdout or a target path.
-- `fetch` may remain as an MVP compatibility alias for `download`.
+- `download` is the only single-artifact retrieval command; `fetch` is not supported.
 - `install` downloads required artifacts by default and writes `.trove.lock.yaml`.
 - `check` reads `.trove.lock.yaml` and calls the update check API.
 - `update` shows available updates and diffs without writing files.

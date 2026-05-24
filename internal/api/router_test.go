@@ -347,7 +347,7 @@ func TestManifestEndpointReturnsManifestJSON(t *testing.T) {
 
 func TestRawExactReturnsArtifactWithETag(t *testing.T) {
 	router := testRouter()
-	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/1.0.0/AGENTS.md", nil)
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@1.0.0", nil)
 	res := httptest.NewRecorder()
 
 	router.ServeHTTP(res, req)
@@ -368,7 +368,7 @@ func TestRawExactReturnsArtifactWithETag(t *testing.T) {
 
 func TestRawAliasRedirectsToExact(t *testing.T) {
 	router := testRouter()
-	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/stable/AGENTS.md", nil)
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@stable", nil)
 	res := httptest.NewRecorder()
 
 	router.ServeHTTP(res, req)
@@ -376,11 +376,38 @@ func TestRawAliasRedirectsToExact(t *testing.T) {
 	if res.Code != http.StatusFound {
 		t.Fatalf("status = %d, want %d", res.Code, http.StatusFound)
 	}
-	if got := res.Header().Get("Location"); got != "/raw/companyx/platform/agent-backend/1.0.0/AGENTS.md" {
+	if got := res.Header().Get("Location"); got != "/raw/companyx/platform/agent-backend/AGENTS.md@1.0.0" {
 		t.Fatalf("Location = %q", got)
 	}
 	if got := res.Header().Get("Cache-Control"); got != "no-cache" {
 		t.Fatalf("Cache-Control = %q", got)
+	}
+}
+
+func TestRawOmittedSelectorRedirectsToStableExact(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusFound {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusFound)
+	}
+	if got := res.Header().Get("Location"); got != "/raw/companyx/platform/agent-backend/AGENTS.md@1.0.0" {
+		t.Fatalf("Location = %q", got)
+	}
+}
+
+func TestRawArtifactPathWithAtIsRejected(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS@bad.md@stable", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusBadRequest)
 	}
 }
 

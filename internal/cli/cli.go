@@ -15,10 +15,22 @@ func Run(args []string) error {
 	remaining := args[1:]
 
 	switch subcommand {
+	case "init":
+		return handleInit(remaining)
+	case "remote":
+		return handleRemote(remaining)
+	case "status":
+		return handleStatus(remaining)
+	case "push":
+		return handlePush(remaining)
+	case "clone":
+		return handleClone(remaining)
+	case "pull":
+		return handlePull(remaining)
 	case "resolve":
 		return handleResolve(remaining)
-	case "fetch":
-		return handleFetch(remaining)
+	case "download":
+		return handleDownload(remaining)
 	case "install":
 		return handleInstall(remaining)
 	case "check":
@@ -36,17 +48,52 @@ func Run(args []string) error {
 	}
 }
 
+func handleInit(args []string) error {
+	jsonOutput := hasFlag(args, "--json")
+	return RunInit(args, jsonOutput)
+}
+
+func handleRemote(args []string) error {
+	jsonOutput := hasFlag(args, "--json")
+	force := hasFlag(args, "--force")
+	filtered := filterFlags(args)
+	return RunRemote(filtered, jsonOutput, force)
+}
+
+func handleStatus(args []string) error {
+	jsonOutput := hasFlag(args, "--json")
+	return RunStatus(args, jsonOutput)
+}
+
+func handlePush(args []string) error {
+	jsonOutput := hasFlag(args, "--json")
+	return RunPush(args, jsonOutput)
+}
+
+func handleClone(args []string) error {
+	jsonOutput := hasFlag(args, "--json")
+	filtered := filterFlags(args)
+	return RunClone(filtered, jsonOutput)
+}
+
+func handlePull(args []string) error {
+	jsonOutput := hasFlag(args, "--json")
+	return RunPull(args, jsonOutput)
+}
+
 func handleResolve(args []string) error {
 	jsonOutput := hasFlag(args, "--json")
 	filtered := filterFlags(args)
 	return RunResolve(filtered, jsonOutput)
 }
 
-func handleFetch(args []string) error {
+func handleDownload(args []string) error {
 	jsonOutput := hasFlag(args, "--json")
-	outputDir := flagValue(args, "--output")
+	metadataOnly := hasFlag(args, "--metadata-only")
+	overwrite := hasFlag(args, "--overwrite")
+	outputPath := flagValue(args, "--output")
 	filtered := filterFlags(args)
-	return RunFetch(filtered, outputDir, jsonOutput)
+	return RunDownload(filtered, outputPath, overwrite, metadataOnly, jsonOutput)
 }
 
 func handleInstall(args []string) error {
@@ -92,7 +139,16 @@ func flagValue(args []string, flag string) string {
 
 func filterFlags(args []string) []string {
 	valueFlags := map[string]bool{
-		"--output": true,
+		"--output":          true,
+		"--remote":          true,
+		"--package":         true,
+		"--display-name":    true,
+		"--description":     true,
+		"--visibility":      true,
+		"--maintainer-team": true,
+		"--maintainer-user": true,
+		"--channel":         true,
+		"--version":         true,
 	}
 
 	var result []string
@@ -123,11 +179,29 @@ Usage:
   trove <subcommand> [flags]
 
 Subcommands:
-  resolve <org/namespace/package@selector>
-    Resolve a selector to an exact version
+	init agents-md [--remote url-or-package-ref]
+	  Initialize an editable AGENTS.md package worktree
 
-  fetch <org/namespace/package@selector> [--output dir] [--json]
-    Fetch and extract a package archive to a directory
+	remote add|list|remove
+	  Manage publishing remotes in .trove/config.yaml
+
+	status [--json]
+	  Show local AGENTS.md publishing status
+
+	push [--patch|--minor|--major|--version x.y.z] [--json]
+	  Upload and publish or submit an AGENTS.md package
+
+	clone <org/namespace/package[@selector]> [dir]
+	  Create an editable package worktree
+
+	pull [--json]
+	  Refresh an editable package worktree from its remote
+
+	resolve <org/namespace/package@selector>
+	  Resolve a selector to an exact version
+
+  download <org/namespace/package[@selector]> <artifact-path> [--output file] [--overwrite] [--json]
+    Download one artifact file
 
   install <org/namespace/package@selector> [--output dir] [--optional] [--overwrite] [--json]
     Install package artifacts to their target paths
@@ -140,7 +214,7 @@ Subcommands:
 
 Flags:
   --json        Output in JSON format for agents/CI
-  --output dir  Output directory (default: current directory or package name)
+  --output path Output path for install/download
   --optional    Include optional artifacts during install
   --overwrite   Overwrite existing files during install
   --apply       Apply updates and write lockfile
@@ -155,7 +229,7 @@ func IsCLICommand(args []string) bool {
 		return false
 	}
 	switch args[0] {
-	case "resolve", "fetch", "install", "check", "update", "help", "--help", "-h", "version", "--version", "-v":
+	case "init", "remote", "status", "push", "clone", "pull", "resolve", "download", "fetch", "install", "check", "update", "help", "--help", "-h", "version", "--version", "-v":
 		return true
 	default:
 		return false

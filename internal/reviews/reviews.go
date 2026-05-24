@@ -49,6 +49,27 @@ type ApprovalStatus struct {
 	RequiredCount      int   `json:"requiredCount"`
 }
 
+func (s *Service) ResolvePackageVersionID(ctx context.Context, org, namespace, packageName, version string) (string, error) {
+	row, err := s.queries.GetPackageVersionIDForProjectInstall(ctx, sqlc.GetPackageVersionIDForProjectInstallParams{
+		Org:         org,
+		Namespace:   namespace,
+		PackageName: packageName,
+		Version:     version,
+	})
+	if err != nil {
+		return "", err
+	}
+	return uuid.UUID(row.Bytes).String(), nil
+}
+
+func (s *Service) PackageVersionIDForReview(ctx context.Context, reviewID string) (string, error) {
+	review, err := s.queries.GetReview(ctx, mustParseUUID(reviewID))
+	if err != nil {
+		return "", err
+	}
+	return uuid.UUID(review.PackageVersionID.Bytes).String(), nil
+}
+
 func (s *Service) SubmitForReview(ctx context.Context, packageVersionID, userID string) error {
 	id, _ := uuid.NewV7()
 	pvID, _ := uuid.Parse(packageVersionID)

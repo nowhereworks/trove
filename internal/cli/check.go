@@ -17,13 +17,13 @@ func sha256Sum(data []byte) string {
 }
 
 type CheckResult struct {
-	Package            string `json:"package"`
-	CurrentVersion     string `json:"currentVersion"`
-	LatestVersion      string `json:"latestVersion"`
-	UpdateAvailable    bool   `json:"updateAvailable"`
-	Compatibility      string `json:"compatibility"`
-	RequiresApproval   bool   `json:"requiresManualApproval"`
-	ChangelogURL       string `json:"changelogUrl,omitempty"`
+	Package          string `json:"package"`
+	CurrentVersion   string `json:"currentVersion"`
+	LatestVersion    string `json:"latestVersion"`
+	UpdateAvailable  bool   `json:"updateAvailable"`
+	Compatibility    string `json:"compatibility"`
+	RequiresApproval bool   `json:"requiresManualApproval"`
+	ChangelogURL     string `json:"changelogUrl,omitempty"`
 }
 
 func RunCheck(args []string, jsonOutput bool) error {
@@ -91,8 +91,8 @@ func RunCheck(args []string, jsonOutput bool) error {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		return enc.Encode(map[string]any{
-			"results":           results,
-			"hasIncompatible":   hasIncompatible,
+			"results":            results,
+			"hasIncompatible":    hasIncompatible,
 			"hasUpdateAvailable": hasUpdate(results),
 		})
 	}
@@ -135,7 +135,7 @@ func findPackageParts(pkg string) []string {
 			rest := pkg[:i]
 			for j := i - 1; j >= 0; j-- {
 				if rest[j] == '/' {
-					return []string{rest[:j], rest[j+1:i], pkg[i+1:]}
+					return []string{rest[:j], rest[j+1 : i], pkg[i+1:]}
 				}
 			}
 		}

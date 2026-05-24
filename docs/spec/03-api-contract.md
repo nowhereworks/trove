@@ -53,6 +53,7 @@ Anonymous users may read public package metadata, manifests, archives, raw artif
 | `GET` | `/api/v1/resolve/{org}/{namespace}/{package}@{selector}` | visibility-dependent | Resolve a selector to an exact version |
 | `GET` | `/api/v1/search/packages` | visibility-dependent | Search discoverable packages |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}` | visibility-dependent | Get package metadata |
+| `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}` | visibility-dependent for published versions; maintainer for drafts | Get one package version |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest` | visibility-dependent | Get the package manifest |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz` | visibility-dependent | Download package archive |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip` | visibility-dependent | Download package archive |
@@ -96,9 +97,12 @@ MVP package search filters:
 | `POST` | `/api/v1/packages` | maintainer | Create package |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions` | maintainer | Create draft version |
 | `PUT` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/{path...}` | maintainer | Upload draft artifact |
-| `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/submit` | maintainer | Submit for review |
-| `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/approve` | reviewer | Approve version |
-| `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/request-changes` | reviewer | Request changes with a simple comment |
+| `POST` | `/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit` | maintainer | Submit for review |
+| `GET` | `/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}` | reviewer/maintainer | List reviews for version |
+| `GET` | `/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/approval-status` | reviewer/maintainer | Get approval status |
+| `POST` | `/api/v1/reviews/{reviewId}/approve` | reviewer | Approve version |
+| `POST` | `/api/v1/reviews/{reviewId}/request-changes` | reviewer | Request changes with a simple comment |
+| `POST` | `/api/v1/reviews/{reviewId}/comments` | reviewer/maintainer | Add review comment |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish` | maintainer | Publish immutable version |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/deprecate` | maintainer | Deprecate version |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/yank` | admin/maintainer | Yank version |
@@ -108,6 +112,8 @@ Create endpoints return `201 Created` with the created resource JSON and `Locati
 Synchronous action endpoints such as `submit`, `approve`, `publish`, `deprecate`, and `yank` return `200 OK` with the updated resource JSON.
 
 Review action request bodies may include a simple `comment` string. MVP review comments are version-level only; threaded and line-level comments are deferred.
+
+When review approval blocks publication, `POST /api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish` returns `403` with error code `APPROVAL_REQUIRED`. Clients may use that code to submit the version for review instead of treating the publish attempt as an unexpected failure.
 
 ## Resolve Response
 
@@ -205,10 +211,13 @@ For errors, the JSON body includes the same request ID:
   "error": {
     "code": "PACKAGE_NOT_FOUND",
     "message": "Package companyx/platform/agent-backend was not found.",
-    "requestId": "req_123"
+    "requestId": "req_123",
+    "details": {}
   }
 }
 ```
+
+`details` is optional and may include machine-readable fields such as `lifecycle` for `VERSION_ALREADY_EXISTS`.
 
 Common codes:
 

@@ -105,8 +105,8 @@ Do not store real tokens, private URLs, or customer/project names in fixtures.
 - Cursor-paginated list responses use `items` and `nextCursor`.
 - Resolve exact, `latest`, `stable`, major, minor, and digest selectors.
 - Manifest endpoint returns the stored manifest for an exact version.
-- Raw exact fetch returns artifact bytes, digest ETag, and immutable cache headers.
-- Raw alias fetch redirects to the exact raw URL.
+- Raw exact retrieval returns artifact bytes, digest ETag, and immutable cache headers.
+- Raw alias retrieval redirects to the exact raw URL.
 - Archive endpoints generate deterministic `.tar.gz` and `.zip` responses.
 - Public resources allow anonymous reads for metadata, manifests, archives, raw artifacts, and resolve responses.
 - Private and internal resources require auth.
@@ -129,7 +129,7 @@ Do not store real tokens, private URLs, or customer/project names in fixtures.
 - Structured commands support `--json`.
 - `resolve` prints exact version and digest.
 - `download` can write to stdout or a target path.
-- `fetch`, if retained, behaves as a compatibility alias for `download`.
+- `fetch` is rejected as an unknown subcommand; `download` is the only single-artifact retrieval command.
 - `install` installs required artifacts by default.
 - Optional artifacts require explicit selection.
 - `install` fails instead of overwriting a different existing target file unless overwrite is explicit.

@@ -137,8 +137,10 @@ Behavior:
 - Write to `--output <file>` when provided.
 - Never write lockfiles or project metadata.
 - Support `--json` for metadata when not streaming bytes to stdout.
+- `--json --output <file>` writes artifact bytes to the file and metadata to stdout.
+- `--json --metadata-only` writes metadata to stdout and does not fetch or write artifact bytes.
 
-`trove fetch` may remain as an MVP compatibility alias, but polished docs should prefer `trove download` for one-off artifact retrieval.
+`trove fetch` is not supported. `trove download` is the only single-artifact retrieval command.
 
 ### Install
 
@@ -170,9 +172,9 @@ trove status
 trove push --patch
 ```
 
-`trove clone` downloads the package manifest, all selected artifacts, and local Trove project config. It prepares a directory that can later run `trove status` and `trove push`.
+`trove clone` retrieves the package manifest as local `trove.yaml`, downloads all selected artifacts, generates local Trove project config, and writes local baseline state for clean-change detection. It prepares a directory that can later run `trove status` and `trove push`.
 
-`trove pull` refreshes the local editable checkout from the configured remote. It must not overwrite local changes silently. If remote changes conflict with local files, it fails with a clear conflict report.
+`trove pull` refreshes the local editable checkout from the configured remote. It must not overwrite local changes silently. If remote changes conflict with local files, it fails with a clear conflict report. If local baseline state is missing or incomplete, it refuses automatic overwrite.
 
 `trove status` compares the local checkout with its configured remote and reports missing auth, missing files, manifest problems, current published version, selected next version, and review policy.
 
@@ -187,6 +189,7 @@ Published versions are immutable. Editing a cloned published version always prep
 ```bash
 trove remote add origin https://trove.company.com/nwks/platform/agent-defaults
 trove remote add origin nwks/platform/agent-defaults
+trove remote add origin https://trove.company.com/nwks/platform/agent-defaults --force
 trove remote list
 trove remote remove origin
 ```
@@ -200,7 +203,7 @@ https://trove.company.com/{org}/{namespace}/{package}
 
 If only a package ref is provided, resolve the server from `TROVE_SERVER_URL` first, then existing `.trove/config.yaml`. If no server is known, fail with a clear error asking for a full URL.
 
-`trove remote add` does not require a network call. `trove status`, `trove pull`, and `trove push` validate the remote when they need server state.
+`trove remote add` does not require a network call. It fails when the remote already exists unless `--force` is provided. `trove status`, `trove pull`, and `trove push` validate the remote when they need server state.
 
 ## Status
 
@@ -232,7 +235,7 @@ Default behavior:
 - Upload `trove.yaml` first.
 - Upload manifest-listed artifacts.
 - Try to publish.
-- If approval is required, submit for review and print the review URL instead of failing.
+- If publishing returns `APPROVAL_REQUIRED`, submit for review and print the review URL instead of failing.
 
 Common flags:
 
@@ -271,7 +274,7 @@ Published versions must use strict SemVer `MAJOR.MINOR.PATCH`. Prerelease and ar
 
 Consumer installs use `.trove.lock.yaml`. This file pins exact versions and digests for downstream projects.
 
-Editable worktrees use `trove.yaml` and `.trove/config.yaml`. These files describe the package and remember the publishing remote.
+Editable worktrees use `trove.yaml`, `.trove/config.yaml`, and optional `.trove/state.yaml`. These files describe the package, remember the publishing remote, and track the clean checkout baseline.
 
 Do not use `.trove.lock.yaml` as the publishing source of truth.
 
@@ -291,13 +294,19 @@ publish:
   visibility: private
 ```
 
+Package-only initialization may omit `defaultRemote` and `remotes`; commands that require server state must then fail clearly until a remote is configured.
+
+`.trove/state.yaml` is local baseline state written by clone/pull-capable workflows. It records the source remote, requested selector, resolved version, package digest, and per-file digests used to avoid overwriting local changes silently.
+
 `trove.yaml` remains the actual package manifest uploaded to Trove.
 
-`trove push` may update generated manifest fields, especially package coordinates, `spec.version`, `spec.channel`, `spec.visibility`, and `spec.lifecycle`. It must not rewrite artifact content files.
+`trove push` may update generated manifest fields, especially package coordinates, `spec.version`, `spec.channel`, `spec.visibility`, and `spec.lifecycle`. It must not rewrite artifact content files. Local editable manifests remain draft-oriented; published lifecycle is represented by server version state and publish responses.
 
 ## API Requirements
 
-Write-side CLI clients need methods for package lookup, package creation, draft creation, artifact upload, publishing, review submission, and approval status.
+Write-side CLI clients need methods for package lookup, package creation, version lookup, draft creation, artifact upload, publishing, review submission, and approval status.
+
+Draft reuse requires a version lookup that distinguishes reusable draft versions from immutable published, deprecated, or yanked versions. Review fallback requires publish failures blocked by approval to use the structured `APPROVAL_REQUIRED` error code.
 
 Initially continue using `TROVE_SERVER_URL` and `TROVE_TOKEN`. A polished `trove login` command can come later.
 

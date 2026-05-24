@@ -74,8 +74,8 @@ List endpoints use cursor pagination:
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz` | visibility-dependent | Download package archive |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip` | visibility-dependent | Download package archive |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/adoption` | visibility-dependent | Get adoption statistics |
-| `GET` | `/raw/{org}/{namespace}/{package}/{version}/{path...}` | visibility-dependent | Fetch one artifact file |
-| `GET` | `/raw/{org}/{namespace}/{package}/{selector}/{path...}` | visibility-dependent | Resolve selector, then redirect or serve |
+| `GET` | `/raw/{org}/{namespace}/{package}/{path...}@{version}` | visibility-dependent | Fetch one artifact file |
+| `GET` | `/raw/{org}/{namespace}/{package}/{path...}@{selector}` | visibility-dependent | Resolve selector, then redirect to exact URL |
 | `POST` | `/api/v1/updates/check` | token/session | Check for newer compatible releases |
 | `POST` | `/api/v1/compatibility/check` | token/session | Check package compatibility |
 | `POST` | `/api/v1/projects/report` | token/session | Report project adoption |

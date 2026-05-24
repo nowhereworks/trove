@@ -56,7 +56,7 @@ The following must always use the full `org/namespace/package` form:
 - Lockfiles (`.trove.lock.yaml`)
 - CLI commands (`trove resolve`, `trove install`, etc.)
 - API paths (`/api/v1/packages/{org}/{namespace}/{package}`)
-- Raw URLs (`/raw/{org}/{namespace}/{package}/{version}/{path}`)
+- Raw URLs (`/raw/{org}/{namespace}/{package}/{path}@{selector}`)
 
 Shorthand references are not supported in the MVP.
 

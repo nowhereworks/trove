@@ -91,11 +91,12 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Post("/api/v1/orgs/{org}/namespaces", auth.RequireAuth(auth.RequireScope("namespace:write")(handleCreateNamespace(writeStore))))
 	r.Post("/api/v1/packages", auth.RequireAuth(auth.RequireScope("package:write")(handleCreatePackage(writeStore))))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}", handleGetPackageVersion(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz", handleGetArchive(store, packages.ArchiveTarGz))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip", handleGetArchive(store, packages.ArchiveZip))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/adoption", handleGetPackageAdoption(store))
-	r.Get("/raw/{org}/{namespace}/{package}/{selector}/*", handleRawArtifact(store, cfg))
+	r.Get("/raw/{org}/{namespace}/{package}/*", handleRawArtifact(store, cfg))
 
 	r.Post("/api/v1/updates/check", handleCheckUpdate(updateService))
 	r.Post("/api/v1/compatibility/check", handleCheckCompatibility(updateService))
@@ -103,10 +104,10 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Post("/api/v1/projects", auth.RequireAuth(handleCreateProject(writeStore)))
 
 	r.Group(func(r chi.Router) {
-		r.Post("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit", handleSubmitReview(reviewService))
-		r.Post("/api/v1/reviews/{reviewId}/approve", handleApproveReview(reviewService))
-		r.Post("/api/v1/reviews/{reviewId}/request-changes", handleRequestChanges(reviewService))
-		r.Post("/api/v1/reviews/{reviewId}/comments", handleAddReviewComment(reviewService))
+		r.Post("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit", auth.RequireAuth(auth.RequireScope("review:write")(handleSubmitReview(reviewService))))
+		r.Post("/api/v1/reviews/{reviewId}/approve", auth.RequireAuth(auth.RequireScope("review:write")(handleApproveReview(reviewService))))
+		r.Post("/api/v1/reviews/{reviewId}/request-changes", auth.RequireAuth(auth.RequireScope("review:write")(handleRequestChanges(reviewService))))
+		r.Post("/api/v1/reviews/{reviewId}/comments", auth.RequireAuth(auth.RequireScope("review:write")(handleAddReviewComment(reviewService))))
 		r.Get("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}", handleListReviews(reviewService))
 		r.Get("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/approval-status", handleApprovalStatus(reviewService))
 	})
@@ -299,9 +300,21 @@ func handlePublishVersion(writeStore packages.WriteStore, reviewService *reviews
 		}
 
 		if reviewService != nil && cfg.Reviews.RequireApproval {
-			status := reviewService.GetApprovalStatus(r.Context(), chi.URLParam(r, "version"))
+			packageVersionID, err := reviewService.ResolvePackageVersionID(
+				r.Context(),
+				chi.URLParam(r, "org"),
+				chi.URLParam(r, "namespace"),
+				chi.URLParam(r, "package"),
+				chi.URLParam(r, "version"),
+			)
+			if err != nil {
+				writeStoreError(w, r, packages.ErrVersionNotFound)
+				return
+			}
+
+			status := reviewService.GetApprovalStatus(r.Context(), packageVersionID)
 			if !status.HasEnoughApprovals {
-				writeError(w, r, http.StatusForbidden, "INSUFFICIENT_APPROVALS", "Version does not have enough approvals to publish.")
+				writeError(w, r, http.StatusForbidden, "APPROVAL_REQUIRED", "Version requires review approval before publishing.")
 				return
 			}
 		}
@@ -624,9 +637,9 @@ func handleGetArchive(store packages.Store, format packages.ArchiveFormat) http.
 
 func handleRawArtifact(store packages.Store, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		selector := chi.URLParam(r, "selector")
 		path := chi.URLParam(r, "*")
-		if path == "" || strings.Contains(path, "..") || strings.HasPrefix(path, "/") {
+		path, selector, err := splitRawArtifactPathSelector(path)
+		if err != nil || path == "" || strings.Contains(path, "..") || strings.HasPrefix(path, "/") {
 			writeError(w, r, http.StatusBadRequest, "INVALID_ARTIFACT_PATH", "Artifact path is invalid.")
 			return
 		}
@@ -638,7 +651,7 @@ func handleRawArtifact(store packages.Store, cfg config.Config) http.HandlerFunc
 			writeStoreError(w, r, err)
 			return
 		}
-		version := selector
+		version := parsed.Version
 		if parsed.Kind != packages.SelectorExact {
 			resolved, err := store.Resolve(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), selector)
 			if err != nil {
@@ -646,7 +659,12 @@ func handleRawArtifact(store packages.Store, cfg config.Config) http.HandlerFunc
 				return
 			}
 			w.Header().Set("Cache-Control", "no-cache")
-			http.Redirect(w, r, "/raw/"+resolved.Org+"/"+resolved.Namespace+"/"+resolved.Package+"/"+resolved.ResolvedVersion+"/"+path, http.StatusFound)
+			http.Redirect(w, r, "/raw/"+resolved.Org+"/"+resolved.Namespace+"/"+resolved.Package+"/"+path+"@"+resolved.ResolvedVersion, http.StatusFound)
+			return
+		}
+		if selector != version {
+			w.Header().Set("Cache-Control", "no-cache")
+			http.Redirect(w, r, "/raw/"+chi.URLParam(r, "org")+"/"+chi.URLParam(r, "namespace")+"/"+chi.URLParam(r, "package")+"/"+path+"@"+version, http.StatusFound)
 			return
 		}
 
@@ -677,6 +695,23 @@ func handleRawArtifact(store packages.Store, cfg config.Config) http.HandlerFunc
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(artifact.Content)
 	}
+}
+
+func splitRawArtifactPathSelector(raw string) (string, string, error) {
+	if raw == "" || strings.HasPrefix(raw, "/") {
+		return "", "", packages.ErrInvalidSelector
+	}
+	if strings.Count(raw, "@") > 1 {
+		return "", "", packages.ErrInvalidSelector
+	}
+	idx := strings.LastIndex(raw, "@")
+	if idx == -1 {
+		return raw, "stable", nil
+	}
+	if idx == 0 || idx == len(raw)-1 {
+		return "", "", packages.ErrInvalidSelector
+	}
+	return raw[:idx], raw[idx+1:], nil
 }
 
 func handleListPackages(store packages.Store) http.HandlerFunc {
@@ -732,6 +767,36 @@ func handleGetPackage(store packages.Store) http.HandlerFunc {
 	}
 }
 
+func handleGetPackageVersion(store packages.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, _ := auth.UserFromContext(r.Context())
+		org := chi.URLParam(r, "org")
+		namespace := chi.URLParam(r, "namespace")
+		pkg := chi.URLParam(r, "package")
+		version := chi.URLParam(r, "version")
+		if !user.IsAuthenticated && !user.IsDev {
+			visibility, verr := store.CheckVisibility(r.Context(), org, namespace, pkg, version)
+			if verr != nil || !auth.CheckVisibility(visibility, user, true) {
+				writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Package version was not found.")
+				return
+			}
+		}
+
+		detail, err := store.GetPackage(r.Context(), org, namespace, pkg)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		for _, candidate := range detail.Versions {
+			if candidate.Version == version {
+				writeJSON(w, http.StatusOK, packages.VersionResource{Org: org, Namespace: namespace, Package: pkg, Version: candidate.Version, Lifecycle: candidate.Lifecycle, Visibility: detail.Visibility, Digest: candidate.Digest, PublishedAt: candidate.PublishedAt})
+				return
+			}
+		}
+		writeStoreError(w, r, packages.ErrVersionNotFound)
+	}
+}
+
 func handleSubmitReview(reviewService *reviews.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if reviewService == nil {
@@ -745,7 +810,19 @@ func handleSubmitReview(reviewService *reviews.Service) http.HandlerFunc {
 			return
 		}
 
-		err := reviewService.SubmitForReview(r.Context(), chi.URLParam(r, "version"), user.ID)
+		packageVersionID, err := reviewService.ResolvePackageVersionID(
+			r.Context(),
+			chi.URLParam(r, "org"),
+			chi.URLParam(r, "namespace"),
+			chi.URLParam(r, "package"),
+			chi.URLParam(r, "version"),
+		)
+		if err != nil {
+			writeStoreError(w, r, packages.ErrVersionNotFound)
+			return
+		}
+
+		err = reviewService.SubmitForReview(r.Context(), packageVersionID, user.ID)
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "REVIEW_SUBMIT_FAILED", "Failed to submit for review.")
 			return
@@ -769,7 +846,7 @@ func handleApproveReview(reviewService *reviews.Service) http.HandlerFunc {
 		}
 
 		var body struct {
-			Comment         string `json:"comment"`
+			Comment          string `json:"comment"`
 			PackageVersionID string `json:"packageVersionId"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -777,7 +854,17 @@ func handleApproveReview(reviewService *reviews.Service) http.HandlerFunc {
 			return
 		}
 
-		review, err := reviewService.Approve(r.Context(), chi.URLParam(r, "reviewId"), user.ID, body.PackageVersionID, body.Comment)
+		packageVersionID := body.PackageVersionID
+		if packageVersionID == "" {
+			resolvedID, err := reviewService.PackageVersionIDForReview(r.Context(), chi.URLParam(r, "reviewId"))
+			if err != nil {
+				writeError(w, r, http.StatusNotFound, "REVIEW_NOT_FOUND", "Review was not found.")
+				return
+			}
+			packageVersionID = resolvedID
+		}
+
+		review, err := reviewService.Approve(r.Context(), chi.URLParam(r, "reviewId"), user.ID, packageVersionID, body.Comment)
 		if err != nil {
 			switch {
 			case errors.Is(err, reviews.ErrSelfApproval):
@@ -863,7 +950,19 @@ func handleListReviews(reviewService *reviews.Service) http.HandlerFunc {
 			return
 		}
 
-		reviews, err := reviewService.ListReviews(r.Context(), chi.URLParam(r, "version"))
+		packageVersionID, err := reviewService.ResolvePackageVersionID(
+			r.Context(),
+			chi.URLParam(r, "org"),
+			chi.URLParam(r, "namespace"),
+			chi.URLParam(r, "package"),
+			chi.URLParam(r, "version"),
+		)
+		if err != nil {
+			writeStoreError(w, r, packages.ErrVersionNotFound)
+			return
+		}
+
+		reviews, err := reviewService.ListReviews(r.Context(), packageVersionID)
 		if err != nil {
 			writeError(w, r, http.StatusInternalServerError, "LIST_REVIEWS_FAILED", "Failed to list reviews.")
 			return
@@ -880,7 +979,19 @@ func handleApprovalStatus(reviewService *reviews.Service) http.HandlerFunc {
 			return
 		}
 
-		status := reviewService.GetApprovalStatus(r.Context(), chi.URLParam(r, "version"))
+		packageVersionID, err := reviewService.ResolvePackageVersionID(
+			r.Context(),
+			chi.URLParam(r, "org"),
+			chi.URLParam(r, "namespace"),
+			chi.URLParam(r, "package"),
+			chi.URLParam(r, "version"),
+		)
+		if err != nil {
+			writeStoreError(w, r, packages.ErrVersionNotFound)
+			return
+		}
+
+		status := reviewService.GetApprovalStatus(r.Context(), packageVersionID)
 		writeJSON(w, http.StatusOK, status)
 	}
 }
@@ -1153,9 +1264,9 @@ func handleReportProjectAdoption(writeStore packages.WriteStore) http.HandlerFun
 			RepoURL   string `json:"repoUrl"`
 			Lockfile  string `json:"lockfile,omitempty"`
 			Installed []struct {
-				Package   string `json:"package"`
-				Version   string `json:"version"`
-				Digest    string `json:"digest"`
+				Package string `json:"package"`
+				Version string `json:"version"`
+				Digest  string `json:"digest"`
 			} `json:"installed"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
