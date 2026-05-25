@@ -46,7 +46,8 @@ func RunClone(args []string, jsonOutput bool) error {
 		return err
 	}
 
-	state := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: "origin", RequestedSelector: ref.Selector, ResolvedVersion: resolved.ResolvedVersion, PackageDigest: resolved.Digest}, Files: map[string]StateFile{manifestPath: {Digest: computeDigest(manifestBytes)}}}
+	manifestDigest := computeDigest(manifestBytes)
+	state := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: "origin", RequestedSelector: ref.Selector, ResolvedVersion: resolved.ResolvedVersion, PackageDigest: resolved.Digest, ManifestDigest: manifestDigest}, Files: map[string]StateFile{manifestPath: {Digest: manifestDigest}}}
 	for _, artifact := range m.Spec.Artifacts {
 		content, err := client.GetRawArtifact(ref.Org, ref.Namespace, ref.Name, resolved.ResolvedVersion, artifact.Path)
 		if err != nil {
@@ -135,7 +136,7 @@ func RunPull(args []string, jsonOutput bool) error {
 		}
 	}
 
-	newState := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: remoteName, RequestedSelector: selector, ResolvedVersion: resolved.ResolvedVersion, PackageDigest: resolved.Digest}, Files: map[string]StateFile{}}
+	newState := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: remoteName, RequestedSelector: selector, ResolvedVersion: resolved.ResolvedVersion, PackageDigest: resolved.Digest, ManifestDigest: computeDigest(manifestBytes)}, Files: map[string]StateFile{}}
 	for path, content := range contents {
 		newState.Files[path] = StateFile{Digest: computeDigest(content)}
 	}

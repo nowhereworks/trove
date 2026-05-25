@@ -4,6 +4,8 @@
 
 Use `trove download` when you need one artifact file without installing a package or writing Trove metadata. This is the fastest path for copying a shared `AGENTS.md` into a repo for immediate use.
 
+`trove fetch` is not supported. Use `trove download` for single-artifact retrieval.
+
 ## How
 
 ### Download To A File

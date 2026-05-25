@@ -60,6 +60,7 @@ type ProjectStateSource struct {
 	RequestedSelector string `yaml:"requestedSelector" json:"requestedSelector"`
 	ResolvedVersion   string `yaml:"resolvedVersion" json:"resolvedVersion"`
 	PackageDigest     string `yaml:"packageDigest" json:"packageDigest"`
+	ManifestDigest    string `yaml:"manifestDigest,omitempty" json:"manifestDigest,omitempty"`
 }
 
 type StateFile struct {

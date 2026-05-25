@@ -658,13 +658,23 @@ func handleRawArtifact(store packages.Store, cfg config.Config) http.HandlerFunc
 				writeStoreError(w, r, err)
 				return
 			}
+			if !authorizeRawArtifact(w, r, store, cfg, user, resolved.Org, resolved.Namespace, resolved.Package, resolved.ResolvedVersion) {
+				return
+			}
 			w.Header().Set("Cache-Control", "no-cache")
 			http.Redirect(w, r, "/raw/"+resolved.Org+"/"+resolved.Namespace+"/"+resolved.Package+"/"+path+"@"+resolved.ResolvedVersion, http.StatusFound)
 			return
 		}
 		if selector != version {
+			if !authorizeRawArtifact(w, r, store, cfg, user, chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), version) {
+				return
+			}
 			w.Header().Set("Cache-Control", "no-cache")
 			http.Redirect(w, r, "/raw/"+chi.URLParam(r, "org")+"/"+chi.URLParam(r, "namespace")+"/"+chi.URLParam(r, "package")+"/"+path+"@"+version, http.StatusFound)
+			return
+		}
+
+		if !authorizeRawArtifact(w, r, store, cfg, user, chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), version) {
 			return
 		}
 
@@ -681,20 +691,28 @@ func handleRawArtifact(store packages.Store, cfg config.Config) http.HandlerFunc
 			return
 		}
 
-		if cfg.Raw.RequireAuthByDefault && !user.IsAuthenticated && !user.IsDev {
-			isPublic := strings.Contains(artifact.CacheControl, "public")
-			if !isPublic || !cfg.Raw.AllowPublicPackages {
-				writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required to access this artifact.")
-				return
-			}
-		}
-
 		w.Header().Set("Content-Type", artifact.ContentType)
 		w.Header().Set("ETag", artifact.BlobDigest)
 		w.Header().Set("Cache-Control", artifact.CacheControl)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(artifact.Content)
 	}
+}
+
+func authorizeRawArtifact(w http.ResponseWriter, r *http.Request, store packages.Store, cfg config.Config, user auth.User, org, namespace, name, version string) bool {
+	if !cfg.Raw.RequireAuthByDefault || user.IsAuthenticated || user.IsDev {
+		return true
+	}
+	visibility, err := store.CheckVisibility(r.Context(), org, namespace, name, version)
+	if err != nil {
+		writeStoreError(w, r, err)
+		return false
+	}
+	if visibility == "public" && cfg.Raw.AllowPublicPackages {
+		return true
+	}
+	writeError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required to access this artifact.")
+	return false
 }
 
 func splitRawArtifactPathSelector(raw string) (string, string, error) {

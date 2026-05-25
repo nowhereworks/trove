@@ -229,7 +229,7 @@ func IsCLICommand(args []string) bool {
 		return false
 	}
 	switch args[0] {
-	case "init", "remote", "status", "push", "clone", "pull", "resolve", "download", "fetch", "install", "check", "update", "help", "--help", "-h", "version", "--version", "-v":
+	case "init", "remote", "status", "push", "clone", "pull", "resolve", "download", "install", "check", "update", "help", "--help", "-h", "version", "--version", "-v":
 		return true
 	default:
 		return false

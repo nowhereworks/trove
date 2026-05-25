@@ -384,6 +384,23 @@ func TestRawAliasRedirectsToExact(t *testing.T) {
 	}
 }
 
+func TestRawAliasRequiresAuthBeforeRedirectWhenPublicRawDisabled(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Raw.AllowPublicPackages = false
+	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@stable", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusUnauthorized)
+	}
+	if got := res.Header().Get("Location"); got != "" {
+		t.Fatalf("Location = %q, want no redirect", got)
+	}
+}
+
 func TestRawOmittedSelectorRedirectsToStableExact(t *testing.T) {
 	router := testRouter()
 	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md", nil)

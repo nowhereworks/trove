@@ -3,6 +3,7 @@ package cli
 import (
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 )
 
@@ -132,7 +133,8 @@ func RunPush(args []string, jsonOutput bool) error {
 		if err := client.SubmitReview(ref.Org, ref.Namespace, ref.Name, version); err != nil {
 			return fmt.Errorf("submit review: %w", err)
 		}
-		reviewURL = client.ServerURL + "/reviews"
+		result.Lifecycle = "review"
+		reviewURL = reviewPageURL(client.ServerURL, ref, version)
 	case "publish", "default":
 		published, err := client.PublishVersion(ref.Org, ref.Namespace, ref.Name, version)
 		if err != nil {
@@ -141,7 +143,8 @@ func RunPush(args []string, jsonOutput bool) error {
 				if submitErr := client.SubmitReview(ref.Org, ref.Namespace, ref.Name, version); submitErr != nil {
 					return fmt.Errorf("submit review after approval required: %w", submitErr)
 				}
-				reviewURL = client.ServerURL + "/reviews"
+				result.Lifecycle = "review"
+				reviewURL = reviewPageURL(client.ServerURL, ref, version)
 				break
 			}
 			return fmt.Errorf("publish %s@%s: %w", ref.PackagePath(), version, err)
@@ -187,6 +190,14 @@ func updateStateAfterPush(remoteName, requestedSelector string, result VersionRe
 	if selector == "" {
 		selector = "stable"
 	}
-	state := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: remoteName, RequestedSelector: selector, ResolvedVersion: result.Version, PackageDigest: result.Digest}, Files: map[string]StateFile{manifestPath: {Digest: computeDigest(manifestBytes)}, agentsMDPath: {Digest: computeDigest(agentsBytes)}}}
+	manifestDigest := computeDigest(manifestBytes)
+	state := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: remoteName, RequestedSelector: selector, ResolvedVersion: result.Version, PackageDigest: result.Digest, ManifestDigest: manifestDigest}, Files: map[string]StateFile{manifestPath: {Digest: manifestDigest}, agentsMDPath: {Digest: computeDigest(agentsBytes)}}}
 	return writeProjectState(projectStatePath, state)
+}
+
+func reviewPageURL(serverURL string, ref PackageRef, version string) string {
+	values := url.Values{}
+	values.Set("package", ref.PackagePath())
+	values.Set("version", version)
+	return serverURL + "/reviews?" + values.Encode()
 }

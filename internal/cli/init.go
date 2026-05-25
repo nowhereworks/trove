@@ -119,7 +119,7 @@ func RunInit(args []string, jsonOutput bool) error {
 			cfg = configWithRemote(remoteSpec)
 			cfg.Publish.Visibility = visibility
 		} else if packageValue != "" {
-			if serverURL := os.Getenv("TROVE_SERVER_URL"); serverURL != "" {
+			if serverURL := serverURLForPackageInit(); serverURL != "" {
 				cfg.DefaultRemote = "origin"
 				cfg.Remotes = map[string]ProjectRemote{"origin": {ServerURL: serverURL, Package: ref.PackagePath()}}
 			}
@@ -149,4 +149,25 @@ func RunInit(args []string, jsonOutput bool) error {
 		fmt.Printf("Remote: origin -> %s/%s\n", remoteSpec.ServerURL, remoteSpec.Package)
 	}
 	return nil
+}
+
+func serverURLForPackageInit() string {
+	if serverURL := os.Getenv("TROVE_SERVER_URL"); serverURL != "" {
+		return serverURL
+	}
+	cfg, err := loadProjectConfig(projectConfigPath)
+	if err != nil {
+		return ""
+	}
+	if cfg.DefaultRemote != "" {
+		if remote, ok := cfg.Remotes[cfg.DefaultRemote]; ok {
+			return remote.ServerURL
+		}
+	}
+	for _, remote := range cfg.Remotes {
+		if remote.ServerURL != "" {
+			return remote.ServerURL
+		}
+	}
+	return ""
 }

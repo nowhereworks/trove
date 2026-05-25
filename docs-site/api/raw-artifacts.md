@@ -110,7 +110,7 @@ Artifact paths cannot contain `@`; raw URLs reserve `@` for selectors. If the se
 
 | Status | Code | Cause |
 |---|---|---|
-| 400 | `INVALID_ARTIFACT_PATH` | Path contains `..` or is empty |
+| 400 | `INVALID_ARTIFACT_PATH` | Path contains `..`, contains `@`, or is empty |
 | 401 | `UNAUTHORIZED` | Authentication required |
 | 404 | `ARTIFACT_NOT_FOUND` | Path doesn't exist in version |
 | 404 | `VERSION_NOT_FOUND` | Version doesn't exist |

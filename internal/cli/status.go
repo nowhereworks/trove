@@ -43,6 +43,7 @@ func RunStatus(args []string, jsonOutput bool) error {
 			if err == nil {
 				out.NextVersion, _ = nextVersion(versions, "patch", "")
 				out.CurrentPublishedVersion = latestPublishedVersion(versions)
+				refreshReviewPolicy(&out, remote, out.NextVersion)
 			} else {
 				out.NextVersion = "1.0.0"
 				out.Problems = append(out.Problems, "remote package lookup failed: "+err.Error())
@@ -103,6 +104,29 @@ func RunStatus(args []string, jsonOutput bool) error {
 		return fmt.Errorf("local state is not publishable")
 	}
 	return nil
+}
+
+func refreshReviewPolicy(out *statusOutput, remote ProjectRemote, version string) {
+	if version == "" || os.Getenv("TROVE_TOKEN") == "" {
+		return
+	}
+	ref, err := ParsePackageRefNoSelector(remote.Package)
+	if err != nil {
+		return
+	}
+	status, err := NewClientForServer(remote.ServerURL).ApprovalStatus(ref.Org, ref.Namespace, ref.Name, version)
+	if err != nil {
+		return
+	}
+	if status.RequiredCount == 0 {
+		out.ReviewPolicy = "noApprovalRequired"
+		return
+	}
+	if status.HasEnoughApprovals {
+		out.ReviewPolicy = "approved"
+		return
+	}
+	out.ReviewPolicy = "requiresApproval"
 }
 
 func latestPublishedVersion(versions []PackageVersion) string {

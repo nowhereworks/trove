@@ -44,6 +44,7 @@ Use this when you know the package coordinate before the server URL.
 | `--maintainer-team <team>` | No | Add a team maintainer |
 | `--maintainer-user <user>` | No | Add a user maintainer |
 | `--force` | No | Rewrite generated metadata files; never overwrites `AGENTS.md` |
+| `--yes` | No | Disable interactive prompts |
 | `--json` | No | Emit machine-readable output |
 
 `trove init agents-md` does not call the network.

@@ -80,7 +80,7 @@ func TestIsCLICommand(t *testing.T) {
 	}{
 		{[]string{"resolve"}, true},
 		{[]string{"download"}, true},
-		{[]string{"fetch"}, true},
+		{[]string{"fetch"}, false},
 		{[]string{"install"}, true},
 		{[]string{"check"}, true},
 		{[]string{"update"}, true},
