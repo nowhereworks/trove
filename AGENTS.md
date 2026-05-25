@@ -73,7 +73,7 @@
 - Registry changes should usually be surfaced through CLI, CI, Backstage, or agent proposals; the registry should not directly edit downstream repos by default.
 - Adoption reporting comes from configured CLI install/check/update flows; public dashboards show aggregate counts by default.
 
-## Workflow Notes
+## Workflow Notes **CRITICAL: MUST FOLLOW**
 
 - Work in small, atomic units of work, committing between each unit.
 - Execute new work on branches, then merge to `main` using the GitHub `gh` tool.
