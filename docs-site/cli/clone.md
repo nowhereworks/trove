@@ -9,6 +9,7 @@ Use `trove clone` when you maintain a published package and want an editable wor
 ```bash
 trove clone nwks/platform/agent-defaults@stable
 cd agent-defaults
+trove pull
 trove status
 trove push --patch
 ```
@@ -42,4 +43,5 @@ Omitted selectors resolve to `stable`.
 ## Next
 
 - [push](/cli/push) publishes the next version
+- [pull](/cli/pull) refreshes cloned files from the source remote
 - [remote](/cli/remote) shows the configured publishing remote

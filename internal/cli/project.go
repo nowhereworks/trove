@@ -180,6 +180,34 @@ func writeProjectState(path string, state ProjectState) error {
 	return os.WriteFile(path, data, 0644)
 }
 
+func validateProjectState(state ProjectState) []string {
+	var problems []string
+	if state.APIVersion != projectAPIVersion {
+		problems = append(problems, "apiVersion must be trove.io/v1")
+	}
+	if state.Kind != projectStateKind {
+		problems = append(problems, "kind must be TroveProjectState")
+	}
+	if state.Source.Remote == "" {
+		problems = append(problems, "source.remote is required")
+	}
+	if state.Source.ResolvedVersion == "" {
+		problems = append(problems, "source.resolvedVersion is required")
+	}
+	if len(state.Files) == 0 {
+		problems = append(problems, "files must include baseline digests")
+	}
+	for path, file := range state.Files {
+		if path == "" {
+			problems = append(problems, "file path is required")
+		}
+		if file.Digest == "" {
+			problems = append(problems, fmt.Sprintf("files.%s.digest is required", path))
+		}
+	}
+	return problems
+}
+
 func parseRemoteSpec(raw string, existing ProjectConfig) (RemoteSpec, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
@@ -515,6 +543,13 @@ func stateMatches(path string, expected StateFile) bool {
 }
 
 func writeIfClean(path string, content []byte, state ProjectState) error {
+	if err := ensureCleanForWrite(path, state); err != nil {
+		return err
+	}
+	return writeFileContent(path, content)
+}
+
+func ensureCleanForWrite(path string, state ProjectState) error {
 	baseline, ok := state.Files[path]
 	if !ok || baseline.Digest == "" {
 		return fmt.Errorf("missing baseline for %s; refusing to overwrite", path)
@@ -524,6 +559,10 @@ func writeIfClean(path string, content []byte, state ProjectState) error {
 	} else if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	return nil
+}
+
+func writeFileContent(path string, content []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil && filepath.Dir(path) != "." {
 		return err
 	}

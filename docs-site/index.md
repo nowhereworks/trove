@@ -53,6 +53,7 @@ const categories = ref([
       { title: 'status', desc: 'Check local publishing readiness.', link: withBase('/cli/status') },
       { title: 'push', desc: 'Upload, publish, or submit AGENTS.md for review.', link: withBase('/cli/push') },
       { title: 'clone', desc: 'Clone a published package for maintainer edits.', link: withBase('/cli/clone') },
+      { title: 'pull', desc: 'Refresh a cloned publishing worktree safely.', link: withBase('/cli/pull') },
       { title: 'resolve', desc: 'Get the exact version from a selector.', link: withBase('/cli/resolve') },
       { title: 'download', desc: 'Download individual artifacts.', link: withBase('/cli/download') },
       { title: 'install', desc: 'Install required artifacts and pin versions.', link: withBase('/cli/install') },

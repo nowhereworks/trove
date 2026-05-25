@@ -48,6 +48,24 @@ trove push --publish
 
 `--publish` fails if review approval blocks publication. Default mode catches only the structured `APPROVAL_REQUIRED` error and submits for review.
 
+### JSON Output
+
+```bash
+trove push --json
+```
+
+When review is required, JSON output reports the submitted review state:
+
+```json
+{
+  "package": "nwks/platform/agent-defaults",
+  "version": "1.0.0",
+  "lifecycle": "review",
+  "reviewUrl": "https://trove.company.com/reviews?package=nwks%2Fplatform%2Fagent-defaults&version=1.0.0",
+  "installCommand": "trove install nwks/platform/agent-defaults@stable"
+}
+```
+
 ## Reference
 
 | Flag | Required | Description |

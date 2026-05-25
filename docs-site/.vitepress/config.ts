@@ -48,6 +48,7 @@ export default defineConfig({
           { text: 'status', link: '/cli/status' },
           { text: 'push', link: '/cli/push' },
           { text: 'clone', link: '/cli/clone' },
+          { text: 'pull', link: '/cli/pull' },
           { text: 'resolve', link: '/cli/resolve' },
           { text: 'download', link: '/cli/download' },
           { text: 'install', link: '/cli/install' },

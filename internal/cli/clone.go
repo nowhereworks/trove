@@ -95,8 +95,15 @@ func RunPull(args []string, jsonOutput bool) error {
 	if err != nil {
 		return fmt.Errorf("missing or incomplete %s; refusing to overwrite existing files", projectStatePath)
 	}
+	if problems := validateProjectState(state); len(problems) > 0 {
+		return fmt.Errorf("missing or incomplete %s: %s; refusing to overwrite existing files", projectStatePath, problems[0])
+	}
 	if state.Source.Remote != "" {
 		remoteName = state.Source.Remote
+		remote = cfg.Remotes[remoteName]
+		if remote.ServerURL == "" || remote.Package == "" {
+			return fmt.Errorf("remote %q from %s is not configured", remoteName, projectStatePath)
+		}
 	}
 	selector := state.Source.RequestedSelector
 	if selector == "" {
@@ -131,7 +138,15 @@ func RunPull(args []string, jsonOutput bool) error {
 		if sameBytesFile(path, content) {
 			continue
 		}
-		if err := writeIfClean(path, content, state); err != nil {
+		if err := ensureCleanForWrite(path, state); err != nil {
+			return err
+		}
+	}
+	for path, content := range contents {
+		if sameBytesFile(path, content) {
+			continue
+		}
+		if err := writeFileContent(path, content); err != nil {
 			return err
 		}
 	}
