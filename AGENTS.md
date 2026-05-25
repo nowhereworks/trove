@@ -79,6 +79,7 @@
 - Execute new work on branches, then merge to `main` using the GitHub `gh` tool.
 - Preserve durable user instructions or project facts in `AGENTS.md` or another discoverable Markdown file when asked to persist them.
 - Keep `AGENTS.md` up to date, but make the smallest accurate edit instead of rewriting unrelated guidance.
+- Whenever changing the Helm chart, bump the chart version so publishing does not fail.
 - Before publishing or approval workflows are implemented, keep blocking checks in mind: manifest validation, route/version consistency, path validation, size limits, required metadata, secret scanning, and high-risk unsafe-instruction scanning.
 
 ## Documentation
