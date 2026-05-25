@@ -4,6 +4,8 @@
 
 Use `trove push` to run the complete `AGENTS.md` publishing workflow: create or reuse a draft, upload `trove.yaml`, upload `AGENTS.md`, publish, or submit for review when approval is required.
 
+If the target org exists, the server can auto-create a missing namespace and package during draft creation. Operators control this with server-side `TROVE_CREATE_NAMESPACE_ON_PUSH` and `TROVE_CREATE_PACKAGE_ON_PUSH`; both default to enabled.
+
 ## How
 
 ### Publish The Default Patch Version
@@ -83,6 +85,8 @@ When review is required, JSON output reports the submitted review state:
 | `--json` | No | Emit machine-readable output |
 
 `trove push` never rewrites `AGENTS.md`. It may rewrite generated fields in `trove.yaml` so the uploaded manifest matches the selected remote and version.
+
+`trove push` does not create orgs. Create the org first or configure `TROVE_ORG` on the server to bootstrap it at startup.
 
 ## Next
 

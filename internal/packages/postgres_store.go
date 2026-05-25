@@ -363,6 +363,9 @@ func (s *PostgresStore) CreateOrg(ctx context.Context, req CreateOrgRequest) (Or
 	if req.Visibility == "" {
 		req.Visibility = "private"
 	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Slug
+	}
 	id, err := newUUID()
 	if err != nil {
 		return OrgResource{}, err
@@ -386,9 +389,42 @@ func (s *PostgresStore) CreateOrg(ctx context.Context, req CreateOrgRequest) (Or
 	}, nil
 }
 
+func (s *PostgresStore) EnsureOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error) {
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Slug
+	}
+	id, err := newUUID()
+	if err != nil {
+		return OrgResource{}, err
+	}
+	row, err := s.queries.EnsureOrganization(ctx, sqlc.EnsureOrganizationParams{
+		ID:          id,
+		Slug:        req.Slug,
+		DisplayName: req.DisplayName,
+		Visibility:  req.Visibility,
+	})
+	if err != nil {
+		return OrgResource{}, mapWriteError(err)
+	}
+	return OrgResource{
+		ID:          uuid.UUID(row.ID.Bytes).String(),
+		Slug:        row.Slug,
+		DisplayName: row.DisplayName,
+		Visibility:  row.Visibility,
+		CreatedAt:   timestamptzString(row.CreatedAt),
+		UpdatedAt:   timestamptzString(row.UpdatedAt),
+	}, nil
+}
+
 func (s *PostgresStore) CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error) {
 	if req.Visibility == "" {
 		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Slug
 	}
 	id, err := newUUID()
 	if err != nil {
@@ -415,9 +451,47 @@ func (s *PostgresStore) CreateNamespace(ctx context.Context, req CreateNamespace
 	}, nil
 }
 
+func (s *PostgresStore) EnsureNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error) {
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Slug
+	}
+	id, err := newUUID()
+	if err != nil {
+		return NamespaceResource{}, err
+	}
+	row, err := s.queries.EnsureNamespace(ctx, sqlc.EnsureNamespaceParams{
+		ID:            id,
+		OrgSlug:       req.Org,
+		NamespaceSlug: req.Slug,
+		DisplayName:   req.DisplayName,
+		Visibility:    req.Visibility,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return NamespaceResource{}, ErrPackageNotFound
+		}
+		return NamespaceResource{}, mapWriteError(err)
+	}
+	return NamespaceResource{
+		ID:          uuid.UUID(row.ID.Bytes).String(),
+		OrgID:       uuid.UUID(row.OrgID.Bytes).String(),
+		Slug:        row.Slug,
+		DisplayName: row.DisplayName,
+		Visibility:  row.Visibility,
+		CreatedAt:   timestamptzString(row.CreatedAt),
+		UpdatedAt:   timestamptzString(row.UpdatedAt),
+	}, nil
+}
+
 func (s *PostgresStore) CreatePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error) {
 	if req.Visibility == "" {
 		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Name
 	}
 	id, err := newUUID()
 	if err != nil {
@@ -433,6 +507,47 @@ func (s *PostgresStore) CreatePackage(ctx context.Context, req CreatePackageRequ
 		Visibility:    req.Visibility,
 	})
 	if err != nil {
+		return PackageResource{}, mapWriteError(err)
+	}
+	return PackageResource{
+		ID:          uuid.UUID(row.ID.Bytes).String(),
+		NamespaceID: uuid.UUID(row.NamespaceID.Bytes).String(),
+		Org:         req.Org,
+		Namespace:   req.Namespace,
+		Name:        row.Name,
+		DisplayName: row.DisplayName,
+		Description: textValue(row.Description),
+		Visibility:  row.Visibility,
+		Lifecycle:   row.Lifecycle,
+		CreatedAt:   timestamptzString(row.CreatedAt),
+		UpdatedAt:   timestamptzString(row.UpdatedAt),
+	}, nil
+}
+
+func (s *PostgresStore) EnsurePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error) {
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Name
+	}
+	id, err := newUUID()
+	if err != nil {
+		return PackageResource{}, err
+	}
+	row, err := s.queries.EnsurePackage(ctx, sqlc.EnsurePackageParams{
+		ID:            id,
+		OrgSlug:       req.Org,
+		NamespaceSlug: req.Namespace,
+		Name:          req.Name,
+		DisplayName:   req.DisplayName,
+		Description:   textOrNull(req.Description),
+		Visibility:    req.Visibility,
+	})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return PackageResource{}, ErrPackageNotFound
+		}
 		return PackageResource{}, mapWriteError(err)
 	}
 	return PackageResource{
@@ -853,6 +968,9 @@ func mapWriteError(err error) error {
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		return ErrVersionExists
+	}
+	if errors.As(err, &pgErr) && pgErr.Code == "23502" && (pgErr.ColumnName == "org_id" || pgErr.ColumnName == "namespace_id") {
+		return ErrPackageNotFound
 	}
 	return err
 }

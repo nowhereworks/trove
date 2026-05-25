@@ -181,9 +181,10 @@ func (q *Queries) CreateOrganization(ctx context.Context, arg CreateOrganization
 }
 
 const createPackage = `-- name: CreatePackage :one
-insert into packages (id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at)
+insert into packages (id, org_id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at)
 values (
   $1,
+  (select o.id from organizations o where o.slug = $2),
   (select n.id from namespaces n join organizations o on o.id = n.org_id where o.slug = $2 and n.slug = $3),
   $4,
   $5,
@@ -319,6 +320,177 @@ func (q *Queries) DeprecateVersion(ctx context.Context, id pgtype.UUID) (Depreca
 	row := q.db.QueryRow(ctx, deprecateVersion, id)
 	var i DeprecateVersionRow
 	err := row.Scan(&i.Version, &i.Lifecycle, &i.UpdatedAt)
+	return i, err
+}
+
+const ensureNamespace = `-- name: EnsureNamespace :one
+with org_row as (
+  select id from organizations where organizations.slug = $5
+)
+insert into namespaces (id, org_id, slug, display_name, visibility, created_at, updated_at)
+select
+  $1,
+  org_row.id,
+  $2,
+  $3,
+  $4,
+  now(),
+  now()
+from org_row
+on conflict (org_id, slug) do update set slug = namespaces.slug
+returning id, org_id, slug, display_name, visibility, created_at, updated_at
+`
+
+type EnsureNamespaceParams struct {
+	ID            pgtype.UUID `json:"id"`
+	NamespaceSlug string      `json:"namespace_slug"`
+	DisplayName   string      `json:"display_name"`
+	Visibility    string      `json:"visibility"`
+	OrgSlug       string      `json:"org_slug"`
+}
+
+type EnsureNamespaceRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	OrgID       pgtype.UUID        `json:"org_id"`
+	Slug        string             `json:"slug"`
+	DisplayName string             `json:"display_name"`
+	Visibility  string             `json:"visibility"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) EnsureNamespace(ctx context.Context, arg EnsureNamespaceParams) (EnsureNamespaceRow, error) {
+	row := q.db.QueryRow(ctx, ensureNamespace,
+		arg.ID,
+		arg.NamespaceSlug,
+		arg.DisplayName,
+		arg.Visibility,
+		arg.OrgSlug,
+	)
+	var i EnsureNamespaceRow
+	err := row.Scan(
+		&i.ID,
+		&i.OrgID,
+		&i.Slug,
+		&i.DisplayName,
+		&i.Visibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const ensureOrganization = `-- name: EnsureOrganization :one
+insert into organizations (id, slug, display_name, visibility, created_at, updated_at)
+values ($1, $2, $3, $4, now(), now())
+on conflict (slug) do update set slug = organizations.slug
+returning id, slug, display_name, visibility, created_at, updated_at
+`
+
+type EnsureOrganizationParams struct {
+	ID          pgtype.UUID `json:"id"`
+	Slug        string      `json:"slug"`
+	DisplayName string      `json:"display_name"`
+	Visibility  string      `json:"visibility"`
+}
+
+type EnsureOrganizationRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	Slug        string             `json:"slug"`
+	DisplayName string             `json:"display_name"`
+	Visibility  string             `json:"visibility"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) EnsureOrganization(ctx context.Context, arg EnsureOrganizationParams) (EnsureOrganizationRow, error) {
+	row := q.db.QueryRow(ctx, ensureOrganization,
+		arg.ID,
+		arg.Slug,
+		arg.DisplayName,
+		arg.Visibility,
+	)
+	var i EnsureOrganizationRow
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.DisplayName,
+		&i.Visibility,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const ensurePackage = `-- name: EnsurePackage :one
+with namespace_row as (
+  select o.id as org_id, n.id as namespace_id
+  from namespaces n
+  join organizations o on o.id = n.org_id
+  where o.slug = $6
+    and n.slug = $7
+)
+insert into packages (id, org_id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at)
+select
+  $1,
+  namespace_row.org_id,
+  namespace_row.namespace_id,
+  $2,
+  $3,
+  $4,
+  $5,
+  'active',
+  now(),
+  now()
+from namespace_row
+on conflict (namespace_id, name) do update set name = packages.name
+returning id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at
+`
+
+type EnsurePackageParams struct {
+	ID            pgtype.UUID `json:"id"`
+	Name          string      `json:"name"`
+	DisplayName   string      `json:"display_name"`
+	Description   pgtype.Text `json:"description"`
+	Visibility    string      `json:"visibility"`
+	OrgSlug       string      `json:"org_slug"`
+	NamespaceSlug string      `json:"namespace_slug"`
+}
+
+type EnsurePackageRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	NamespaceID pgtype.UUID        `json:"namespace_id"`
+	Name        string             `json:"name"`
+	DisplayName string             `json:"display_name"`
+	Description pgtype.Text        `json:"description"`
+	Visibility  string             `json:"visibility"`
+	Lifecycle   string             `json:"lifecycle"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) EnsurePackage(ctx context.Context, arg EnsurePackageParams) (EnsurePackageRow, error) {
+	row := q.db.QueryRow(ctx, ensurePackage,
+		arg.ID,
+		arg.Name,
+		arg.DisplayName,
+		arg.Description,
+		arg.Visibility,
+		arg.OrgSlug,
+		arg.NamespaceSlug,
+	)
+	var i EnsurePackageRow
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.DisplayName,
+		&i.Description,
+		&i.Visibility,
+		&i.Lifecycle,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
 	return i, err
 }
 

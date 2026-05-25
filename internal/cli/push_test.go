@@ -21,7 +21,7 @@ func TestPushNewPackagePublishesAndUploadsManifestFirst(t *testing.T) {
 		t.Fatalf("RunPush() error = %v", err)
 	}
 
-	want := []string{"GET package", "POST package", "POST draft 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
+	want := []string{"GET package", "POST draft 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
 	if strings.Join(*calls, ",") != strings.Join(want, ",") {
 		t.Fatalf("calls = %#v, want %#v", *calls, want)
 	}
@@ -74,7 +74,7 @@ func TestPushApprovalRequiredSubmitsForReviewInDefaultMode(t *testing.T) {
 		t.Fatalf("push JSON = %+v", out)
 	}
 
-	want := []string{"GET package", "POST package", "POST draft 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish", "POST submit"}
+	want := []string{"GET package", "POST draft 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish", "POST submit"}
 	if strings.Join(*calls, ",") != strings.Join(want, ",") {
 		t.Fatalf("calls = %#v, want %#v", *calls, want)
 	}

@@ -74,10 +74,6 @@ func RunPush(args []string, jsonOutput bool) error {
 		if !errors.As(err, &apiErr) || apiErr.Status != 404 {
 			return fmt.Errorf("lookup package %s: %w", ref.PackagePath(), err)
 		}
-		_, err = client.CreatePackage(CreatePackageRequest{Org: ref.Org, Namespace: ref.Namespace, Name: ref.Name, DisplayName: firstNonEmpty(m.Metadata.DisplayName, titleFromSlug(ref.Name)), Description: firstNonEmpty(m.Metadata.Description, "Shared AGENTS.md instructions."), Visibility: firstNonEmpty(m.Spec.Visibility, cfg.Publish.Visibility, "private")})
-		if err != nil {
-			return fmt.Errorf("create package %s: %w", ref.PackagePath(), err)
-		}
 	}
 
 	version, err := nextVersion(versions, bump, explicitVersion)

@@ -38,9 +38,12 @@ type WriteStore interface {
 	PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error)
 	DeprecateVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
 	YankVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
+	EnsureOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error)
 	CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error)
 	CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error)
+	EnsureNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error)
 	CreatePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error)
+	EnsurePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error)
 	CreateProject(ctx context.Context, req CreateProjectRequest) (ProjectResource, error)
 	ReportProjectAdoption(ctx context.Context, req ReportProjectAdoptionRequest) error
 }

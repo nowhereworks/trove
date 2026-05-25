@@ -44,7 +44,6 @@ type APIError struct {
 type ReadinessCheck func(context.Context) error
 
 func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck) http.Handler {
-	_ = cfg
 	if store == nil {
 		store = packages.NewSeedMemoryStore()
 	}
@@ -79,17 +78,18 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 
 	r.Get("/healthz", handleHealth)
 	r.Get("/readyz", handleReady(readiness))
+	r.Get("/api/v1/config", handleGetConfig(cfg))
 	r.Get("/api/v1/core/skills/{skill}/SKILL.md", handleCoreSkill)
 	r.Get("/api/v1/search/packages", handleSearchPackages(store))
 	r.Get("/api/v1/packages", handleListPackages(store))
 	r.Get("/api/v1/resolve/{org}/{namespace}/{packageSelector}", handleResolve(store))
-	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions", auth.RequireAuth(auth.RequireScope("package:write")(handleCreateDraft(writeStore))))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions", auth.RequireAuth(auth.RequireScope("package:write")(handleCreateDraft(writeStore, cfg))))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive", auth.RequireAuth(auth.RequireScope("package:write")(handleUploadArchive(writeStore, scanner, cfg))))
 	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", auth.RequireAuth(auth.RequireScope("package:write")(handleUploadArtifact(writeStore, scanner, cfg))))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", auth.RequireAuth(auth.RequireScope("version:publish")(handlePublishVersion(writeStore, reviewService, cfg))))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/deprecate", auth.RequireAuth(auth.RequireScope("package:write")(handleDeprecateVersion(writeStore))))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/yank", auth.RequireAuth(auth.RequireScope("package:write")(handleYankVersion(writeStore))))
-	r.Post("/api/v1/orgs", auth.RequireAuth(auth.RequireScope("org:write")(handleCreateOrg(writeStore))))
+	r.Post("/api/v1/orgs", auth.RequireAuth(auth.RequireScope("org:write")(handleCreateOrg(writeStore, cfg))))
 	r.Post("/api/v1/orgs/{org}/namespaces", auth.RequireAuth(auth.RequireScope("namespace:write")(handleCreateNamespace(writeStore))))
 	r.Post("/api/v1/packages", auth.RequireAuth(auth.RequireScope("package:write")(handleCreatePackage(writeStore))))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
@@ -128,10 +128,23 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/adoption", uiHandler.ServeHTTP)
 	r.Get("/upload", uiHandler.ServeHTTP)
 	r.Get("/reviews", uiHandler.ServeHTTP)
+	r.Get("/orgs/new", uiHandler.ServeHTTP)
 	r.Get("/packages/{org}/{namespace}/{name}", uiHandler.ServeHTTP)
 	r.Get("/assets/*", uiHandler.ServeHTTP)
 
 	return r
+}
+
+func handleGetConfig(cfg config.Config) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, struct {
+			Org            string `json:"org"`
+			AllowCreateOrg bool   `json:"allowCreateOrg"`
+		}{
+			Org:            cfg.Orgs.DefaultOrg,
+			AllowCreateOrg: cfg.Orgs.AllowCreateOrg,
+		})
+	}
 }
 
 func handleCoreSkill(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +159,7 @@ func handleCoreSkill(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(content)
 }
 
-func handleCreateDraft(writeStore packages.WriteStore) http.HandlerFunc {
+func handleCreateDraft(writeStore packages.WriteStore, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if writeStore == nil {
 			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
@@ -162,13 +175,33 @@ func handleCreateDraft(writeStore packages.WriteStore) http.HandlerFunc {
 			return
 		}
 
-		result, err := writeStore.CreateDraftVersion(r.Context(), packages.CreateDraftVersionRequest{
+		request := packages.CreateDraftVersionRequest{
 			Org:        chi.URLParam(r, "org"),
 			Namespace:  chi.URLParam(r, "namespace"),
 			Package:    chi.URLParam(r, "package"),
 			Version:    body.Version,
 			Visibility: body.Visibility,
-		})
+		}
+		result, err := writeStore.CreateDraftVersion(r.Context(), request)
+		if errors.Is(err, packages.ErrPackageNotFound) && cfg.Packages.CreatePackageOnPush {
+			visibility := body.Visibility
+			if visibility == "" {
+				visibility = "private"
+			}
+			if cfg.Packages.CreateNamespaceOnPush {
+				_, err = writeStore.EnsureNamespace(r.Context(), packages.CreateNamespaceRequest{Org: request.Org, Slug: request.Namespace, DisplayName: request.Namespace, Visibility: visibility})
+				if err != nil {
+					writeStoreError(w, r, err)
+					return
+				}
+			}
+			_, err = writeStore.EnsurePackage(r.Context(), packages.CreatePackageRequest{Org: request.Org, Namespace: request.Namespace, Name: request.Package, DisplayName: request.Package, Visibility: visibility})
+			if err != nil {
+				writeStoreError(w, r, err)
+				return
+			}
+			result, err = writeStore.CreateDraftVersion(r.Context(), request)
+		}
 		if err != nil {
 			writeStoreError(w, r, err)
 			return
@@ -389,8 +422,12 @@ func handleYankVersion(writeStore packages.WriteStore) http.HandlerFunc {
 	}
 }
 
-func handleCreateOrg(writeStore packages.WriteStore) http.HandlerFunc {
+func handleCreateOrg(writeStore packages.WriteStore, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if !cfg.Orgs.AllowCreateOrg {
+			writeError(w, r, http.StatusForbidden, "ORG_CREATION_DISABLED", "Organization creation is disabled. Configure TROVE_ORG at startup or enable TROVE_ALLOW_CREATE_ORG.")
+			return
+		}
 		if writeStore == nil {
 			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
 			return

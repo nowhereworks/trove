@@ -14,7 +14,9 @@ import (
 )
 
 type MemoryStore struct {
-	packages []memoryPackage
+	packages   []memoryPackage
+	orgs       []OrgResource
+	namespaces []NamespaceResource
 }
 
 type memoryPackage struct {
@@ -32,7 +34,26 @@ func NewSeedMemoryStore() *MemoryStore {
 	content := []byte("# Backend Agent Defaults\n\nUse Go, chi, pgx, and small reviewable changes.\n")
 	manifest := json.RawMessage(`{"apiVersion":"trove.io/v1","kind":"AgentArtifactPackage","metadata":{"org":"companyx","namespace":"platform","name":"agent-backend","displayName":"Backend Agent Defaults","description":"Default agent instructions, skills, and commands for backend services.","labels":{"language":"golang","framework":"chi","maturity":"production"},"annotations":{"owner":"platform-engineering"}},"spec":{"version":"1.0.0","channel":"stable","license":"internal","visibility":"public","lifecycle":"published","compatibility":{"tools":[{"name":"opencode","version":">=0.6.0 <2.0.0"}],"models":[{"family":"gpt","minContextWindow":128000}],"runtimes":["linux"]},"artifacts":[{"path":"AGENTS.md","type":"agent-instructions","required":true,"targetPath":"AGENTS.md"}],"dependencies":[],"updatePolicy":{"recommendedChannel":"stable","breakingChangeRequiresManualApproval":true},"maintainers":[{"team":"platform-engineering"}],"links":{"docs":"https://docs.company.com/agent-backend"}}}`)
 
-	return &MemoryStore{packages: []memoryPackage{
+	return &MemoryStore{orgs: []OrgResource{
+		{
+			ID:          "org_companyx",
+			Slug:        "companyx",
+			DisplayName: "Company X",
+			Visibility:  "public",
+			CreatedAt:   "2026-05-22T00:00:00Z",
+			UpdatedAt:   "2026-05-22T00:00:00Z",
+		},
+	}, namespaces: []NamespaceResource{
+		{
+			ID:          "ns_companyx_platform",
+			OrgID:       "org_companyx",
+			Slug:        "platform",
+			DisplayName: "Platform",
+			Visibility:  "public",
+			CreatedAt:   "2026-05-22T00:00:00Z",
+			UpdatedAt:   "2026-05-22T00:00:00Z",
+		},
+	}, packages: []memoryPackage{
 		{
 			summary: PackageSummary{
 				Org:           "companyx",
@@ -262,18 +283,47 @@ func (s *MemoryStore) YankVersion(ctx context.Context, req LifecycleChangeReques
 }
 
 func (s *MemoryStore) CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error) {
+	if _, ok := s.findOrg(req.Slug); ok {
+		return OrgResource{}, ErrVersionExists
+	}
+	return s.appendOrg(ctx, req), nil
+}
+
+func (s *MemoryStore) EnsureOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error) {
 	_ = ctx
-	return OrgResource{}, ErrPackageNotFound
+	if org, ok := s.findOrg(req.Slug); ok {
+		return org, nil
+	}
+	return s.appendOrg(ctx, req), nil
 }
 
 func (s *MemoryStore) CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error) {
-	_ = ctx
-	return NamespaceResource{}, ErrPackageNotFound
+	if _, ok := s.findNamespace(req.Org, req.Slug); ok {
+		return NamespaceResource{}, ErrVersionExists
+	}
+	return s.appendNamespace(ctx, req)
+
+}
+
+func (s *MemoryStore) EnsureNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error) {
+	if namespace, ok := s.findNamespace(req.Org, req.Slug); ok {
+		return namespace, nil
+	}
+	return s.appendNamespace(ctx, req)
 }
 
 func (s *MemoryStore) CreatePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error) {
-	_ = ctx
-	return PackageResource{}, ErrPackageNotFound
+	if _, ok := s.findPackage(req.Org, req.Namespace, req.Name); ok {
+		return PackageResource{}, ErrVersionExists
+	}
+	return s.appendPackage(ctx, req)
+}
+
+func (s *MemoryStore) EnsurePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error) {
+	if pkg, ok := s.findPackage(req.Org, req.Namespace, req.Name); ok {
+		return packageResourceFromSummary(pkg.summary), nil
+	}
+	return s.appendPackage(ctx, req)
 }
 
 func (s *MemoryStore) CreateProject(ctx context.Context, req CreateProjectRequest) (ProjectResource, error) {
@@ -487,6 +537,88 @@ func (s *MemoryStore) findPackage(org string, namespace string, name string) (me
 		}
 	}
 	return memoryPackage{}, false
+}
+
+func (s *MemoryStore) findOrg(slug string) (OrgResource, bool) {
+	for _, org := range s.orgs {
+		if org.Slug == slug {
+			return org, true
+		}
+	}
+	return OrgResource{}, false
+}
+
+func (s *MemoryStore) findNamespace(org string, slug string) (NamespaceResource, bool) {
+	orgResource, ok := s.findOrg(org)
+	if !ok {
+		return NamespaceResource{}, false
+	}
+	for _, namespace := range s.namespaces {
+		if namespace.OrgID == orgResource.ID && namespace.Slug == slug {
+			return namespace, true
+		}
+	}
+	return NamespaceResource{}, false
+
+}
+
+func (s *MemoryStore) appendOrg(ctx context.Context, req CreateOrgRequest) OrgResource {
+	_ = ctx
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Slug
+	}
+	now := FormatTime(time.Now().UTC())
+	org := OrgResource{ID: "org_" + req.Slug, Slug: req.Slug, DisplayName: req.DisplayName, Visibility: req.Visibility, CreatedAt: now, UpdatedAt: now}
+	s.orgs = append(s.orgs, org)
+	return org
+}
+
+func (s *MemoryStore) appendNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error) {
+	_ = ctx
+	org, ok := s.findOrg(req.Org)
+	if !ok {
+		return NamespaceResource{}, ErrPackageNotFound
+	}
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Slug
+	}
+	now := FormatTime(time.Now().UTC())
+	namespace := NamespaceResource{ID: "ns_" + req.Org + "_" + req.Slug, OrgID: org.ID, Slug: req.Slug, DisplayName: req.DisplayName, Visibility: req.Visibility, CreatedAt: now, UpdatedAt: now}
+	s.namespaces = append(s.namespaces, namespace)
+	return namespace, nil
+}
+
+func (s *MemoryStore) appendPackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error) {
+	_ = ctx
+	namespace, ok := s.findNamespace(req.Org, req.Namespace)
+	if !ok {
+		return PackageResource{}, ErrPackageNotFound
+	}
+	if req.Visibility == "" {
+		req.Visibility = "private"
+	}
+	if req.DisplayName == "" {
+		req.DisplayName = req.Name
+	}
+	now := FormatTime(time.Now().UTC())
+	summary := PackageSummary{Org: req.Org, Namespace: req.Namespace, Name: req.Name, DisplayName: req.DisplayName, Description: req.Description, Visibility: req.Visibility, Lifecycle: "active"}
+	s.packages = append(s.packages, memoryPackage{summary: summary})
+	resource := packageResourceFromSummary(summary)
+	resource.ID = "pkg_" + req.Org + "_" + req.Namespace + "_" + req.Name
+	resource.NamespaceID = namespace.ID
+	resource.CreatedAt = now
+	resource.UpdatedAt = now
+	return resource, nil
+}
+
+func packageResourceFromSummary(summary PackageSummary) PackageResource {
+	return PackageResource{Org: summary.Org, Namespace: summary.Namespace, Name: summary.Name, DisplayName: summary.DisplayName, Description: summary.Description, Visibility: summary.Visibility, Lifecycle: summary.Lifecycle}
 }
 
 func (s *MemoryStore) findMutableVersion(org string, namespace string, name string, version string) (int, int, error) {

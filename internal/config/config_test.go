@@ -20,6 +20,18 @@ func TestLoadEnvUsesDefaults(t *testing.T) {
 	if !cfg.Raw.RequireAuthByDefault {
 		t.Fatal("Raw.RequireAuthByDefault = false, want true")
 	}
+	if !cfg.Orgs.AllowCreateOrg {
+		t.Fatal("Orgs.AllowCreateOrg = false, want true")
+	}
+	if cfg.Orgs.DefaultOrg != "" {
+		t.Fatalf("Orgs.DefaultOrg = %q, want empty", cfg.Orgs.DefaultOrg)
+	}
+	if !cfg.Packages.CreatePackageOnPush {
+		t.Fatal("Packages.CreatePackageOnPush = false, want true")
+	}
+	if !cfg.Packages.CreateNamespaceOnPush {
+		t.Fatal("Packages.CreateNamespaceOnPush = false, want true")
+	}
 	if cfg.Storage.Limits.MaxArtifactFileBytes != DefaultMaxArtifactFileBytes {
 		t.Fatalf("MaxArtifactFileBytes = %d, want %d", cfg.Storage.Limits.MaxArtifactFileBytes, DefaultMaxArtifactFileBytes)
 	}
@@ -33,6 +45,10 @@ func TestLoadEnvOverlaysValues(t *testing.T) {
 		"TROVE_DATABASE_MIGRATE_ON_STARTUP":          "true",
 		"TROVE_AUTH_MODE":                            "oidc",
 		"TROVE_AUTH_DEV_MODE_ENABLED":                "false",
+		"TROVE_ALLOW_CREATE_ORG":                     "false",
+		"TROVE_ORG":                                  "sample-org",
+		"TROVE_CREATE_PACKAGE_ON_PUSH":               "false",
+		"TROVE_CREATE_NAMESPACE_ON_PUSH":             "false",
 		"TROVE_STORAGE_MAX_ARTIFACTS_PER_VERSION":    "42",
 		"TROVE_STORAGE_MAX_ARTIFACT_FILE_BYTES":      "1234",
 		"TROVE_STORAGE_MAX_UNPACKED_PACKAGE_BYTES":   "5678",
@@ -61,6 +77,12 @@ func TestLoadEnvOverlaysValues(t *testing.T) {
 	if cfg.Auth.Mode != "oidc" || cfg.Auth.DevModeEnabled {
 		t.Fatalf("Auth config was not overlaid: %+v", cfg.Auth)
 	}
+	if cfg.Orgs.AllowCreateOrg || cfg.Orgs.DefaultOrg != "sample-org" {
+		t.Fatalf("Orgs config was not overlaid: %+v", cfg.Orgs)
+	}
+	if cfg.Packages.CreatePackageOnPush || cfg.Packages.CreateNamespaceOnPush {
+		t.Fatalf("Packages config was not overlaid: %+v", cfg.Packages)
+	}
 	if cfg.Storage.Limits.MaxArtifactsPerVersion != 42 {
 		t.Fatalf("MaxArtifactsPerVersion = %d, want 42", cfg.Storage.Limits.MaxArtifactsPerVersion)
 	}
@@ -81,9 +103,39 @@ func TestLoadEnvOverlaysValues(t *testing.T) {
 	}
 }
 
+func TestLoadEnvRequiresDefaultOrgWhenCreateOrgDisabled(t *testing.T) {
+	env := map[string]string{
+		"TROVE_ALLOW_CREATE_ORG": "false",
+	}
+
+	_, err := LoadEnv(func(key string) (string, bool) {
+		value, ok := env[key]
+		return value, ok
+	})
+	if err == nil || !strings.Contains(err.Error(), "TROVE_ORG") {
+		t.Fatalf("LoadEnv() error = %v, want TROVE_ORG requirement", err)
+	}
+}
+
+func TestLoadEnvRejectsInvalidDefaultOrg(t *testing.T) {
+	env := map[string]string{
+		"TROVE_ORG": "Invalid_Org",
+	}
+
+	_, err := LoadEnv(func(key string) (string, bool) {
+		value, ok := env[key]
+		return value, ok
+	})
+	if err == nil || !strings.Contains(err.Error(), "TROVE_ORG") {
+		t.Fatalf("LoadEnv() error = %v, want TROVE_ORG validation", err)
+	}
+}
+
 func TestLoadEnvReportsParseErrors(t *testing.T) {
 	env := map[string]string{
 		"TROVE_DATABASE_MIGRATE_ON_STARTUP":     "not-bool",
+		"TROVE_CREATE_PACKAGE_ON_PUSH":          "not-bool",
+		"TROVE_CREATE_NAMESPACE_ON_PUSH":        "not-bool",
 		"TROVE_REVIEWS_MINIMUM_APPROVALS":       "not-int",
 		"TROVE_STORAGE_MAX_ARTIFACT_FILE_BYTES": "not-int64",
 	}
@@ -99,6 +151,8 @@ func TestLoadEnvReportsParseErrors(t *testing.T) {
 	message := err.Error()
 	for _, want := range []string{
 		"TROVE_DATABASE_MIGRATE_ON_STARTUP",
+		"TROVE_CREATE_PACKAGE_ON_PUSH",
+		"TROVE_CREATE_NAMESPACE_ON_PUSH",
 		"TROVE_REVIEWS_MINIMUM_APPROVALS",
 		"TROVE_STORAGE_MAX_ARTIFACT_FILE_BYTES",
 	} {

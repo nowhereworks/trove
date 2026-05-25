@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"regexp"
 	"strconv"
 )
 
@@ -22,10 +23,22 @@ type Config struct {
 	Database DatabaseConfig
 	Auth     AuthConfig
 	OIDC     OIDCConfig
+	Orgs     OrgsConfig
+	Packages PackagesConfig
 	Storage  StorageConfig
 	Raw      RawConfig
 	Reviews  ReviewsConfig
 	Security SecurityConfig
+}
+
+type OrgsConfig struct {
+	AllowCreateOrg bool
+	DefaultOrg     string
+}
+
+type PackagesConfig struct {
+	CreatePackageOnPush   bool
+	CreateNamespaceOnPush bool
 }
 
 type ServerConfig struct {
@@ -80,6 +93,8 @@ type SecurityConfig struct {
 	UnsafeInstructionScanning bool
 }
 
+var slugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`)
+
 // Load reads process environment variables and overlays them onto defaults.
 func Load() (Config, error) {
 	return LoadEnv(os.LookupEnv)
@@ -96,6 +111,7 @@ func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
 	assignString(lookup, "TROVE_DATABASE_URL", &cfg.Database.URL)
 	assignString(lookup, "TROVE_AUTH_MODE", &cfg.Auth.Mode)
 	assignString(lookup, "TROVE_AUTH_DEV_TOKEN", &cfg.Auth.DevToken)
+	assignString(lookup, "TROVE_ORG", &cfg.Orgs.DefaultOrg)
 	assignString(lookup, "TROVE_STORAGE_MODE", &cfg.Storage.Mode)
 	assignString(lookup, "TROVE_OIDC_ISSUER_URL", &cfg.OIDC.IssuerURL)
 	assignString(lookup, "TROVE_OIDC_CLIENT_ID", &cfg.OIDC.ClientID)
@@ -104,6 +120,9 @@ func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
 
 	assignBool(lookup, "TROVE_DATABASE_MIGRATE_ON_STARTUP", &cfg.Database.MigrateOnStartup, &errs)
 	assignBool(lookup, "TROVE_AUTH_DEV_MODE_ENABLED", &cfg.Auth.DevModeEnabled, &errs)
+	assignBool(lookup, "TROVE_ALLOW_CREATE_ORG", &cfg.Orgs.AllowCreateOrg, &errs)
+	assignBool(lookup, "TROVE_CREATE_PACKAGE_ON_PUSH", &cfg.Packages.CreatePackageOnPush, &errs)
+	assignBool(lookup, "TROVE_CREATE_NAMESPACE_ON_PUSH", &cfg.Packages.CreateNamespaceOnPush, &errs)
 	assignBool(lookup, "TROVE_RAW_REQUIRE_AUTH_BY_DEFAULT", &cfg.Raw.RequireAuthByDefault, &errs)
 	assignBool(lookup, "TROVE_RAW_ALLOW_PUBLIC_NAMESPACES", &cfg.Raw.AllowPublicNamespaces, &errs)
 	assignBool(lookup, "TROVE_RAW_ALLOW_PUBLIC_PACKAGES", &cfg.Raw.AllowPublicPackages, &errs)
@@ -120,6 +139,12 @@ func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
 	if len(errs) > 0 {
 		return Config{}, errors.Join(errs...)
 	}
+	if !cfg.Orgs.AllowCreateOrg && cfg.Orgs.DefaultOrg == "" {
+		return Config{}, errors.New("TROVE_ORG is required when TROVE_ALLOW_CREATE_ORG=false")
+	}
+	if cfg.Orgs.DefaultOrg != "" && !slugPattern.MatchString(cfg.Orgs.DefaultOrg) {
+		return Config{}, fmt.Errorf("TROVE_ORG must match %s", slugPattern.String())
+	}
 
 	return cfg, nil
 }
@@ -132,6 +157,13 @@ func Defaults() Config {
 		Auth: AuthConfig{
 			Mode:           DefaultAuthMode,
 			DevModeEnabled: true,
+		},
+		Orgs: OrgsConfig{
+			AllowCreateOrg: true,
+		},
+		Packages: PackagesConfig{
+			CreatePackageOnPush:   true,
+			CreateNamespaceOnPush: true,
 		},
 		Storage: StorageConfig{
 			Mode: DefaultStorageMode,

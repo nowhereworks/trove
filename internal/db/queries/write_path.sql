@@ -132,6 +132,12 @@ insert into organizations (id, slug, display_name, visibility, created_at, updat
 values (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(display_name), sqlc.arg(visibility), now(), now())
 returning id, slug, display_name, visibility, created_at, updated_at;
 
+-- name: EnsureOrganization :one
+insert into organizations (id, slug, display_name, visibility, created_at, updated_at)
+values (sqlc.arg(id), sqlc.arg(slug), sqlc.arg(display_name), sqlc.arg(visibility), now(), now())
+on conflict (slug) do update set slug = organizations.slug
+returning id, slug, display_name, visibility, created_at, updated_at;
+
 -- name: CreateNamespace :one
 insert into namespaces (id, org_id, slug, display_name, visibility, created_at, updated_at)
 values (
@@ -145,10 +151,28 @@ values (
 )
 returning id, org_id, slug, display_name, visibility, created_at, updated_at;
 
+-- name: EnsureNamespace :one
+with org_row as (
+  select id from organizations where organizations.slug = sqlc.arg(org_slug)
+)
+insert into namespaces (id, org_id, slug, display_name, visibility, created_at, updated_at)
+select
+  sqlc.arg(id),
+  org_row.id,
+  sqlc.arg(namespace_slug),
+  sqlc.arg(display_name),
+  sqlc.arg(visibility),
+  now(),
+  now()
+from org_row
+on conflict (org_id, slug) do update set slug = namespaces.slug
+returning id, org_id, slug, display_name, visibility, created_at, updated_at;
+
 -- name: CreatePackage :one
-insert into packages (id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at)
+insert into packages (id, org_id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at)
 values (
   sqlc.arg(id),
+  (select o.id from organizations o where o.slug = sqlc.arg(org_slug)),
   (select n.id from namespaces n join organizations o on o.id = n.org_id where o.slug = sqlc.arg(org_slug) and n.slug = sqlc.arg(namespace_slug)),
   sqlc.arg(name),
   sqlc.arg(display_name),
@@ -158,6 +182,30 @@ values (
   now(),
   now()
 )
+returning id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at;
+
+-- name: EnsurePackage :one
+with namespace_row as (
+  select o.id as org_id, n.id as namespace_id
+  from namespaces n
+  join organizations o on o.id = n.org_id
+  where o.slug = sqlc.arg(org_slug)
+    and n.slug = sqlc.arg(namespace_slug)
+)
+insert into packages (id, org_id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at)
+select
+  sqlc.arg(id),
+  namespace_row.org_id,
+  namespace_row.namespace_id,
+  sqlc.arg(name),
+  sqlc.arg(display_name),
+  sqlc.arg(description),
+  sqlc.arg(visibility),
+  'active',
+  now(),
+  now()
+from namespace_row
+on conflict (namespace_id, name) do update set name = packages.name
 returning id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at;
 
 -- name: UpsertSearchDocument :exec

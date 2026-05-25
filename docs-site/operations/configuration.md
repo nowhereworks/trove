@@ -50,6 +50,14 @@ raw:
   allowPublicNamespaces: true
   allowPublicPackages: true
 
+orgs:
+  allowCreateOrg: true
+  defaultOrg: "nwks"
+
+packages:
+  createPackageOnPush: true
+  createNamespaceOnPush: true
+
 reviews:
   requireApproval: true
   minimumApprovals: 1
@@ -111,6 +119,26 @@ security:
 | `raw.allowPublicNamespaces` | boolean | `true` | Allow public namespaces |
 | `raw.allowPublicPackages` | boolean | `true` | Allow public packages |
 
+### Organizations
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `orgs.allowCreateOrg` | boolean | `true` | Allow authenticated users with `org:write` to create orgs through the API and UI |
+| `orgs.defaultOrg` | string | — | Optional org slug to ensure exists on startup |
+
+Set `TROVE_ORG` when you want Trove to bootstrap a known org at startup. This does not restrict the instance to that org, and additional orgs can still be created when `TROVE_ALLOW_CREATE_ORG=true`.
+
+If `TROVE_ALLOW_CREATE_ORG=false`, `TROVE_ORG` is required so the instance has at least one org available.
+
+### Packages
+
+| Key | Type | Default | Description |
+|---|---|---|---|
+| `packages.createPackageOnPush` | boolean | `true` | Allow `trove push` draft creation to auto-create a missing package when the org and namespace exist |
+| `packages.createNamespaceOnPush` | boolean | `true` | Allow `trove push` draft creation to auto-create a missing namespace when the org exists |
+
+These are server-side controls. The CLI does not read them. Missing orgs are never auto-created by `trove push`; use `TROVE_ORG` startup bootstrapping or the org creation API/UI first.
+
 ### Reviews
 
 | Key | Type | Default | Description |
@@ -137,6 +165,10 @@ Secrets are referenced by environment variable name:
 | `TROVE_S3_ACCESS_KEY` | S3 access key (if enabled) |
 | `TROVE_S3_SECRET_KEY` | S3 secret key (if enabled) |
 | `TROVE_DATABASE_URL` | PostgreSQL connection (alternative to config file) |
+| `TROVE_ALLOW_CREATE_ORG` | Enable or disable org creation through API/UI (`true` by default) |
+| `TROVE_ORG` | Optional org slug to ensure exists on startup; required when `TROVE_ALLOW_CREATE_ORG=false` |
+| `TROVE_CREATE_PACKAGE_ON_PUSH` | Server-side control for package auto-creation during `trove push` (`true` by default) |
+| `TROVE_CREATE_NAMESPACE_ON_PUSH` | Server-side control for namespace auto-creation during `trove push` (`true` by default) |
 
 ### Next Steps
 

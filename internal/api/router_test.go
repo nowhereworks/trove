@@ -122,6 +122,70 @@ func TestArchiveUploadPublishFlow(t *testing.T) {
 	}
 }
 
+func TestCreateDraftAutoCreatesNamespaceAndPackageByDefault(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/agents/new-defaults/versions", strings.NewReader(`{"version":"1.0.0","visibility":"private"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusCreated, res.Body.String())
+	}
+
+	nextReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/agents/new-defaults/versions", strings.NewReader(`{"version":"1.0.1","visibility":"private"}`))
+	nextReq.Header.Set("Content-Type", "application/json")
+	nextRes := httptest.NewRecorder()
+	router.ServeHTTP(nextRes, nextReq)
+	if nextRes.Code != http.StatusCreated {
+		t.Fatalf("next draft status = %d, want %d; body=%s", nextRes.Code, http.StatusCreated, nextRes.Body.String())
+	}
+}
+
+func TestCreateDraftDoesNotAutoCreatePackageWhenDisabled(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Packages.CreatePackageOnPush = false
+	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/new-defaults/versions", strings.NewReader(`{"version":"1.0.0"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusNotFound, res.Body.String())
+	}
+}
+
+func TestCreateDraftDoesNotAutoCreateNamespaceWhenDisabled(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Packages.CreateNamespaceOnPush = false
+	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/agents/new-defaults/versions", strings.NewReader(`{"version":"1.0.0"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusNotFound, res.Body.String())
+	}
+}
+
+func TestCreateDraftDoesNotAutoCreateOrg(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/missing/agents/new-defaults/versions", strings.NewReader(`{"version":"1.0.0"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusNotFound, res.Body.String())
+	}
+}
+
 func TestArchiveUploadRejectsUnsafePath(t *testing.T) {
 	router := testRouter()
 	archive := makeUploadZip(t, map[string]string{"../escape.md": "nope"})
@@ -352,6 +416,70 @@ func TestResolveStable(t *testing.T) {
 	}
 	if body.ManifestURL != "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/manifest" {
 		t.Fatalf("manifestUrl = %q", body.ManifestURL)
+	}
+}
+
+func TestGetConfigReturnsOrgCreationSettings(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Orgs.DefaultOrg = "sample-org"
+	cfg.Orgs.AllowCreateOrg = false
+	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/config", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusOK)
+	}
+	var body struct {
+		Org            string `json:"org"`
+		AllowCreateOrg bool   `json:"allowCreateOrg"`
+	}
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	if body.Org != "sample-org" || body.AllowCreateOrg {
+		t.Fatalf("config body = %+v", body)
+	}
+}
+
+func TestCreateOrgAllowedByDefault(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/orgs", strings.NewReader(`{"slug":"sample-org","displayName":"Sample Org","visibility":"private"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusCreated, res.Body.String())
+	}
+	if got := res.Header().Get("Location"); got != "/api/v1/orgs/sample-org" {
+		t.Fatalf("Location = %q", got)
+	}
+}
+
+func TestCreateOrgDisabledByConfig(t *testing.T) {
+	cfg := config.Defaults()
+	cfg.Orgs.AllowCreateOrg = false
+	cfg.Orgs.DefaultOrg = "sample-org"
+	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/orgs", strings.NewReader(`{"slug":"other-org","displayName":"Other Org","visibility":"private"}`))
+	req.Header.Set("Content-Type", "application/json")
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusForbidden)
+	}
+	var body ErrorResponse
+	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
+		t.Fatalf("decode response body: %v", err)
+	}
+	if body.Error.Code != "ORG_CREATION_DISABLED" {
+		t.Fatalf("error.code = %q, want ORG_CREATION_DISABLED", body.Error.Code)
 	}
 }
 

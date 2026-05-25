@@ -87,6 +87,16 @@ func runServer() error {
 	} else {
 		log.Print("TROVE_DATABASE_URL is unset; using in-memory seeded store")
 	}
+	if cfg.Orgs.DefaultOrg != "" {
+		writeStore, ok := store.(packages.WriteStore)
+		if !ok {
+			return errors.New("configured TROVE_ORG requires a writable store")
+		}
+		if _, err := writeStore.EnsureOrg(ctx, packages.CreateOrgRequest{Slug: cfg.Orgs.DefaultOrg, DisplayName: cfg.Orgs.DefaultOrg, Visibility: "private"}); err != nil {
+			return err
+		}
+		log.Printf("ensured org %q exists", cfg.Orgs.DefaultOrg)
+	}
 
 	server := &http.Server{
 		Addr:              cfg.Server.Listen,
