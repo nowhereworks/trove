@@ -17,6 +17,7 @@ import (
 
 	"trove/internal/auth"
 	"trove/internal/config"
+	coreskills "trove/internal/core/skills"
 	"trove/internal/db/sqlc"
 	"trove/internal/packages"
 	"trove/internal/reviews"
@@ -78,6 +79,7 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 
 	r.Get("/healthz", handleHealth)
 	r.Get("/readyz", handleReady(readiness))
+	r.Get("/api/v1/core/skills/{skill}/SKILL.md", handleCoreSkill)
 	r.Get("/api/v1/search/packages", handleSearchPackages(store))
 	r.Get("/api/v1/packages", handleListPackages(store))
 	r.Get("/api/v1/resolve/{org}/{namespace}/{packageSelector}", handleResolve(store))
@@ -130,6 +132,18 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/assets/*", uiHandler.ServeHTTP)
 
 	return r
+}
+
+func handleCoreSkill(w http.ResponseWriter, r *http.Request) {
+	name := chi.URLParam(r, "skill")
+	content, ok := coreskills.Read(name)
+	if !ok {
+		writeError(w, r, http.StatusNotFound, "NOT_FOUND", "Core skill was not found.")
+		return
+	}
+	w.Header().Set("Content-Type", "text/markdown; charset=utf-8")
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(content)
 }
 
 func handleCreateDraft(writeStore packages.WriteStore) http.HandlerFunc {

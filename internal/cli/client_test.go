@@ -152,3 +152,37 @@ func TestClientStructuredAPIErrorUsesHeaderRequestID(t *testing.T) {
 		t.Fatalf("APIError = %+v", apiErr)
 	}
 }
+
+func TestClientSearchPackages(t *testing.T) {
+	nextCursor := "cursor-2"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/search/packages" {
+			t.Fatalf("request = %s %s, want GET /api/v1/search/packages", r.Method, r.URL.Path)
+		}
+		if got := r.URL.Query().Get("q"); got != "react performance" {
+			t.Fatalf("q = %q, want react performance", got)
+		}
+		if got := r.URL.Query().Get("artifactType"); got != "skill" {
+			t.Fatalf("artifactType = %q, want skill", got)
+		}
+		_ = json.NewEncoder(w).Encode(SearchPackagesResponse{
+			Items: []PackageSummary{{
+				Org:           "nwks",
+				Namespace:     "platform",
+				Name:          "react-best-practices",
+				Description:   "React and Next.js performance optimization guidelines.",
+				StableVersion: "1.0.0",
+			}},
+			NextCursor: &nextCursor,
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	result, err := NewClientForServer(server.URL).SearchPackages(SearchPackagesParams{Query: "react performance", ArtifactType: "skill"})
+	if err != nil {
+		t.Fatalf("SearchPackages() error = %v", err)
+	}
+	if len(result.Items) != 1 || result.Items[0].Name != "react-best-practices" || result.NextCursor == nil || *result.NextCursor != nextCursor {
+		t.Fatalf("SearchPackages() = %+v", result)
+	}
+}

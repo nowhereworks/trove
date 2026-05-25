@@ -67,6 +67,7 @@ List endpoints use cursor pagination:
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `GET` | `/api/v1/resolve/{org}/{namespace}/{package}@{selector}` | visibility-dependent | Resolve a selector to an exact version |
+| `GET` | `/api/v1/core/skills/find-trove-skills/SKILL.md` | none | Fetch bundled find-trove-skills source |
 | `GET` | `/api/v1/search/packages` | visibility-dependent | Search discoverable packages |
 | `GET` | `/api/v1/packages` | visibility-dependent | List packages (paginated) |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}` | visibility-dependent | Get package metadata |

@@ -37,6 +37,8 @@ func Run(args []string) error {
 		return handleCheck(remaining)
 	case "update":
 		return handleUpdate(remaining)
+	case "skills":
+		return handleSkills(remaining)
 	case "help", "--help", "-h":
 		printUsage()
 		return nil
@@ -215,6 +217,9 @@ Subcommands:
   update [--apply] [--json]
     Check for updates and optionally apply them (dry-run by default)
 
+  skills find [query] [--json]
+    Find Trove-hosted agent skills
+
 Flags:
   --json        Output in JSON format for agents/CI
   --output path Output path for install/download
@@ -232,7 +237,7 @@ func IsCLICommand(args []string) bool {
 		return false
 	}
 	switch args[0] {
-	case "init", "remote", "status", "push", "clone", "pull", "resolve", "download", "install", "check", "update", "help", "--help", "-h", "version", "--version", "-v":
+	case "init", "remote", "status", "push", "clone", "pull", "resolve", "download", "install", "check", "update", "skills", "help", "--help", "-h", "version", "--version", "-v":
 		return true
 	default:
 		return false

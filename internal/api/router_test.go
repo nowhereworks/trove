@@ -41,6 +41,45 @@ func TestHealthIncludesRequestID(t *testing.T) {
 	}
 }
 
+func TestCoreFindTroveSkillServedWithoutAuth(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/core/skills/find-trove-skills/SKILL.md", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body=%s", res.Code, http.StatusOK, res.Body.String())
+	}
+	if got := res.Header().Get("Content-Type"); got != "text/markdown; charset=utf-8" {
+		t.Fatalf("Content-Type = %q", got)
+	}
+	if res.Header().Get(HeaderRequestID) == "" {
+		t.Fatal("X-Request-Id header is empty")
+	}
+	body := res.Body.String()
+	for _, want := range []string{"find-trove-skills", "trove skills find"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("skill body missing %q", want)
+		}
+	}
+	if strings.Contains(body, "npx skills") {
+		t.Fatal("skill body contains npx skills")
+	}
+}
+
+func TestUnknownCoreSkillReturnsNotFound(t *testing.T) {
+	router := testRouter()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/core/skills/unknown/SKILL.md", nil)
+	res := httptest.NewRecorder()
+
+	router.ServeHTTP(res, req)
+
+	if res.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", res.Code, http.StatusNotFound)
+	}
+}
+
 func TestArchiveUploadPublishFlow(t *testing.T) {
 	router := testRouter()
 

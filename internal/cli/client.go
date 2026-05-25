@@ -144,6 +144,46 @@ func (c *Client) GetPackage(org, namespace, name string) (*PackageDetailResponse
 	return &result, nil
 }
 
+func (c *Client) SearchPackages(params SearchPackagesParams) (*SearchPackagesResponse, error) {
+	var queryParts []string
+	if params.Query != "" {
+		values := url.Values{}
+		values.Set("q", params.Query)
+		queryParts = append(queryParts, values.Encode())
+	}
+	if params.ArtifactType != "" {
+		values := url.Values{}
+		values.Set("artifactType", params.ArtifactType)
+		queryParts = append(queryParts, values.Encode())
+	}
+	requestURL := c.ServerURL + "/api/v1/search/packages"
+	if len(queryParts) > 0 {
+		requestURL += "?" + strings.Join(queryParts, "&")
+	}
+
+	req, err := http.NewRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.setAuth(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, httpError(resp)
+	}
+
+	var result SearchPackagesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("decode search response: %w", err)
+	}
+	return &result, nil
+}
+
 func (c *Client) CreatePackage(reqBody CreatePackageRequest) (*PackageResponse, error) {
 	var result PackageResponse
 	err := c.doJSON("POST", c.ServerURL+"/api/v1/packages", reqBody, http.StatusCreated, &result)
@@ -442,6 +482,28 @@ type ArtifactResponse struct {
 	Digest     string `json:"digest"`
 	SizeBytes  int64  `json:"sizeBytes"`
 	TargetPath string `json:"targetPath"`
+}
+
+type SearchPackagesParams struct {
+	Query        string
+	ArtifactType string
+}
+
+type SearchPackagesResponse struct {
+	Items      []PackageSummary `json:"items"`
+	NextCursor *string          `json:"nextCursor"`
+}
+
+type PackageSummary struct {
+	Org           string `json:"org"`
+	Namespace     string `json:"namespace"`
+	Name          string `json:"name"`
+	DisplayName   string `json:"displayName"`
+	Description   string `json:"description"`
+	Visibility    string `json:"visibility"`
+	Lifecycle     string `json:"lifecycle"`
+	LatestVersion string `json:"latestVersion,omitempty"`
+	StableVersion string `json:"stableVersion,omitempty"`
 }
 
 type ApprovalStatusResponse struct {

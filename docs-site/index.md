@@ -59,6 +59,7 @@ const categories = ref([
       { title: 'install', desc: 'Install required artifacts and pin versions.', link: withBase('/cli/install') },
       { title: 'check', desc: 'Detect updates, yanked versions, and incompatibilities.', link: withBase('/cli/check') },
       { title: 'update', desc: 'Safe dry-run updates with explicit apply.', link: withBase('/cli/update') },
+      { title: 'skills', desc: 'Find Trove-hosted reusable agent skills.', link: withBase('/cli/skills') },
       { title: 'Lockfiles', desc: 'Reproducible installs with .trove.lock.yaml.', link: withBase('/cli/lockfiles') },
     ],
   },

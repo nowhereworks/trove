@@ -54,6 +54,7 @@ export default defineConfig({
           { text: 'install', link: '/cli/install' },
           { text: 'check', link: '/cli/check' },
           { text: 'update', link: '/cli/update' },
+          { text: 'skills', link: '/cli/skills' },
           { text: 'Lockfiles', link: '/cli/lockfiles' },
         ],
       },
