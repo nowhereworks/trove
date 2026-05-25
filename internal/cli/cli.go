@@ -206,7 +206,8 @@ Subcommands:
 	  Resolve a selector to an exact version
 
   download <org/namespace/package[@selector]> <artifact-path> [--output file] [--overwrite] [--json]
-    Download one artifact file
+  download core/skills/<name>/SKILL.md [--output file] [--overwrite] [--json]
+    Download one artifact file or bundled core skill
 
   install <org/namespace/package@selector> [--output dir] [--optional] [--overwrite] [--json]
     Install package artifacts to their target paths

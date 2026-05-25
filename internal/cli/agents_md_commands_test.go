@@ -139,6 +139,61 @@ func TestDownloadWritesOutputAndNoProjectMetadata(t *testing.T) {
 	}
 }
 
+func TestDownloadCoreSkillWritesOutput(t *testing.T) {
+	chdirTemp(t)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet || r.URL.Path != "/api/v1/core/skills/find-trove-skills/SKILL.md" {
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/markdown")
+		_, _ = w.Write([]byte("# find-trove-skills\n"))
+	}))
+	t.Cleanup(server.Close)
+	t.Setenv("TROVE_SERVER_URL", server.URL)
+
+	stdout := captureStdout(t, func() error {
+		return RunDownload([]string{"core/skills/find-trove-skills/SKILL.md"}, filepath.Join("skills", "find-trove-skills", "SKILL.md"), false, false, true)
+	})
+	var out map[string]string
+	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
+		t.Fatalf("decode download JSON %q: %v", stdout, err)
+	}
+	if out["source"] != "core" || out["coreSkill"] != "find-trove-skills" || out["artifactPath"] != "core/skills/find-trove-skills/SKILL.md" || out["changed"] != "true" {
+		t.Fatalf("download output = %+v", out)
+	}
+	content, err := os.ReadFile(filepath.Join("skills", "find-trove-skills", "SKILL.md"))
+	if err != nil {
+		t.Fatalf("read downloaded skill: %v", err)
+	}
+	if string(content) != "# find-trove-skills\n" {
+		t.Fatalf("downloaded skill = %q", content)
+	}
+}
+
+func TestParseCoreSkillDownloadPath(t *testing.T) {
+	tests := []struct {
+		path string
+		want string
+		ok   bool
+	}{
+		{path: "core/skills/find-trove-skills/SKILL.md", want: "find-trove-skills", ok: true},
+		{path: "core/skills//SKILL.md", ok: false},
+		{path: "core/skills/find-trove-skills/extra/SKILL.md", ok: false},
+		{path: "core/skills/find-trove-skills/README.md", ok: false},
+		{path: "core/skills/../SKILL.md", ok: false},
+		{path: "core/skills/find@trove/SKILL.md", ok: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			got, ok := parseCoreSkillDownloadPath(tt.path)
+			if got != tt.want || ok != tt.ok {
+				t.Fatalf("parseCoreSkillDownloadPath(%q) = %q, %v; want %q, %v", tt.path, got, ok, tt.want, tt.ok)
+			}
+		})
+	}
+}
+
 func newPackageDetailServer(t *testing.T, versions []PackageVersion) *httptest.Server {
 	t.Helper()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

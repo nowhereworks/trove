@@ -119,6 +119,27 @@ func (c *Client) GetRawArtifact(org, namespace, name, version, path string) ([]b
 	return io.ReadAll(resp.Body)
 }
 
+func (c *Client) GetCoreSkill(name string) ([]byte, error) {
+	requestURL := c.ServerURL + "/api/v1/core/skills/" + url.PathEscape(name) + "/SKILL.md"
+	req, err := http.NewRequest("GET", requestURL, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.setAuth(req)
+
+	resp, err := c.HTTPClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, httpError(resp)
+	}
+
+	return io.ReadAll(resp.Body)
+}
+
 func (c *Client) GetPackage(org, namespace, name string) (*PackageDetailResponse, error) {
 	requestURL := c.ServerURL + "/api/v1/packages/" + org + "/" + namespace + "/" + name
 	req, err := http.NewRequest("GET", requestURL, nil)

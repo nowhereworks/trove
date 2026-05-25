@@ -104,6 +104,12 @@ The response is the same paginated package search shape documented in [Public AP
 
 Trove also ships a bundled core skill that teaches agents how to search for Trove-hosted skills:
 
+```bash
+trove download core/skills/find-trove-skills/SKILL.md --output SKILL.md
+```
+
+The underlying unauthenticated API endpoint is:
+
 ```text
 GET /api/v1/core/skills/find-trove-skills/SKILL.md
 ```
