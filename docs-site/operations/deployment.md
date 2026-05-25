@@ -45,37 +45,33 @@ docker run -d --name trove-postgres \
   -p 5432:5432 \
   postgres:16
 
-# 2. Run migrations
+# 2. Configure the local server
 export TROVE_DATABASE_URL="postgres://trove:trove@localhost:5432/trove?sslmode=disable"
+export TROVE_DATABASE_MIGRATE_ON_STARTUP=true
+export TROVE_AUTH_MODE=dev
+export TROVE_RAW_REQUIRE_AUTH_BY_DEFAULT=false
+export TROVE_REVIEWS_REQUIRE_APPROVAL=false
 
 # 3. Build the UI
 cd web && npm install && npm run build && cd ..
 
 # 4. Run the server (with dev auth mode)
-go run cmd/trove/main.go --config config.dev.yaml
+go run ./cmd/trove serve
 ```
 
 #### Dev Configuration
 
-```yaml
-# config.dev.yaml
-server:
-  listen: ":8080"
-  publicUrl: "http://localhost:8080"
+Trove reads server configuration from environment variables at process startup:
 
-database:
-  url: "postgres://trove:trove@localhost:5432/trove?sslmode=disable"
-  migrateOnStartup: true
-
-auth:
-  mode: dev
-  devModeEnabled: true
-
-raw:
-  requireAuthByDefault: false
-
-reviews:
-  requireApproval: false
+```bash
+export TROVE_SERVER_LISTEN=:8080
+export TROVE_PUBLIC_URL=http://localhost:8080
+export TROVE_DATABASE_URL="postgres://trove:trove@localhost:5432/trove?sslmode=disable"
+export TROVE_DATABASE_MIGRATE_ON_STARTUP=true
+export TROVE_AUTH_MODE=dev
+export TROVE_AUTH_DEV_MODE_ENABLED=true
+export TROVE_RAW_REQUIRE_AUTH_BY_DEFAULT=false
+export TROVE_REVIEWS_REQUIRE_APPROVAL=false
 ```
 
 ### Production Deployment
@@ -183,57 +179,26 @@ See [Helm Chart](/operations/helm-chart) for GHCR usage, upgrade commands, produ
 
 #### Run Migrations
 
-```bash
-# Run migrations explicitly (not on startup)
-trove migrate --database-url "$DATABASE_URL"
-```
+Production migrations should run explicitly through your deployment migration job before starting Trove. The server can run embedded migrations when `TROVE_DATABASE_MIGRATE_ON_STARTUP=true`, but use that only for development or test-style installs.
 
 #### Start the Server
 
 ```bash
-./trove --config /etc/trove/config.yaml
+export TROVE_DATABASE_URL="postgres://trove:trove@postgres.example:5432/trove?sslmode=require"
+export TROVE_DATABASE_MIGRATE_ON_STARTUP=false
+export TROVE_AUTH_MODE=oidc
+export TROVE_PUBLIC_URL=https://trove.nwks.com
+export TROVE_OIDC_ISSUER_URL="$OIDC_ISSUER_URL"
+export TROVE_OIDC_CLIENT_ID="$OIDC_CLIENT_ID"
+export TROVE_OIDC_CLIENT_SECRET="$TROVE_OIDC_CLIENT_SECRET"
+export TROVE_OIDC_REDIRECT_URL=https://trove.nwks.com/auth/oidc/callback
+
+./trove serve
 ```
 
 #### Production Configuration
 
-```yaml
-server:
-  listen: ":8080"
-  publicUrl: "https://trove.nwks.com"
-
-database:
-  url: "${DATABASE_URL}"
-  migrateOnStartup: false
-
-auth:
-  mode: oidc
-  oidc:
-    issuerUrl: "${OIDC_ISSUER_URL}"
-    clientId: "${OIDC_CLIENT_ID}"
-    clientSecretRef: "TROVE_OIDC_CLIENT_SECRET"
-    redirectUrl: "https://trove.nwks.com/auth/oidc/callback"
-
-storage:
-  mode: postgres
-  limits:
-    maxArtifactFileBytes: 10485760
-    maxUnpackedPackageBytes: 104857600
-    maxArtifactsPerVersion: 1000
-
-raw:
-  requireAuthByDefault: true
-  allowPublicNamespaces: true
-  allowPublicPackages: true
-
-reviews:
-  requireApproval: true
-  minimumApprovals: 1
-  allowSelfApproval: false
-
-security:
-  secretScanning: true
-  unsafeInstructionScanning: true
-```
+See [Configuration](/operations/configuration) for the full environment variable reference.
 
 ### Health Endpoints
 
@@ -275,9 +240,9 @@ The `/metrics` endpoint exposes Prometheus-compatible metrics:
 
 | Environment | Migration Approach |
 |---|---|
-| Development | `migrateOnStartup: true` — runs on server start |
-| Production | Explicit `trove migrate` command before starting servers |
-| CI/Tests | `migrateOnStartup: true` in test containers |
+| Development | `TROVE_DATABASE_MIGRATE_ON_STARTUP=true` — runs on `trove serve` start |
+| Production | Explicit deployment migration job before starting servers |
+| CI/Tests | `TROVE_DATABASE_MIGRATE_ON_STARTUP=true` in test containers |
 
 Down migrations are provided for local development when safe. Production rollbacks are an operational decision.
 

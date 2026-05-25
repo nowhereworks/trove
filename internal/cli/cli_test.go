@@ -91,6 +91,7 @@ func TestIsCLICommand(t *testing.T) {
 		{[]string{"--version"}, true},
 		{[]string{"-v"}, true},
 		{[]string{}, false},
+		{[]string{"serve"}, false},
 		{[]string{"server"}, false},
 		{[]string{"unknown"}, false},
 	}

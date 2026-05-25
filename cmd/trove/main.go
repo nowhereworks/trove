@@ -25,10 +25,42 @@ func main() {
 func run() error {
 	args := os.Args[1:]
 
-	if cli.IsCLICommand(args) {
+	switch commandMode(args) {
+	case modeHelp:
+		return cli.Run([]string{"help"})
+	case modeServer:
+		return runServer()
+	case modeCLI:
+		return cli.Run(args)
+	default:
 		return cli.Run(args)
 	}
 
+	return nil
+}
+
+type mode int
+
+const (
+	modeHelp mode = iota
+	modeServer
+	modeCLI
+)
+
+func commandMode(args []string) mode {
+	if len(args) == 0 {
+		return modeHelp
+	}
+
+	switch args[0] {
+	case "serve", "server":
+		return modeServer
+	default:
+		return modeCLI
+	}
+}
+
+func runServer() error {
 	cfg, err := config.Load()
 	if err != nil {
 		return err

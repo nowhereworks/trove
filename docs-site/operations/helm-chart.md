@@ -151,13 +151,7 @@ Leave both `ingress.enabled` and `gateway.enabled` disabled for internal-only de
 
 ### Migrations
 
-The chart can set `TROVE_DATABASE_MIGRATE_ON_STARTUP` through `database.migrateOnStartup`, but production deployments should run migrations explicitly:
-
-```bash
-trove migrate --database-url "$DATABASE_URL"
-```
-
-Run the migration command as a controlled deployment step or Kubernetes Job before upgrading application pods.
+The chart can set `TROVE_DATABASE_MIGRATE_ON_STARTUP` through `database.migrateOnStartup`, but production deployments should run migrations as a controlled deployment step or Kubernetes Job before upgrading application pods.
 
 ### Chart Versioning
 

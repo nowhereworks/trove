@@ -77,11 +77,7 @@ helm upgrade --install trove oci://ghcr.io/nowhereworks/charts/trove \
   --values values.production.yaml
 ```
 
-Run migrations explicitly in production before starting or rolling pods:
-
-```bash
-trove migrate --database-url "$DATABASE_URL"
-```
+Run migrations explicitly in production with your deployment migration job before starting or rolling pods.
 
 ## Common Values
 

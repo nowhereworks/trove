@@ -34,3 +34,4 @@ USER trove
 EXPOSE 8080
 
 ENTRYPOINT ["/trove"]
+CMD ["serve"]

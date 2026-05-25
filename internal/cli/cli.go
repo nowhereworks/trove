@@ -179,6 +179,9 @@ Usage:
   trove <subcommand> [flags]
 
 Subcommands:
+	serve|server
+	  Start the Trove registry API and web UI server
+
 	init agents-md [--remote url-or-package-ref]
 	  Initialize an editable AGENTS.md package worktree
 
