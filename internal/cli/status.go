@@ -14,7 +14,6 @@ type statusOutput struct {
 	CurrentPublishedVersion string        `json:"currentPublishedVersion"`
 	NextVersion             string        `json:"nextVersion"`
 	Visibility              string        `json:"visibility"`
-	Channel                 string        `json:"channel"`
 	ReviewPolicy            string        `json:"reviewPolicy"`
 	LocalState              string        `json:"localState"`
 	Problems                []string      `json:"problems"`
@@ -36,7 +35,6 @@ func RunStatus(args []string, jsonOutput bool) error {
 	} else {
 		out.Problems = append(out.Problems, validateProjectConfig(cfg)...)
 		out.Visibility = cfg.Publish.Visibility
-		out.Channel = cfg.Publish.Channel
 		if name, remote, err := remoteForConfig(cfg, ""); err == nil {
 			out.Remote = &statusRemote{Name: name, ServerURL: remote.ServerURL, Package: remote.Package}
 			versions, _, err := packageVersionsForRemote(remote)
@@ -62,9 +60,6 @@ func RunStatus(args []string, jsonOutput bool) error {
 		if out.Visibility == "" {
 			out.Visibility = m.Spec.Visibility
 		}
-		if out.Channel == "" {
-			out.Channel = m.Spec.Channel
-		}
 		if out.Remote != nil && m.Metadata.Org+"/"+m.Metadata.Namespace+"/"+m.Metadata.Name != out.Remote.Package {
 			out.Problems = append(out.Problems, "manifest package does not match configured remote")
 		}
@@ -82,9 +77,6 @@ func RunStatus(args []string, jsonOutput bool) error {
 	}
 	if out.Visibility == "" {
 		out.Visibility = "private"
-	}
-	if out.Channel == "" {
-		out.Channel = "stable"
 	}
 	if out.NextVersion == "" {
 		out.NextVersion = "1.0.0"
@@ -162,7 +154,6 @@ func printStatus(out statusOutput) {
 	}
 	fmt.Printf("Next version: %s\n", out.NextVersion)
 	fmt.Printf("Visibility: %s\n", out.Visibility)
-	fmt.Printf("Channel: %s\n", out.Channel)
 	fmt.Printf("Review policy: %s\n", out.ReviewPolicy)
 	fmt.Printf("Local state: %s\n", out.LocalState)
 	for _, problem := range out.Problems {
@@ -170,7 +161,7 @@ func printStatus(out statusOutput) {
 	}
 }
 
-func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, version string, cfg ProjectConfig, visibilityOverride string, channelOverride string) manifest.Manifest {
+func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, version string, cfg ProjectConfig, visibilityOverride string) manifest.Manifest {
 	m.Metadata.Org = ref.Org
 	m.Metadata.Namespace = ref.Namespace
 	m.Metadata.Name = ref.Name
@@ -182,13 +173,6 @@ func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, version s
 	}
 	m.Spec.Version = version
 	m.Spec.Lifecycle = "draft"
-	if channelOverride != "" {
-		m.Spec.Channel = channelOverride
-	} else if cfg.Publish.Channel != "" {
-		m.Spec.Channel = cfg.Publish.Channel
-	} else if m.Spec.Channel == "" {
-		m.Spec.Channel = "stable"
-	}
 	if visibilityOverride != "" {
 		m.Spec.Visibility = visibilityOverride
 	} else if cfg.Publish.Visibility != "" {

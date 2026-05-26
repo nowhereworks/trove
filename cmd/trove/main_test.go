@@ -11,7 +11,7 @@ func TestCommandMode(t *testing.T) {
 		{name: "empty args show help", args: nil, want: modeHelp},
 		{name: "serve starts server", args: []string{"serve"}, want: modeServer},
 		{name: "server starts server", args: []string{"server"}, want: modeServer},
-		{name: "client command uses cli", args: []string{"resolve", "nwks/platform/agent-backend@stable"}, want: modeCLI},
+		{name: "client command uses cli", args: []string{"resolve", "nwks/platform/agent-backend@latest"}, want: modeCLI},
 		{name: "unknown command uses cli error path", args: []string{"typo"}, want: modeCLI},
 	}
 

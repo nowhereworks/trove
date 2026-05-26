@@ -102,15 +102,18 @@ select o.slug as org,
        coalesce(p.description, '') as description,
        p.visibility as visibility,
        p.lifecycle as lifecycle,
-       coalesce(latest.version, '') as latest_version,
-       coalesce(stable.version, '') as stable_version
+       coalesce(latest.version, '') as latest_version
 from packages p
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
-left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
-left join package_versions latest on latest.id = latest_channel.package_version_id
-left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
-left join package_versions stable on stable.id = stable_channel.package_version_id
+left join lateral (
+  select v.version
+  from package_versions v
+  where v.package_id = p.id
+    and v.lifecycle in ('published', 'deprecated', 'yanked')
+  order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+  limit 1
+) latest on true
 where o.slug = $1
   and n.slug = $2
   and p.name = $3
@@ -132,7 +135,6 @@ type GetPackageSummaryRow struct {
 	Visibility    string `json:"visibility"`
 	Lifecycle     string `json:"lifecycle"`
 	LatestVersion string `json:"latest_version"`
-	StableVersion string `json:"stable_version"`
 }
 
 func (q *Queries) GetPackageSummary(ctx context.Context, arg GetPackageSummaryParams) (GetPackageSummaryRow, error) {
@@ -147,7 +149,6 @@ func (q *Queries) GetPackageSummary(ctx context.Context, arg GetPackageSummaryPa
 		&i.Visibility,
 		&i.Lifecycle,
 		&i.LatestVersion,
-		&i.StableVersion,
 	)
 	return i, err
 }
@@ -272,7 +273,6 @@ const listPackageVersions = `-- name: ListPackageVersions :many
 select v.version as version,
        coalesce(v.digest, '') as digest,
        v.lifecycle as lifecycle,
-       coalesce(v.channel, '') as channel,
        coalesce(to_char(v.published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as published_at
 from package_versions v
 join packages p on p.id = v.package_id
@@ -295,7 +295,6 @@ type ListPackageVersionsRow struct {
 	Version     string `json:"version"`
 	Digest      string `json:"digest"`
 	Lifecycle   string `json:"lifecycle"`
-	Channel     string `json:"channel"`
 	PublishedAt string `json:"published_at"`
 }
 
@@ -312,7 +311,6 @@ func (q *Queries) ListPackageVersions(ctx context.Context, arg ListPackageVersio
 			&i.Version,
 			&i.Digest,
 			&i.Lifecycle,
-			&i.Channel,
 			&i.PublishedAt,
 		); err != nil {
 			return nil, err
@@ -379,15 +377,18 @@ select o.slug as org,
        coalesce(p.description, '') as description,
        p.visibility as visibility,
        p.lifecycle as lifecycle,
-       coalesce(latest.version, '') as latest_version,
-       coalesce(stable.version, '') as stable_version
+       coalesce(latest.version, '') as latest_version
 from packages p
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
-left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
-left join package_versions latest on latest.id = latest_channel.package_version_id
-left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
-left join package_versions stable on stable.id = stable_channel.package_version_id
+left join lateral (
+  select v.version
+  from package_versions v
+  where v.package_id = p.id
+    and v.lifecycle in ('published', 'deprecated', 'yanked')
+  order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+  limit 1
+) latest on true
 where p.lifecycle = 'active'
   and exists (select 1 from package_versions v where v.package_id = p.id and v.lifecycle = 'published')
   and (($1::text = '') or ((o.slug || '/' || n.slug || '/' || p.name) > $1::text))
@@ -409,7 +410,6 @@ type ListPackagesRow struct {
 	Visibility    string `json:"visibility"`
 	Lifecycle     string `json:"lifecycle"`
 	LatestVersion string `json:"latest_version"`
-	StableVersion string `json:"stable_version"`
 }
 
 func (q *Queries) ListPackages(ctx context.Context, arg ListPackagesParams) ([]ListPackagesRow, error) {
@@ -430,7 +430,6 @@ func (q *Queries) ListPackages(ctx context.Context, arg ListPackagesParams) ([]L
 			&i.Visibility,
 			&i.Lifecycle,
 			&i.LatestVersion,
-			&i.StableVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -440,57 +439,6 @@ func (q *Queries) ListPackages(ctx context.Context, arg ListPackagesParams) ([]L
 		return nil, err
 	}
 	return items, nil
-}
-
-const resolveChannel = `-- name: ResolveChannel :one
-select o.slug as org,
-       n.slug as namespace,
-       p.name as package_name,
-       v.version as resolved_version,
-       coalesce(v.digest, '') as digest
-from package_versions v
-join packages p on p.id = v.package_id
-join namespaces n on n.id = p.namespace_id
-join organizations o on o.id = n.org_id
-join channels c on c.package_id = p.id and c.package_version_id = v.id
-where o.slug = $1
-  and n.slug = $2
-  and p.name = $3
-  and c.name = $4
-  and v.lifecycle in ('published', 'deprecated', 'yanked')
-`
-
-type ResolveChannelParams struct {
-	Org         string `json:"org"`
-	Namespace   string `json:"namespace"`
-	PackageName string `json:"package_name"`
-	Channel     string `json:"channel"`
-}
-
-type ResolveChannelRow struct {
-	Org             string `json:"org"`
-	Namespace       string `json:"namespace"`
-	PackageName     string `json:"package_name"`
-	ResolvedVersion string `json:"resolved_version"`
-	Digest          string `json:"digest"`
-}
-
-func (q *Queries) ResolveChannel(ctx context.Context, arg ResolveChannelParams) (ResolveChannelRow, error) {
-	row := q.db.QueryRow(ctx, resolveChannel,
-		arg.Org,
-		arg.Namespace,
-		arg.PackageName,
-		arg.Channel,
-	)
-	var i ResolveChannelRow
-	err := row.Scan(
-		&i.Org,
-		&i.Namespace,
-		&i.PackageName,
-		&i.ResolvedVersion,
-		&i.Digest,
-	)
-	return i, err
 }
 
 const resolveDigest = `-- name: ResolveDigest :one
@@ -583,6 +531,51 @@ func (q *Queries) ResolveExact(ctx context.Context, arg ResolveExactParams) (Res
 		arg.Version,
 	)
 	var i ResolveExactRow
+	err := row.Scan(
+		&i.Org,
+		&i.Namespace,
+		&i.PackageName,
+		&i.ResolvedVersion,
+		&i.Digest,
+	)
+	return i, err
+}
+
+const resolveLatest = `-- name: ResolveLatest :one
+select o.slug as org,
+       n.slug as namespace,
+       p.name as package_name,
+       v.version as resolved_version,
+       coalesce(v.digest, '') as digest
+from package_versions v
+join packages p on p.id = v.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = $1
+  and n.slug = $2
+  and p.name = $3
+  and v.lifecycle in ('published', 'deprecated', 'yanked')
+order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+limit 1
+`
+
+type ResolveLatestParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+}
+
+type ResolveLatestRow struct {
+	Org             string `json:"org"`
+	Namespace       string `json:"namespace"`
+	PackageName     string `json:"package_name"`
+	ResolvedVersion string `json:"resolved_version"`
+	Digest          string `json:"digest"`
+}
+
+func (q *Queries) ResolveLatest(ctx context.Context, arg ResolveLatestParams) (ResolveLatestRow, error) {
+	row := q.db.QueryRow(ctx, resolveLatest, arg.Org, arg.Namespace, arg.PackageName)
+	var i ResolveLatestRow
 	err := row.Scan(
 		&i.Org,
 		&i.Namespace,
@@ -709,16 +702,19 @@ select o.slug as org,
        p.visibility as visibility,
        p.lifecycle as lifecycle,
        coalesce(latest.version, '') as latest_version,
-       coalesce(stable.version, '') as stable_version,
        ts_rank(sd.search_text, plainto_tsquery('english', $1::text)) as rank
 from package_search_documents sd
 join packages p on p.id = sd.package_id
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
-left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
-left join package_versions latest on latest.id = latest_channel.package_version_id
-left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
-left join package_versions stable on stable.id = stable_channel.package_version_id
+left join lateral (
+  select v.version
+  from package_versions v
+  where v.package_id = p.id
+    and v.lifecycle in ('published', 'deprecated', 'yanked')
+  order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+  limit 1
+) latest on true
 where sd.search_text @@ plainto_tsquery('english', $1::text)
   and sd.lifecycle = 'active'
   and sd.visibility = 'public'
@@ -750,7 +746,6 @@ type SearchPackagesRow struct {
 	Visibility    string  `json:"visibility"`
 	Lifecycle     string  `json:"lifecycle"`
 	LatestVersion string  `json:"latest_version"`
-	StableVersion string  `json:"stable_version"`
 	Rank          float32 `json:"rank"`
 }
 
@@ -780,7 +775,6 @@ func (q *Queries) SearchPackages(ctx context.Context, arg SearchPackagesParams) 
 			&i.Visibility,
 			&i.Lifecycle,
 			&i.LatestVersion,
-			&i.StableVersion,
 			&i.Rank,
 		); err != nil {
 			return nil, err

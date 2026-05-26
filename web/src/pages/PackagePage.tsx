@@ -22,10 +22,10 @@ export default function PackagePage() {
   })
 
   const { data: manifest } = useQuery({
-    queryKey: ['manifest', org, namespace, name, selectedVersion || pkg?.stableVersion],
+    queryKey: ['manifest', org, namespace, name, selectedVersion || pkg?.latestVersion],
     queryFn: () =>
-      api.getManifest(org, namespace, name, selectedVersion || pkg?.stableVersion || ''),
-    enabled: !!(selectedVersion || pkg?.stableVersion),
+      api.getManifest(org, namespace, name, selectedVersion || pkg?.latestVersion || ''),
+    enabled: !!(selectedVersion || pkg?.latestVersion),
   })
 
   if (pkgLoading) {
@@ -55,7 +55,7 @@ export default function PackagePage() {
   }
 
   const versions = pkg.versions || []
-  const currentVersion = selectedVersion || pkg.stableVersion || pkg.latestVersion
+  const currentVersion = selectedVersion || pkg.latestVersion || pkg.latestVersion
 
   return (
     <div className="space-y-8">
@@ -94,7 +94,7 @@ export default function PackagePage() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={<Clock className="w-4 h-4" />} label="Stable" value={pkg.stableVersion || '—'} />
+        <StatCard icon={<Clock className="w-4 h-4" />} label="Latest" value={pkg.latestVersion || '—'} />
         <StatCard icon={<Package className="w-4 h-4" />} label="Versions" value={String(versions.length)} />
         <StatCard icon={<Shield className="w-4 h-4" />} label="Visibility" value={pkg.visibility} />
         <StatCard icon={<Users className="w-4 h-4" />} label="Projects" value={String(adoption?.projectCount || 0)} />

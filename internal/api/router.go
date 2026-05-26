@@ -776,7 +776,7 @@ func splitRawArtifactPathSelector(raw string) (string, string, error) {
 	}
 	idx := strings.LastIndex(raw, "@")
 	if idx == -1 {
-		return raw, "stable", nil
+		return raw, "latest", nil
 	}
 	if idx == 0 || idx == len(raw)-1 {
 		return "", "", packages.ErrInvalidSelector

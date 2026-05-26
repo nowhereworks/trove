@@ -7,7 +7,7 @@ Use `trove clone` when you maintain a published package and want an editable wor
 ## How
 
 ```bash
-trove clone nwks/platform/agent-defaults@stable
+trove clone nwks/platform/agent-defaults@latest
 cd agent-defaults
 trove pull
 trove status
@@ -26,7 +26,7 @@ It does not write `.trove.lock.yaml` because this is a publishing worktree, not 
 ### Choose The Directory
 
 ```bash
-trove clone nwks/platform/agent-defaults@stable agent-defaults-edit
+trove clone nwks/platform/agent-defaults@latest agent-defaults-edit
 ```
 
 The target directory must not already contain files.
@@ -38,7 +38,7 @@ The target directory must not already contain files.
 | `trove clone <package-ref>` | Clone into a directory named after the package |
 | `trove clone <package-ref> <dir>` | Clone into a chosen directory |
 
-Omitted selectors resolve to `stable`.
+Omitted selectors resolve to `latest`.
 
 ## Next
 

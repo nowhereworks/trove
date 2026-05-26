@@ -255,7 +255,6 @@ type PackageSummary struct {
 	Visibility    string `json:"visibility"`
 	Lifecycle     string `json:"lifecycle"`
 	LatestVersion string `json:"latestVersion,omitempty"`
-	StableVersion string `json:"stableVersion,omitempty"`
 }
 
 type PackageDetail struct {
@@ -267,7 +266,6 @@ type PackageVersionSummary struct {
 	Version     string `json:"version"`
 	Digest      string `json:"digest"`
 	Lifecycle   string `json:"lifecycle"`
-	Channel     string `json:"channel,omitempty"`
 	PublishedAt string `json:"publishedAt,omitempty"`
 }
 

@@ -46,9 +46,8 @@ Rules:
 
 ```text
 companyx/platform/agent-backend@1.0.0
-companyx/platform/agent-backend@stable
+companyx/platform/agent-backend@latest
 companyx/platform/agent-backend@v1
-companyx/frontend/react-defaults@latest
 ```
 
 Manifests, lock files, CLI commands, and APIs must use full package references. Shorthand references like `platform/agent-backend` or `agent-backend` are not supported in the MVP.
@@ -88,17 +87,16 @@ Examples:
 Prerelease versions and arbitrary version strings are deferred. CLI and API inputs may include a leading `v` for selectors, but the stored version value omits `v`.
 
 | Selector | Resolution |
-|---|---|
-| `@latest` | Newest published version, regardless of channel |
-| `@stable` | Newest published stable version |
-| `@v3` | Newest stable version with major version `3` |
-| `@v3.2` | Newest stable patch version in minor series `3.2` |
+|---|---|---|
+| `@latest` | Newest published version |
+| `@v3` | Newest version with major version `3` |
+| `@v3.2` | Newest patch version in minor series `3.2` |
 | `@v3.2.1` | Exact immutable version `3.2.1` |
 | `@sha256:<digest>` | Exact package-version digest |
 
 Selectors resolve server-side to exact immutable versions before content is served.
 
-MVP named aliases are limited to `latest` and `stable`. Major and minor selectors such as `v3` and `v3.2` are derived from SemVer, not stored as user-managed channels.
+`@latest` is the only named alias. Major and minor selectors such as `v3` and `v3.2` are derived from SemVer.
 
 `@sha256:<digest>` identifies a whole package version. Individual artifact blob digests are exposed in metadata and lock files, but are not valid package selectors.
 
@@ -155,6 +153,6 @@ When a version is published, the system must:
 - lock artifact blobs
 - prevent updates to file content, manifest content, version, and digest fields
 - write an audit event
-- update channel aliases in a separate mutable alias table
+- update the `@latest` alias pointer
 
-Alias updates are mutable; exact version content is not.
+The `@latest` alias is mutable; exact version content is not.

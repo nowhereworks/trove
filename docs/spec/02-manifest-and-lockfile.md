@@ -21,7 +21,6 @@ metadata:
     owner: platform-engineering
 spec:
   version: 1.0.0
-  channel: stable
   license: internal
   visibility: private
   lifecycle: draft
@@ -45,7 +44,6 @@ spec:
       targetPath: .opencode/skills/backend-api/SKILL.md
   dependencies: []
   updatePolicy:
-    recommendedChannel: stable
     breakingChangeRequiresManualApproval: true
   maintainers:
     - team: platform-engineering
@@ -171,7 +169,7 @@ project:
   repo: https://git.company.com/payments/payments-api
 installs:
   - package: companyx/platform/agent-backend
-    requestedSelector: stable
+    requestedSelector: latest
     version: 1.0.0
     digest: sha256:abc123
     installedAt: "2026-05-21T00:00:00Z"

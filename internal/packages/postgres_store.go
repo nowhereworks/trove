@@ -152,7 +152,7 @@ func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRe
 		if err != nil {
 			return ArtifactResource{}, err
 		}
-		if err := q.UpdateVersionManifest(ctx, sqlc.UpdateVersionManifestParams{ManifestJson: manifestJSON, Visibility: parsed.Spec.Visibility, Channel: textOrNull(parsed.Spec.Channel), ID: version.ID}); err != nil {
+		if err := q.UpdateVersionManifest(ctx, sqlc.UpdateVersionManifestParams{ManifestJson: manifestJSON, Visibility: parsed.Spec.Visibility, ID: version.ID}); err != nil {
 			return ArtifactResource{}, err
 		}
 		artifactType = "manifest"
@@ -259,23 +259,6 @@ func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRe
 	published, err := q.PublishVersion(ctx, sqlc.PublishVersionParams{Digest: textOrNull(digest), ID: version.ID})
 	if err != nil {
 		return VersionResource{}, mapWriteError(err)
-	}
-
-	latestID, err := newUUID()
-	if err != nil {
-		return VersionResource{}, err
-	}
-	if err := q.UpsertChannel(ctx, sqlc.UpsertChannelParams{ID: latestID, PackageID: version.PackageID, Name: "latest", PackageVersionID: version.ID}); err != nil {
-		return VersionResource{}, err
-	}
-	if parsed.Spec.Channel == "stable" {
-		stableID, err := newUUID()
-		if err != nil {
-			return VersionResource{}, err
-		}
-		if err := q.UpsertChannel(ctx, sqlc.UpsertChannelParams{ID: stableID, PackageID: version.PackageID, Name: "stable", PackageVersionID: version.ID}); err != nil {
-			return VersionResource{}, err
-		}
 	}
 
 	auditID, err := newUUID()
@@ -603,7 +586,7 @@ func (s *PostgresStore) Resolve(ctx context.Context, org string, namespace strin
 		}
 		result = resolvedFromParts(row.Org, row.Namespace, row.PackageName, selector, row.ResolvedVersion, row.Digest)
 	case SelectorChannel:
-		row, err := s.queries.ResolveChannel(ctx, sqlc.ResolveChannelParams{Org: org, Namespace: namespace, PackageName: name, Channel: parsed.Value})
+		row, err := s.queries.ResolveLatest(ctx, sqlc.ResolveLatestParams{Org: org, Namespace: namespace, PackageName: name})
 		if err != nil {
 			return ResolvedVersion{}, mapReadError(err)
 		}
@@ -724,7 +707,7 @@ func (s *PostgresStore) ListPackages(ctx context.Context, params ListPackagesPar
 
 	items := make([]PackageSummary, 0, min(len(rows), limit))
 	for _, row := range rows {
-		items = append(items, packageSummaryFromRow(row.Org, row.Namespace, row.PackageName, row.DisplayName, row.Description, row.Visibility, row.Lifecycle, row.LatestVersion, row.StableVersion))
+		items = append(items, packageSummaryFromRow(row.Org, row.Namespace, row.PackageName, row.DisplayName, row.Description, row.Visibility, row.Lifecycle, row.LatestVersion))
 	}
 
 	var nextCursor *string
@@ -758,7 +741,7 @@ func (s *PostgresStore) SearchPackages(ctx context.Context, params SearchParams)
 
 	items := make([]PackageSummary, 0, min(len(rows), limit))
 	for _, row := range rows {
-		items = append(items, packageSummaryFromRow(row.Org, row.Namespace, row.PackageName, row.DisplayName, row.Description, row.Visibility, row.Lifecycle, row.LatestVersion, row.StableVersion))
+		items = append(items, packageSummaryFromRow(row.Org, row.Namespace, row.PackageName, row.DisplayName, row.Description, row.Visibility, row.Lifecycle, row.LatestVersion))
 	}
 
 	var nextCursor *string
@@ -822,13 +805,12 @@ func (s *PostgresStore) GetPackage(ctx context.Context, org string, namespace st
 			Version:     version.Version,
 			Digest:      version.Digest,
 			Lifecycle:   version.Lifecycle,
-			Channel:     version.Channel,
 			PublishedAt: version.PublishedAt,
 		})
 	}
 
 	return PackageDetail{
-		PackageSummary: packageSummaryFromRow(row.Org, row.Namespace, row.PackageName, row.DisplayName, row.Description, row.Visibility, row.Lifecycle, row.LatestVersion, row.StableVersion),
+		PackageSummary: packageSummaryFromRow(row.Org, row.Namespace, row.PackageName, row.DisplayName, row.Description, row.Visibility, row.Lifecycle, row.LatestVersion),
 		Versions:       versions,
 	}, nil
 }
@@ -923,7 +905,7 @@ func resolvedFromParts(org string, namespace string, packageName string, selecto
 	}
 }
 
-func packageSummaryFromRow(org string, namespace string, name string, displayName string, description string, visibility string, lifecycle string, latestVersion string, stableVersion string) PackageSummary {
+func packageSummaryFromRow(org string, namespace string, name string, displayName string, description string, visibility string, lifecycle string, latestVersion string) PackageSummary {
 	return PackageSummary{
 		Org:           org,
 		Namespace:     namespace,
@@ -933,7 +915,6 @@ func packageSummaryFromRow(org string, namespace string, name string, displayNam
 		Visibility:    visibility,
 		Lifecycle:     lifecycle,
 		LatestVersion: latestVersion,
-		StableVersion: stableVersion,
 	}
 }
 

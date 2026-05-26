@@ -104,7 +104,7 @@ Publishing:
 
 - Computes the package digest
 - Locks all artifact blobs
-- Updates the `stable` channel pointer
+- Updates the `@latest` alias pointer
 - Writes an audit event
 - Emits a webhook (if configured)
 

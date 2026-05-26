@@ -133,7 +133,7 @@ func TestSkillsFindPrintsHumanResults(t *testing.T) {
 			Namespace:     "platform",
 			Name:          "react-best-practices",
 			Description:   "React and Next.js performance optimization guidelines.",
-			StableVersion: "1.0.0",
+			LatestVersion: "1.0.0",
 		}}})
 	}))
 	t.Cleanup(server.Close)
@@ -142,7 +142,7 @@ func TestSkillsFindPrintsHumanResults(t *testing.T) {
 	stdout := captureStdout(t, func() error {
 		return Run([]string{"skills", "find", "react", "performance"})
 	})
-	if !strings.Contains(stdout, "Skills matching \"react performance\":") || !strings.Contains(stdout, "nwks/platform/react-best-practices@stable") {
+	if !strings.Contains(stdout, "Skills matching \"react performance\":") || !strings.Contains(stdout, "nwks/platform/react-best-practices@latest") {
 		t.Fatalf("stdout = %q", stdout)
 	}
 }

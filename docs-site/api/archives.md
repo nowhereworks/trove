@@ -28,14 +28,14 @@ curl -O https://trove.nwks.com/api/v1/packages/nwks/platform/agent-backend/versi
 Using a selector redirects to the exact version:
 
 ```bash
-GET /api/v1/packages/nwks/platform/agent-backend/versions/stable/archive.tar.gz
+GET /api/v1/packages/nwks/platform/agent-backend/versions/latest/archive.tar.gz
 ```
 
 Response:
 
 ```
 HTTP/1.1 302 Found
-Location: /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/archive.tar.gz
+Location: /api/v1/packages/nwks/platform/agent-backend/versions/2.1.0/archive.tar.gz
 Cache-Control: no-cache
 ```
 

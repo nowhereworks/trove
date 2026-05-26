@@ -44,7 +44,6 @@ type ProjectRemote struct {
 }
 
 type PublishConfig struct {
-	Channel    string `yaml:"channel" json:"channel"`
 	Visibility string `yaml:"visibility" json:"visibility"`
 }
 
@@ -102,9 +101,6 @@ func writeProjectConfig(path string, cfg ProjectConfig) error {
 	}
 	if cfg.ArtifactKind == "" {
 		cfg.ArtifactKind = agentsMDKind
-	}
-	if cfg.Publish.Channel == "" {
-		cfg.Publish.Channel = "stable"
 	}
 	if cfg.Publish.Visibility == "" {
 		cfg.Publish.Visibility = "private"
@@ -376,7 +372,7 @@ func packageVersionsForRemote(remote ProjectRemote) ([]PackageVersion, *PackageD
 	return detail.Versions, detail, nil
 }
 
-func generatedAgentsManifest(ref PackageRef, displayName, description, visibility, channel string, maintainers []manifest.Maintainer) manifest.Manifest {
+func generatedAgentsManifest(ref PackageRef, displayName, description, visibility string, maintainers []manifest.Maintainer) manifest.Manifest {
 	if displayName == "" {
 		displayName = titleFromSlug(ref.Name)
 	}
@@ -385,9 +381,6 @@ func generatedAgentsManifest(ref PackageRef, displayName, description, visibilit
 	}
 	if visibility == "" {
 		visibility = "private"
-	}
-	if channel == "" {
-		channel = "stable"
 	}
 	return manifest.Manifest{
 		APIVersion: manifest.APIVersion,
@@ -401,7 +394,6 @@ func generatedAgentsManifest(ref PackageRef, displayName, description, visibilit
 		},
 		Spec: manifest.Spec{
 			Version:     "1.0.0",
-			Channel:     channel,
 			Visibility:  visibility,
 			Lifecycle:   "draft",
 			Artifacts:   agentsArtifacts(),
@@ -513,7 +505,7 @@ func configWithRemote(spec RemoteSpec) ProjectConfig {
 		Remotes: map[string]ProjectRemote{
 			"origin": {ServerURL: spec.ServerURL, Package: spec.Package},
 		},
-		Publish: PublishConfig{Channel: "stable", Visibility: "private"},
+		Publish: PublishConfig{Visibility: "private"},
 	}
 }
 

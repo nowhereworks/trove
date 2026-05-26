@@ -2,22 +2,22 @@
 
 ## Why
 
-You know you want `nwks/platform/agent-backend`, but which version? The `@stable` alias? The `@latest`? A specific digest? `trove resolve` tells you the exact version and digest that a selector points to, so you can verify before fetching or installing.
+You know you want `nwks/platform/agent-backend`, but which version? The `@latest` alias? A specific digest? `trove resolve` tells you the exact version and digest that a selector points to, so you can verify before fetching or installing.
 
 ## How
 
 ### Basic Usage
 
 ```bash
-trove resolve nwks/platform/agent-backend@stable
+trove resolve nwks/platform/agent-backend@latest
 ```
 
 Output:
 
 ```
-nwks/platform/agent-backend@stable → 1.0.0 (sha256:abc123...)
-Manifest: /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/manifest
-Archive:  /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/archive.tar.gz
+nwks/platform/agent-backend@latest → 2.1.0 (sha256:abc123...)
+Manifest: /api/v1/packages/nwks/platform/agent-backend/versions/2.1.0/manifest
+Archive:  /api/v1/packages/nwks/platform/agent-backend/versions/2.1.0/archive.tar.gz
 ```
 
 ### JSON Output
@@ -25,7 +25,7 @@ Archive:  /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/archive.ta
 For agents and CI scripts:
 
 ```bash
-trove resolve nwks/platform/agent-backend@stable --json
+trove resolve nwks/platform/agent-backend@latest --json
 ```
 
 Output:
@@ -35,22 +35,19 @@ Output:
   "org": "nwks",
   "namespace": "platform",
   "package": "agent-backend",
-  "selector": "stable",
-  "resolvedVersion": "1.0.0",
+  "selector": "latest",
+  "resolvedVersion": "2.1.0",
   "digest": "sha256:abc123...",
-  "manifestUrl": "/api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/manifest",
-  "archiveUrl": "/api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/archive.tar.gz"
+  "manifestUrl": "/api/v1/packages/nwks/platform/agent-backend/versions/2.1.0/manifest",
+  "archiveUrl": "/api/v1/packages/nwks/platform/agent-backend/versions/2.1.0/archive.tar.gz"
 }
 ```
 
 ### Resolving Different Selectors
 
 ```bash
-# Latest version (may include non-stable channels)
+# Latest version
 trove resolve nwks/platform/agent-backend@latest
-
-# Stable version
-trove resolve nwks/platform/agent-backend@stable
 
 # Exact version (no resolution needed, but validates it exists)
 trove resolve nwks/platform/agent-backend@1.0.0

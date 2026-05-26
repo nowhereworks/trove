@@ -107,7 +107,7 @@ func RunPull(args []string, jsonOutput bool) error {
 	}
 	selector := state.Source.RequestedSelector
 	if selector == "" {
-		selector = "stable"
+		selector = "latest"
 	}
 	ref, err := ParsePackageRefNoSelector(remote.Package)
 	if err != nil {

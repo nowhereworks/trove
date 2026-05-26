@@ -158,7 +158,6 @@ metadata:
     framework: chi
 spec:
   version: 1.0.0
-  channel: stable
   license: internal
   visibility: public
   lifecycle: published

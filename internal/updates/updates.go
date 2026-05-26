@@ -24,7 +24,6 @@ type UpdateCheckRequest struct {
 	Package             string `json:"package"`
 	CurrentVersion      string `json:"currentVersion"`
 	CurrentDigest       string `json:"currentDigest"`
-	Channel             string `json:"channel"`
 	StrictCompatibility bool   `json:"strictCompatibility"`
 	Target              Target `json:"target"`
 }
@@ -73,12 +72,7 @@ func (s *Service) CheckUpdate(ctx context.Context, req UpdateCheckRequest) (Upda
 	}
 	org, namespace, name := parts[0], parts[1], parts[2]
 
-	channel := req.Channel
-	if channel == "" {
-		channel = "stable"
-	}
-
-	resolved, err := s.store.Resolve(ctx, org, namespace, name, channel)
+	resolved, err := s.store.Resolve(ctx, org, namespace, name, "latest")
 	if err != nil {
 		return UpdateCheckResponse{}, err
 	}

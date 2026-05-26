@@ -14,7 +14,7 @@ Use `trove download` when you need one artifact file without installing a packag
 trove download nwks/platform/agent-backend AGENTS.md --output AGENTS.md
 ```
 
-The package selector is optional. When omitted, Trove resolves `stable`.
+The package selector is optional. When omitted, Trove resolves `latest`.
 
 ### Stream To Stdout
 
@@ -57,7 +57,7 @@ Output:
   "output": "AGENTS.md",
   "package": "nwks/platform/agent-backend",
   "packageDigest": "sha256:abc123...",
-  "selector": "stable",
+  "selector": "latest",
   "version": "1.0.0"
 }
 ```

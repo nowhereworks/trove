@@ -24,7 +24,6 @@ Response:
       "displayName": "Backend Agent Defaults",
       "description": "Default agent instructions, skills, and commands for backend services.",
       "latestVersion": "1.0.0",
-      "stableVersion": "1.0.0",
       "visibility": "public",
       "lifecycle": "active",
       "labels": { "language": "golang", "framework": "chi" },

@@ -37,7 +37,7 @@ Goal: prove the single-binary registry shape.
 1. Start Go HTTP server.
 2. Add config loading.
 3. Add PostgreSQL connection.
-4. Add `golang-migrate/migrate` SQL migrations for org, namespace, package, version, artifact blob, artifact location, channel, and audit tables.
+4. Add `golang-migrate/migrate` SQL migrations for org, namespace, package, version, artifact blob, artifact location, alias, and audit tables.
 5. Seed one sample published package.
 6. Implement resolve endpoint.
 7. Implement manifest endpoint.
@@ -49,7 +49,7 @@ Acceptance:
 
 - `go test ./...` passes.
 - `sqlc` generated query code is committed once `sqlc.yaml` exists.
-- A seeded package resolves from `@stable` to an exact version.
+- A seeded package resolves from `@latest` to an exact version.
 - A raw exact URL returns `AGENTS.md` with digest ETag.
 - API responses include `X-Request-Id`.
 - JSON responses use camelCase fields.
@@ -111,7 +111,7 @@ Goal: make installed packages maintainable.
 Acceptance:
 
 - CLI can install a package and write a lock file.
-- CLI can report a newer compatible stable version.
+- CLI can report a newer compatible version.
 - CLI can warn for yanked or incompatible installed versions.
 
 ## Slice 5: Search And Adoption

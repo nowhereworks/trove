@@ -158,7 +158,7 @@ POST /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/publish
 Authorization: Bearer <token>
 ```
 
-The version becomes immutable, the `stable` channel pointer updates, and an audit event is written.
+The version becomes immutable and an audit event is written.
 
 ### Size Limits
 

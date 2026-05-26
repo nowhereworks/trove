@@ -20,7 +20,7 @@ It behaves like a lightweight GitHub/npm/OCI-style registry for agent instructio
 
 - Humans can discover, review, version, approve, and maintain artifacts through a web UI.
 - Agents can fetch immutable raw artifacts over HTTP.
-- Projects can pin exact versions, subscribe to update channels, and check for newer compatible releases.
+- Projects can pin exact versions and check for newer compatible releases.
 - Organizations can define blessed defaults, ownership, approval workflows, security policy, governance rules, and lifecycle states.
 
 ## Non-Goals
@@ -44,7 +44,7 @@ It behaves like a lightweight GitHub/npm/OCI-style registry for agent instructio
 - A maintainer can create and publish `companyx/platform/agent-backend@1.0.0`.
 - A human can browse the package and version in the UI.
 - An agent can fetch `AGENTS.md` over an immutable raw URL.
-- `@stable` resolves to an exact immutable version.
+- `@latest` resolves to an exact immutable version.
 - A project can store `.trove.lock.yaml`.
 - The update API can report that a newer compatible version exists.
 - Published artifact content cannot be mutated.

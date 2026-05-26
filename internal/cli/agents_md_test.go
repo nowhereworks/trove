@@ -17,7 +17,7 @@ func TestCloneCreatesAgentsMDWorktree(t *testing.T) {
 	server := newAgentsMDServer(t, "1.0.0", "# Agent defaults\n")
 	t.Setenv("TROVE_SERVER_URL", server.URL)
 
-	if err := RunClone([]string{"nwks/platform/agent-defaults@stable"}, false); err != nil {
+	if err := RunClone([]string{"nwks/platform/agent-defaults@latest"}, false); err != nil {
 		t.Fatalf("RunClone() error = %v", err)
 	}
 
@@ -71,7 +71,7 @@ func TestPullUsesStateSourceRemote(t *testing.T) {
 			"origin": {ServerURL: origin.URL, Package: "nwks/platform/agent-defaults"},
 			"backup": {ServerURL: backup.URL, Package: "nwks/platform/agent-defaults"},
 		},
-		Publish: PublishConfig{Channel: "stable", Visibility: "private"},
+		Publish: PublishConfig{Visibility: "private"},
 	}); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -80,7 +80,7 @@ func TestPullUsesStateSourceRemote(t *testing.T) {
 		Kind:       projectStateKind,
 		Source: ProjectStateSource{
 			Remote:            "origin",
-			RequestedSelector: "stable",
+			RequestedSelector: "latest",
 			ResolvedVersion:   "1.0.0",
 			PackageDigest:     "sha256:old",
 		},
@@ -153,7 +153,7 @@ func TestPullReportsConflictsWithoutPartialWrites(t *testing.T) {
 		Kind:       projectStateKind,
 		Source: ProjectStateSource{
 			Remote:            "origin",
-			RequestedSelector: "stable",
+			RequestedSelector: "latest",
 			ResolvedVersion:   "1.0.0",
 			PackageDigest:     "sha256:old",
 		},
@@ -206,8 +206,8 @@ func newAgentsMDServer(t *testing.T, version string, agentsContent string) *http
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		switch {
-		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/resolve/nwks/platform/agent-defaults@stable":
-			_ = json.NewEncoder(w).Encode(ResolveResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Selector: "stable", ResolvedVersion: version, Digest: "sha256:" + version})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/resolve/nwks/platform/agent-defaults@latest":
+			_ = json.NewEncoder(w).Encode(ResolveResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Selector: "latest", ResolvedVersion: version, Digest: "sha256:" + version})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/"+version+"/manifest":
 			_ = json.NewEncoder(w).Encode(ManifestResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: version, Digest: "sha256:" + version, Manifest: agentsManifestJSON(t, version)})
 		case r.Method == http.MethodGet && r.URL.Path == "/raw/nwks/platform/agent-defaults/AGENTS.md@"+version:
@@ -241,7 +241,7 @@ func agentsManifestBytes(t *testing.T, version string) []byte {
 }
 
 func agentsManifest(version string) manifest.Manifest {
-	m := generatedAgentsManifest(PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}, "Agent Defaults", "Shared AGENTS.md instructions.", "private", "stable", []manifest.Maintainer{{Team: "platform-engineering"}})
+	m := generatedAgentsManifest(PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}, "Agent Defaults", "Shared AGENTS.md instructions.", "private", []manifest.Maintainer{{Team: "platform-engineering"}})
 	m.Spec.Version = strings.TrimPrefix(version, "v")
 	m.Spec.Lifecycle = "published"
 	return m

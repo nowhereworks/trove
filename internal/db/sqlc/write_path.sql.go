@@ -889,25 +889,18 @@ const updateVersionManifest = `-- name: UpdateVersionManifest :exec
 update package_versions
 set manifest_json = $1,
     visibility = $2,
-    channel = $3,
     updated_at = now()
-where id = $4
+where id = $3
 `
 
 type UpdateVersionManifestParams struct {
 	ManifestJson []byte      `json:"manifest_json"`
 	Visibility   string      `json:"visibility"`
-	Channel      pgtype.Text `json:"channel"`
 	ID           pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateVersionManifest(ctx context.Context, arg UpdateVersionManifestParams) error {
-	_, err := q.db.Exec(ctx, updateVersionManifest,
-		arg.ManifestJson,
-		arg.Visibility,
-		arg.Channel,
-		arg.ID,
-	)
+	_, err := q.db.Exec(ctx, updateVersionManifest, arg.ManifestJson, arg.Visibility, arg.ID)
 	return err
 }
 
@@ -995,31 +988,6 @@ on conflict (digest) do nothing
 
 func (q *Queries) UpsertArtifactLocation(ctx context.Context, digest string) error {
 	_, err := q.db.Exec(ctx, upsertArtifactLocation, digest)
-	return err
-}
-
-const upsertChannel = `-- name: UpsertChannel :exec
-insert into channels (id, package_id, name, package_version_id, updated_at)
-values ($1, $2, $3, $4, now())
-on conflict (package_id, name) do update
-set package_version_id = excluded.package_version_id,
-    updated_at = excluded.updated_at
-`
-
-type UpsertChannelParams struct {
-	ID               pgtype.UUID `json:"id"`
-	PackageID        pgtype.UUID `json:"package_id"`
-	Name             string      `json:"name"`
-	PackageVersionID pgtype.UUID `json:"package_version_id"`
-}
-
-func (q *Queries) UpsertChannel(ctx context.Context, arg UpsertChannelParams) error {
-	_, err := q.db.Exec(ctx, upsertChannel,
-		arg.ID,
-		arg.PackageID,
-		arg.Name,
-		arg.PackageVersionID,
-	)
 	return err
 }
 

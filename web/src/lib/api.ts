@@ -5,7 +5,6 @@ export interface PackageSummary {
   displayName: string
   description: string
   latestVersion: string
-  stableVersion: string
   visibility: string
   lifecycle: string
 }
@@ -19,7 +18,6 @@ export interface PackageDetail {
   visibility: string
   lifecycle: string
   latestVersion: string
-  stableVersion: string
   maintainers: { team?: string; user?: string }[]
   labels: string[]
   versions: { version: string; lifecycle: string; digest: string; publishedAt: string }[]
@@ -62,7 +60,6 @@ export interface ManifestData {
   }
   spec: {
     version: string
-    channel: string
     visibility: string
     lifecycle: string
     artifacts: {

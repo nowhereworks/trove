@@ -60,7 +60,7 @@ export default function ReviewsPage() {
             {pkg.lifecycle !== 'published' && (
               <div className="mt-3 flex gap-2">
                 <button
-                  onClick={() => submitReview.mutate({ org: pkg.org, namespace: pkg.namespace, name: pkg.name, version: pkg.stableVersion })}
+                  onClick={() => submitReview.mutate({ org: pkg.org, namespace: pkg.namespace, name: pkg.name, version: pkg.latestVersion })}
                   disabled={submitReview.isPending}
                   className="px-3 py-1.5 bg-primary text-primary-foreground rounded text-sm font-medium hover:opacity-90 disabled:opacity-50"
                 >

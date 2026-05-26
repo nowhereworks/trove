@@ -23,7 +23,7 @@ func ParsePackageRef(raw string) (PackageRef, error) {
 	}
 	selector := m[4]
 	if selector == "" {
-		selector = "stable"
+		selector = "latest"
 	}
 	return PackageRef{
 		Org:       m[1],

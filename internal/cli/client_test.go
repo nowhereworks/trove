@@ -177,7 +177,7 @@ func TestClientSearchPackages(t *testing.T) {
 				Namespace:     "platform",
 				Name:          "react-best-practices",
 				Description:   "React and Next.js performance optimization guidelines.",
-				StableVersion: "1.0.0",
+				LatestVersion: "1.0.0",
 			}},
 			NextCursor: &nextCursor,
 		})

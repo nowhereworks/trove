@@ -335,7 +335,7 @@ func TestDraftUploadPublishFlow(t *testing.T) {
 		t.Fatalf("publish body = %+v", publishBody)
 	}
 
-	resolveReq := httptest.NewRequest(http.MethodGet, "/api/v1/resolve/companyx/platform/agent-backend@stable", nil)
+	resolveReq := httptest.NewRequest(http.MethodGet, "/api/v1/resolve/companyx/platform/agent-backend@latest", nil)
 	resolveRes := httptest.NewRecorder()
 	router.ServeHTTP(resolveRes, resolveReq)
 	if resolveRes.Code != http.StatusOK {
@@ -471,7 +471,7 @@ func TestNotFoundErrorIncludesRequestID(t *testing.T) {
 
 func TestResolveStable(t *testing.T) {
 	router := testRouter(t)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/resolve/companyx/platform/agent-backend@stable", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/resolve/companyx/platform/agent-backend@latest", nil)
 	res := httptest.NewRecorder()
 
 	router.ServeHTTP(res, req)
@@ -493,7 +493,7 @@ func TestResolveStable(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response body: %v", err)
 	}
-	if body.ResolvedVersion != "1.0.0" || body.Selector != "stable" {
+	if body.ResolvedVersion != "1.0.0" || body.Selector != "latest" {
 		t.Fatalf("resolve body = %+v", body)
 	}
 	if body.ManifestURL != "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/manifest" {
@@ -617,7 +617,7 @@ func TestRawExactReturnsArtifactWithETag(t *testing.T) {
 
 func TestRawAliasRedirectsToExact(t *testing.T) {
 	router := testRouter(t)
-	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@stable", nil)
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@latest", nil)
 	res := httptest.NewRecorder()
 
 	router.ServeHTTP(res, req)
@@ -637,7 +637,7 @@ func TestRawAliasRequiresAuthBeforeRedirectWhenPublicRawDisabled(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Raw.AllowPublicPackages = false
 	router := testRouterWithConfig(t, cfg)
-	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@stable", nil)
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@latest", nil)
 	res := httptest.NewRecorder()
 
 	router.ServeHTTP(res, req)
@@ -667,7 +667,7 @@ func TestRawOmittedSelectorRedirectsToStableExact(t *testing.T) {
 
 func TestRawArtifactPathWithAtIsRejected(t *testing.T) {
 	router := testRouter(t)
-	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS@bad.md@stable", nil)
+	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS@bad.md@latest", nil)
 	res := httptest.NewRecorder()
 
 	router.ServeHTTP(res, req)
@@ -751,14 +751,14 @@ func TestPackageListAndDetail(t *testing.T) {
 			Org           string `json:"org"`
 			Namespace     string `json:"namespace"`
 			Name          string `json:"name"`
-			StableVersion string `json:"stableVersion"`
+			LatestVersion string `json:"latestVersion"`
 		} `json:"items"`
 		NextCursor *string `json:"nextCursor"`
 	}
 	if err := json.NewDecoder(listRes.Body).Decode(&listBody); err != nil {
 		t.Fatalf("decode list body: %v", err)
 	}
-	if len(listBody.Items) != 1 || listBody.Items[0].StableVersion != "1.0.0" {
+	if len(listBody.Items) != 1 || listBody.Items[0].LatestVersion != "1.0.0" {
 		t.Fatalf("list body = %+v", listBody)
 	}
 
@@ -822,7 +822,6 @@ metadata:
   description: Default agent instructions, skills, and commands for backend services.
 spec:
   version: 1.0.1
-  channel: stable
   visibility: public
   lifecycle: draft
   artifacts:

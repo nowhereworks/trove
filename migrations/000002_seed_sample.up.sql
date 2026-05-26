@@ -44,7 +44,6 @@ insert into package_versions (
   semver_patch,
   lifecycle,
   visibility,
-  channel,
   manifest_json,
   changelog,
   digest,
@@ -61,8 +60,7 @@ values (
   0,
   'draft',
   'public',
-  'stable',
-  '{"apiVersion":"trove.io/v1","kind":"AgentArtifactPackage","metadata":{"org":"companyx","namespace":"platform","name":"agent-backend","displayName":"Backend Agent Defaults","description":"Default agent instructions, skills, and commands for backend services.","labels":{"language":"golang","framework":"chi","maturity":"production"},"annotations":{"owner":"platform-engineering"}},"spec":{"version":"1.0.0","channel":"stable","license":"internal","visibility":"public","lifecycle":"published","compatibility":{"tools":[{"name":"opencode","version":">=0.6.0 <2.0.0"}],"models":[{"family":"gpt","minContextWindow":128000}],"runtimes":["linux"]},"artifacts":[{"path":"AGENTS.md","type":"agent-instructions","required":true,"targetPath":"AGENTS.md"}],"dependencies":[],"updatePolicy":{"recommendedChannel":"stable","breakingChangeRequiresManualApproval":true},"maintainers":[{"team":"platform-engineering"}],"links":{"docs":"https://docs.company.com/agent-backend"}}}'::jsonb,
+  '{"apiVersion":"trove.io/v1","kind":"AgentArtifactPackage","metadata":{"org":"companyx","namespace":"platform","name":"agent-backend","displayName":"Backend Agent Defaults","description":"Default agent instructions, skills, and commands for backend services.","labels":{"language":"golang","framework":"chi","maturity":"production"},"annotations":{"owner":"platform-engineering"}},"spec":{"version":"1.0.0","license":"internal","visibility":"public","lifecycle":"published","compatibility":{"tools":[{"name":"opencode","version":">=0.6.0 <2.0.0"}],"models":[{"family":"gpt","minContextWindow":128000}],"runtimes":["linux"]},"artifacts":[{"path":"AGENTS.md","type":"agent-instructions","required":true,"targetPath":"AGENTS.md"}],"dependencies":[],"updatePolicy":{"breakingChangeRequiresManualApproval":true},"maintainers":[{"team":"platform-engineering"}],"links":{"docs":"https://docs.company.com/agent-backend"}}}'::jsonb,
   'Initial seeded Slice 1 package.',
   'sha256:e794a7e6ed6c59d962237a4b1593fd158f10fa370beeebdd4bf9f6bf4734a050',
   '2026-05-22T00:00:00Z',
@@ -107,11 +105,6 @@ set lifecycle = 'published',
     updated_at = '2026-05-22T00:00:00Z',
     published_at = '2026-05-22T00:00:00Z'
 where id = '0198f006-0000-7000-8000-000000000004';
-
-insert into channels (id, package_id, name, package_version_id, updated_at)
-values
-  ('0198f006-0000-7000-8000-000000000006', '0198f006-0000-7000-8000-000000000003', 'stable', '0198f006-0000-7000-8000-000000000004', '2026-05-22T00:00:00Z'),
-  ('0198f006-0000-7000-8000-000000000007', '0198f006-0000-7000-8000-000000000003', 'latest', '0198f006-0000-7000-8000-000000000004', '2026-05-22T00:00:00Z');
 
 insert into audit_events (id, org_id, namespace_id, package_id, package_version_id, actor_service_account, action, metadata_json, created_at)
 values (

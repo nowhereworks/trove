@@ -61,7 +61,7 @@ Adoption data comes from CLI commands when configured with an API token:
 
 ```bash
 # trove install reports adoption
-trove install nwks/platform/agent-backend@stable --target . --report
+trove install nwks/platform/agent-backend@latest --target . --report
 
 # trove check reports adoption
 trove check --lock .trove.lock.yaml --report

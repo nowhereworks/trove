@@ -86,7 +86,7 @@ Do not store real tokens, private URLs, or customer/project names in fixtures.
 
 - Slug validation.
 - Strict SemVer parsing.
-- Selector parsing for exact versions, `latest`, `stable`, major, minor, and package digest selectors.
+- Selector parsing for exact versions, `latest`, major, minor, and package digest selectors.
 - Alias resolution ordering.
 - Canonical package digest generation.
 - Per-file digest generation.
@@ -103,7 +103,7 @@ Do not store real tokens, private URLs, or customer/project names in fixtures.
 - Error bodies include the same request ID as the response header.
 - JSON fields use camelCase.
 - Cursor-paginated list responses use `items` and `nextCursor`.
-- Resolve exact, `latest`, `stable`, major, minor, and digest selectors.
+- Resolve exact, `latest`, major, minor, and digest selectors.
 - Manifest endpoint returns the stored manifest for an exact version.
 - Raw exact retrieval returns artifact bytes, digest ETag, and immutable cache headers.
 - Raw alias retrieval redirects to the exact raw URL.

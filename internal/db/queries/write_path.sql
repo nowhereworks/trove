@@ -129,7 +129,6 @@ returning id, path, type, content_type, blob_digest, size_bytes, target_path, cr
 update package_versions
 set manifest_json = sqlc.arg(manifest_json),
     visibility = sqlc.arg(visibility),
-    channel = sqlc.arg(channel),
     updated_at = now()
 where id = sqlc.arg(id);
 
@@ -147,13 +146,6 @@ set lifecycle = 'published',
     published_at = now()
 where id = sqlc.arg(id)
 returning version, lifecycle, digest, published_at;
-
--- name: UpsertChannel :exec
-insert into channels (id, package_id, name, package_version_id, updated_at)
-values (sqlc.arg(id), sqlc.arg(package_id), sqlc.arg(name), sqlc.arg(package_version_id), now())
-on conflict (package_id, name) do update
-set package_version_id = excluded.package_version_id,
-    updated_at = excluded.updated_at;
 
 -- name: InsertAuditEvent :exec
 insert into audit_events (id, org_id, namespace_id, package_id, package_version_id, actor_service_account, action, metadata_json, created_at)

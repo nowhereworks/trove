@@ -7,7 +7,7 @@ Use `trove pull` inside a cloned publishing worktree to refresh local files from
 ## How
 
 ```bash
-trove clone nwks/platform/agent-defaults@stable
+trove clone nwks/platform/agent-defaults@latest
 cd agent-defaults
 trove pull
 ```

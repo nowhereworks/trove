@@ -33,7 +33,6 @@ type Metadata struct {
 
 type Spec struct {
 	Version       string            `yaml:"version" json:"version"`
-	Channel       string            `yaml:"channel" json:"channel,omitempty"`
 	License       string            `yaml:"license" json:"license,omitempty"`
 	Visibility    string            `yaml:"visibility" json:"visibility"`
 	Lifecycle     string            `yaml:"lifecycle" json:"lifecycle"`

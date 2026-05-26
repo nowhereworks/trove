@@ -3,11 +3,11 @@ package packages
 import "testing"
 
 func TestSplitPackageSelector(t *testing.T) {
-	name, selector, err := SplitPackageSelector("agent-backend@stable")
+	name, selector, err := SplitPackageSelector("agent-backend@latest")
 	if err != nil {
 		t.Fatalf("SplitPackageSelector() error = %v", err)
 	}
-	if name != "agent-backend" || selector != "stable" {
+	if name != "agent-backend" || selector != "latest" {
 		t.Fatalf("SplitPackageSelector() = %q, %q", name, selector)
 	}
 }
@@ -18,7 +18,6 @@ func TestParseSelector(t *testing.T) {
 		selector string
 		kind     SelectorKind
 	}{
-		{name: "stable", selector: "stable", kind: SelectorChannel},
 		{name: "latest", selector: "latest", kind: SelectorChannel},
 		{name: "exact", selector: "1.2.3", kind: SelectorExact},
 		{name: "exact with v", selector: "v1.2.3", kind: SelectorExact},

@@ -20,7 +20,7 @@ When publishing succeeds:
 ```text
 Published nwks/platform/agent-defaults@1.0.0
 Install with:
-  trove install nwks/platform/agent-defaults@stable
+  trove install nwks/platform/agent-defaults@latest
 ```
 
 When review approval is required, the default mode submits for review instead of failing:
@@ -74,7 +74,7 @@ When review is required, JSON output reports the submitted review state:
   "version": "1.0.0",
   "lifecycle": "review",
   "reviewUrl": "https://trove.company.com/reviews?package=nwks%2Fplatform%2Fagent-defaults&version=1.0.0",
-  "installCommand": "trove install nwks/platform/agent-defaults@stable"
+  "installCommand": "trove install nwks/platform/agent-defaults@latest"
 }
 ```
 
@@ -88,7 +88,6 @@ When review is required, JSON output reports the submitted review state:
 | `--version <x.y.z>` | No | Use an explicit strict SemVer version |
 | `--remote <name>` | No | Push to a configured remote |
 | `--visibility private\|internal\|public` | No | Override visibility for this push |
-| `--channel stable` | No | Publish with the stable channel |
 | `--draft` | No | Upload draft only |
 | `--submit-only` | No | Upload and submit for review |
 | `--publish` | No | Require publish to succeed |

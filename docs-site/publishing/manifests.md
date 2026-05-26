@@ -25,7 +25,6 @@ metadata:
     owner: platform-engineering
 spec:
   version: 1.0.0
-  channel: stable
   license: internal
   visibility: private
   lifecycle: draft
@@ -49,7 +48,6 @@ spec:
       targetPath: .opencode/skills/backend-api/SKILL.md
   dependencies: []
   updatePolicy:
-    recommendedChannel: stable
     breakingChangeRequiresManualApproval: true
   maintainers:
     - team: platform-engineering
@@ -80,7 +78,6 @@ spec:
 |---|---|---|
 | `metadata.labels` | object | Key-value labels for search and filtering |
 | `metadata.annotations` | object | Key-value metadata for tooling |
-| `spec.channel` | string | `stable` or omitted |
 | `spec.license` | string | License identifier |
 | `spec.compatibility` | object | Tool, model, and runtime constraints |
 | `spec.dependencies` | array | Declare-only dependency references |

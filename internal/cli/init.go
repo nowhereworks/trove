@@ -107,14 +107,14 @@ func RunInit(args []string, jsonOutput bool) error {
 	}
 
 	if hasPackage && shouldWriteGenerated(manifestPath, force) {
-		m := generatedAgentsManifest(ref, displayName, description, visibility, "stable", maintainers)
+		m := generatedAgentsManifest(ref, displayName, description, visibility, maintainers)
 		if err := writeManifestYAML(manifestPath, m); err != nil {
 			return fmt.Errorf("write %s: %w", manifestPath, err)
 		}
 	}
 
 	if shouldWriteGenerated(projectConfigPath, force) {
-		cfg := ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind, Publish: PublishConfig{Channel: "stable", Visibility: visibility}}
+		cfg := ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind, Publish: PublishConfig{Visibility: visibility}}
 		if hasRemote {
 			cfg = configWithRemote(remoteSpec)
 			cfg.Publish.Visibility = visibility

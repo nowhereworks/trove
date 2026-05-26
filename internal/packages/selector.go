@@ -64,7 +64,7 @@ func ParseSelector(selector string) (ParsedSelector, error) {
 	if strings.HasPrefix(selector, "sha256:") {
 		return ParsedSelector{Kind: SelectorDigest, Value: selector}, nil
 	}
-	if selector == "latest" || selector == "stable" {
+	if selector == "latest" {
 		return ParsedSelector{Kind: SelectorChannel, Value: selector}, nil
 	}
 

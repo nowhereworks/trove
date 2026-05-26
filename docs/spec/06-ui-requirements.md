@@ -58,7 +58,6 @@ Show:
 - lifecycle
 - visibility
 - latest version
-- stable version
 - maintainers
 - labels
 - compatibility summary
@@ -100,7 +99,7 @@ Show:
 - exact version
 - digest
 - lifecycle state
-- channel aliases pointing at the version
+- alias pointing at the version
 - publish timestamp
 - publisher
 - manifest

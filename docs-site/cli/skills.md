@@ -18,7 +18,7 @@ Output:
 
 ```text
 Skills matching "react performance":
-- nwks/platform/react-best-practices@stable
+- nwks/platform/react-best-practices@latest
   React and Next.js performance optimization guidelines.
 ```
 
@@ -33,7 +33,7 @@ trove skills find
 Install the selected package with optional artifacts included:
 
 ```bash
-trove install nwks/platform/react-best-practices@stable --optional
+trove install nwks/platform/react-best-practices@latest --optional
 ```
 
 Use `--optional` because skill artifacts can be optional in packages that also include AGENTS.md files, prompts, commands, or templates.
@@ -59,8 +59,7 @@ Output:
       "description": "React and Next.js performance optimization guidelines.",
       "visibility": "public",
       "lifecycle": "active",
-      "latestVersion": "1.0.0",
-      "stableVersion": "1.0.0"
+      "latestVersion": "1.0.0"
     }
   ],
   "nextCursor": null

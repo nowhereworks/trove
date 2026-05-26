@@ -84,12 +84,12 @@ Examples:
 
 ```text
 https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md
-https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@stable
+https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@latest
 https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@latest
 https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@v1.0.3
 ```
 
-If the selector is omitted, the server resolves `stable`.
+If the selector is omitted, the server resolves `latest`.
 
 Alias or omitted-selector URLs redirect to exact immutable URLs:
 
@@ -97,7 +97,7 @@ Alias or omitted-selector URLs redirect to exact immutable URLs:
 GET /raw/nwks/platform/agent-defaults/AGENTS.md
 302 /raw/nwks/platform/agent-defaults/AGENTS.md@1.0.3
 
-GET /raw/nwks/platform/agent-defaults/AGENTS.md@stable
+GET /raw/nwks/platform/agent-defaults/AGENTS.md@latest
 302 /raw/nwks/platform/agent-defaults/AGENTS.md@1.0.3
 
 GET /raw/nwks/platform/agent-defaults/AGENTS.md@1.0.3
@@ -112,7 +112,7 @@ Private and internal packages can be fetched with curl by passing a bearer token
 
 ```bash
 curl -L -H "Authorization: Bearer $TROVE_TOKEN" \
-  https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@stable
+  https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@latest
 ```
 
 Artifact paths must not contain `@`; raw artifact URLs reserve `@` for selectors.
@@ -129,7 +129,7 @@ trove download nwks/platform/backend-skills skills/reviewer/SKILL.md --output .o
 
 Behavior:
 
-- Omitted selector resolves to `stable`.
+- Omitted selector resolves to `latest`.
 - Exactly one artifact path is fetched.
 - The artifact path is the manifest `path`, not `targetPath`.
 - No `.trove.lock.yaml`, `trove.yaml`, or `.trove/config.yaml` is written.
@@ -162,7 +162,7 @@ Behavior:
 Use `trove clone` when a maintainer wants to edit a published package and later publish a new immutable version.
 
 ```bash
-trove clone nwks/platform/agent-defaults@stable
+trove clone nwks/platform/agent-defaults@latest
 cd agent-defaults
 trove status
 trove push --patch
@@ -236,7 +236,7 @@ Default generated values:
 | `metadata.displayName` | Title-cased package name |
 | `metadata.description` | `Shared AGENTS.md instructions.` |
 | `spec.version` | `1.0.0` |
-| `spec.channel` | `stable` |
+
 | `spec.visibility` | `private` |
 | `spec.lifecycle` | `draft` |
 | maintainer | Require flag, prompt, or leave invalid with clear status error in non-interactive mode |
@@ -326,7 +326,6 @@ apiVersion: trove.io/v1
 kind: TroveProject
 artifactKind: agents-md
 publish:
-  channel: stable
   visibility: private
 ```
 
@@ -342,7 +341,6 @@ Remote: origin -> https://trove.company.com/nwks/platform/agent-defaults
 Current published version: 1.0.0
 Next version: 1.0.1
 Visibility: private
-Channel: stable
 Review policy: requires approval
 Local state: ready to push
 ```
@@ -371,7 +369,6 @@ JSON output shape:
   "currentPublishedVersion": "1.0.0",
   "nextVersion": "1.0.1",
   "visibility": "private",
-  "channel": "stable",
   "reviewPolicy": "requiresApproval",
   "localState": "ready",
   "problems": []
@@ -405,7 +402,6 @@ Flags:
 | `--version 1.2.3` | Use an explicit strict SemVer version |
 | `--remote origin` | Select a configured remote |
 | `--visibility private\|internal\|public` | Override visibility for this push |
-| `--channel stable` | Publish with the stable channel |
 | `--draft` | Upload draft only; do not submit or publish |
 | `--submit-only` | Upload and submit for review |
 | `--publish` | Require publish to succeed; fail if review blocks it |
@@ -446,7 +442,7 @@ Allowed generated manifest fields:
 - `metadata.displayName` when generated and not user-set
 - `metadata.description` when generated and not user-set
 - `spec.version`
-- `spec.channel`
+
 - `spec.visibility`
 - `spec.lifecycle`
 - `spec.artifacts` for the required `AGENTS.md` artifact
@@ -458,7 +454,7 @@ Human output when publish succeeds:
 ```text
 Published nwks/platform/agent-defaults@1.0.0
 Install with:
-  trove install nwks/platform/agent-defaults@stable
+  trove install nwks/platform/agent-defaults@latest
 ```
 
 Human output when review is required:
@@ -477,10 +473,9 @@ JSON output shape:
   "version": "1.0.0",
   "lifecycle": "published",
   "digest": "sha256:abc123",
-  "channel": "stable",
   "visibility": "private",
   "reviewUrl": "",
-  "installCommand": "trove install nwks/platform/agent-defaults@stable"
+  "installCommand": "trove install nwks/platform/agent-defaults@latest"
 }
 ```
 
@@ -504,7 +499,7 @@ Flags:
 Behavior:
 
 - `trove download <package-ref> <artifact-path>` is required.
-- The package ref may omit selector; omitted selector resolves `stable`.
+- The package ref may omit selector; omitted selector resolves `latest`.
 - The command resolves the selector, then fetches the exact raw artifact.
 - With no `--output`, bytes are written to stdout.
 - With `--output`, bytes are written to the exact provided file path.
@@ -521,13 +516,13 @@ Behavior:
 Creates an editable package worktree from an existing published version.
 
 ```bash
-trove clone nwks/platform/agent-defaults@stable
-trove clone nwks/platform/agent-defaults@stable agent-defaults
+trove clone nwks/platform/agent-defaults@latest
+trove clone nwks/platform/agent-defaults@latest agent-defaults
 ```
 
 Behavior:
 
-- Resolve omitted selector as `stable`.
+- Resolve omitted selector as `latest`.
 - Default directory is the package name.
 - Fail if target directory exists and is not empty.
 - Retrieve the package version manifest and write it as local `trove.yaml`.
@@ -545,7 +540,7 @@ Behavior:
 
 - Load `.trove/config.yaml` and selected remote.
 - Load `.trove/state.yaml` when present.
-- Resolve configured selector or `stable` by default.
+- Resolve configured selector or `latest` by default.
 - Download remote manifest and artifacts.
 - Compare remote files to local files before writing.
 - Refuse to overwrite local changes silently.
@@ -571,7 +566,6 @@ remotes:
     serverUrl: https://trove.company.com
     package: nwks/platform/agent-defaults
 publish:
-  channel: stable
   visibility: private
 ```
 
@@ -594,7 +588,7 @@ apiVersion: trove.io/v1
 kind: TroveProjectState
 source:
   remote: origin
-  requestedSelector: stable
+    requestedSelector: latest
   resolvedVersion: 1.0.0
   packageDigest: sha256:abc123
 files:
@@ -626,7 +620,7 @@ metadata:
   description: Shared AGENTS.md instructions.
 spec:
   version: 1.0.0
-  channel: stable
+
   visibility: private
   lifecycle: draft
   artifacts:
@@ -819,8 +813,8 @@ Implement:
 Tests:
 
 - Exact version returns `200` and bytes.
-- `stable` redirects to exact version.
-- Omitted selector redirects to stable exact version.
+- `latest` redirects to exact version.
+- Omitted selector redirects to latest exact version.
 - Private package without auth returns unauthorized or not found according to existing visibility policy.
 - Artifact path with `@` returns `400`.
 
@@ -872,7 +866,7 @@ Implement:
 - `--overwrite`.
 - `--json`.
 - `--metadata-only`.
-- Omitted package selector resolves `stable`.
+- Omitted package selector resolves `latest`.
 - Existing files are not overwritten unless overwrite is explicit.
 - No lockfile or publishing metadata writes.
 - `trove fetch` is removed and returns unknown subcommand.
@@ -1053,7 +1047,7 @@ curl -L -H "Authorization: Bearer $TROVE_TOKEN" \
 A maintainer can start from a published version and prepare a new draft:
 
 ```bash
-trove clone nwks/platform/agent-defaults@stable
+trove clone nwks/platform/agent-defaults@latest
 cd agent-defaults
 trove status
 trove push --patch
@@ -1071,7 +1065,7 @@ If publishing succeeds immediately, output resembles:
 ```text
 Published nwks/platform/agent-defaults@1.0.0
 Install with:
-  trove install nwks/platform/agent-defaults@stable
+  trove install nwks/platform/agent-defaults@latest
 ```
 
 If review is required, output resembles:

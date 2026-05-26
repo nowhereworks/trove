@@ -57,7 +57,7 @@
 | Keep OIDC standards-based | Accepted | Avoids baking provider-specific assumptions into MVP auth |
 | Make strict compatibility fail unknown | Accepted | Default remains advisory while strict CI/policy can block incomplete metadata |
 | Require strict SemVer for published versions | Accepted | Enables deterministic major/minor selectors and compatibility-aware updates |
-| Limit MVP aliases to `latest` and `stable` | Accepted | Covers common install/update flows without arbitrary channel governance |
+| Use `@latest` as the only named alias | Accepted | Covers common install/update flows without arbitrary channel governance |
 | Published versions are immutable | Accepted | Required for deterministic agent behavior |
 | Aliases resolve to exact versions | Accepted | Makes cache behavior and debugging cleaner |
 | Redirect alias raw URLs to exact URLs | Accepted | Keeps caching semantics explicit and makes resolved versions visible |
@@ -98,7 +98,7 @@
 | Threaded or line-level review comments | Defer; MVP has simple version-level comments |
 | Slug rename redirects | Defer; slugs are immutable in MVP |
 | Prerelease or non-SemVer versions | Defer; MVP published versions are strict SemVer |
-| Arbitrary user-managed channels | Defer; MVP supports `latest` and `stable` only |
+| Arbitrary user-managed aliases | Defer; `@latest` only in MVP |
 
 ## Remaining Open Questions
 

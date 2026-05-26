@@ -19,12 +19,12 @@ Checking .trove.lock.yaml...
 
 nwks/platform/agent-backend@1.0.0
   Status: current
-  Latest stable: 1.0.0
+  Latest: 1.0.0
   Compatibility: compatible
 
 nwks/frontend/react-defaults@2.0.0
   Status: update available
-  Latest stable: 2.1.0
+  Latest: 2.1.0
   Compatibility: compatible
 
 All checks passed. 1 package has updates available.
@@ -67,7 +67,6 @@ Output:
       "package": "nwks/platform/agent-backend",
       "installedVersion": "1.0.0",
       "installedDigest": "sha256:abc123...",
-      "latestStableVersion": "1.0.0",
       "latestVersion": "1.0.0",
       "status": "current",
       "compatibility": "compatible"
@@ -76,7 +75,6 @@ Output:
       "package": "nwks/frontend/react-defaults",
       "installedVersion": "2.0.0",
       "installedDigest": "sha256:def456...",
-      "latestStableVersion": "2.1.0",
       "latestVersion": "2.1.0",
       "status": "update-available",
       "compatibility": "compatible"
@@ -89,11 +87,11 @@ Output:
 
 | Status | Meaning |
 |---|---|
-| `current` | Installed version matches latest stable |
-| `update-available` | A newer compatible stable version exists |
+| `current` | Installed version matches latest |
+| `update-available` | A newer compatible version exists |
 | `yanked` | Installed version has been yanked |
 | `deprecated` | Installed version is deprecated |
-| `incompatible` | Latest stable is incompatible with your target |
+| `incompatible` | Latest version is incompatible with your target |
 
 ### Compatibility Values
 

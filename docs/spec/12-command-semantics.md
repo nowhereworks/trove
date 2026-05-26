@@ -20,7 +20,7 @@ A package selector appends `@selector`:
 org/namespace/package@selector
 ```
 
-If a consumer command omits the selector, the CLI resolves `stable` by default:
+If a consumer command omits the selector, the CLI resolves `latest` by default:
 
 ```bash
 trove download nwks/platform/agent-defaults AGENTS.md
@@ -34,33 +34,16 @@ Publishing commands must resolve omitted versions through their own version-sele
 Supported selectors:
 
 | Selector | Meaning |
-|---|---|
-| omitted | Same as `stable` for consumer reads |
-| `stable` | Highest SemVer published, non-yanked version in the `stable` channel |
-| `latest` | Highest SemVer published, non-yanked version regardless of channel |
+|---|---|---|
+| omitted | Same as `latest` for consumer reads |
+| `latest` | Highest SemVer published, non-yanked version |
 | `1.2.3` | Exact immutable published version |
 | `v1.2.3` | Ergonomic exact version, normalized to `1.2.3` |
 | `v1` | Highest published, non-yanked `1.x.x` version |
 | `v1.2` | Highest published, non-yanked `1.2.x` version |
 | `sha256:<digest>` | Exact package-version digest selector |
 
-MVP named aliases are only `latest` and `stable`. Major and minor selectors are derived from SemVer and are not user-managed channels.
-
-`stable` is assigned by publishing a version with channel `stable`:
-
-```yaml
-spec:
-  version: 1.0.3
-  channel: stable
-```
-
-or with a CLI override:
-
-```bash
-trove push --channel stable
-```
-
-The server derives `stable` by querying published versions where `channel = stable`, excluding yanked versions, ordered by SemVer descending.
+`@latest` is the only named alias. Major and minor selectors are derived from SemVer.
 
 ## Raw Artifact URLs
 
@@ -74,12 +57,11 @@ Examples:
 
 ```text
 https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md
-https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@stable
 https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@latest
 https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@v1.0.3
 ```
 
-If `@selector` is omitted, the server resolves `stable`.
+If `@selector` is omitted, the server resolves `latest`.
 
 Alias or omitted-selector URLs must redirect to exact immutable URLs:
 
@@ -87,7 +69,7 @@ Alias or omitted-selector URLs must redirect to exact immutable URLs:
 GET /raw/nwks/platform/agent-defaults/AGENTS.md
 302 /raw/nwks/platform/agent-defaults/AGENTS.md@1.0.3
 
-GET /raw/nwks/platform/agent-defaults/AGENTS.md@stable
+GET /raw/nwks/platform/agent-defaults/AGENTS.md@latest
 302 /raw/nwks/platform/agent-defaults/AGENTS.md@1.0.3
 
 GET /raw/nwks/platform/agent-defaults/AGENTS.md@1.0.3
@@ -102,7 +84,7 @@ Raw URLs require authentication by default. Public packages may allow anonymous 
 
 ```bash
 curl -L -H "Authorization: Bearer $TROVE_TOKEN" \
-  https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@stable
+  https://trove.company.com/raw/nwks/platform/agent-defaults/AGENTS.md@latest
 ```
 
 ## Command Families
@@ -114,7 +96,7 @@ Trove CLI commands fall into these families.
 `trove resolve` turns a package reference into an exact version and digest.
 
 ```bash
-trove resolve nwks/platform/agent-defaults@stable
+trove resolve nwks/platform/agent-defaults@latest
 trove resolve nwks/platform/agent-defaults
 ```
 
@@ -131,7 +113,7 @@ trove download nwks/platform/agent-defaults@v1.0.3 AGENTS.md --output AGENTS.md
 
 Behavior:
 
-- Resolve omitted selectors to `stable`.
+- Resolve omitted selectors to `latest`.
 - Fetch exactly one artifact path.
 - Write to stdout by default when no output path is provided.
 - Write to `--output <file>` when provided.
@@ -152,7 +134,7 @@ trove install nwks/platform/agent-defaults --target .
 
 Behavior:
 
-- Resolve omitted selectors to `stable`.
+- Resolve omitted selectors to `latest`.
 - Read the manifest.
 - Install required artifacts by default.
 - Install optional artifacts only when explicitly selected.
@@ -166,7 +148,7 @@ Behavior:
 Worktree commands create and maintain local editable package checkouts for maintainers.
 
 ```bash
-trove clone nwks/platform/agent-defaults@stable
+trove clone nwks/platform/agent-defaults@latest
 trove pull
 trove status
 trove push --patch
@@ -214,7 +196,6 @@ Remote: origin -> https://trove.company.com/nwks/platform/agent-defaults
 Current published version: 1.0.0
 Next version: 1.0.1
 Visibility: private
-Channel: stable
 Review policy: requires approval
 Local state: ready to push
 ```
@@ -247,7 +228,6 @@ Common flags:
 | `--version 1.2.3` | Use an explicit strict SemVer version |
 | `--remote origin` | Select a configured remote |
 | `--visibility private\|internal\|public` | Override visibility for this push |
-| `--channel stable` | Publish with the stable channel |
 | `--draft` | Upload draft only; do not submit or publish |
 | `--submit-only` | Upload and submit for review |
 | `--publish` | Require publish to succeed; fail if review blocks it |
@@ -290,7 +270,6 @@ remotes:
     serverUrl: https://trove.company.com
     package: nwks/platform/agent-defaults
 publish:
-  channel: stable
   visibility: private
 ```
 
@@ -300,7 +279,7 @@ Package-only initialization may omit `defaultRemote` and `remotes`; commands tha
 
 `trove.yaml` remains the actual package manifest uploaded to Trove.
 
-`trove push` may update generated manifest fields, especially package coordinates, `spec.version`, `spec.channel`, `spec.visibility`, and `spec.lifecycle`. It must not rewrite artifact content files. Local editable manifests remain draft-oriented; published lifecycle is represented by server version state and publish responses.
+`trove push` may update generated manifest fields, especially package coordinates, `spec.version`, `spec.visibility`, and `spec.lifecycle`. It must not rewrite artifact content files. Local editable manifests remain draft-oriented; published lifecycle is represented by server version state and publish responses.
 
 ## API Requirements
 

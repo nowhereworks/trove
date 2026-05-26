@@ -18,7 +18,6 @@ Remote: origin -> https://trove.company.com/nwks/platform/agent-defaults
 Current published version: 1.0.0
 Next version: 1.0.1
 Visibility: private
-Channel: stable
 Review policy: requiresApproval
 Local state: ready
 ```

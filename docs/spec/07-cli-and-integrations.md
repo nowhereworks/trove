@@ -7,9 +7,9 @@ The MVP includes a small CLI prototype for agent and CI flows. Trove-wide comman
 Initial commands:
 
 ```bash
-trove resolve companyx/platform/agent-backend@stable
-trove download companyx/platform/agent-backend@stable AGENTS.md
-trove install companyx/platform/agent-backend@stable --target .
+trove resolve companyx/platform/agent-backend@latest
+trove download companyx/platform/agent-backend@latest AGENTS.md
+trove install companyx/platform/agent-backend@latest --target .
 trove check --lock .trove.lock.yaml
 trove update --lock .trove.lock.yaml
 trove update --lock .trove.lock.yaml --apply
@@ -45,7 +45,7 @@ When `trove install` or `trove update --apply` changes the lockfile, it rewrites
 Target UX:
 
 ```bash
-opencode /init https://trove.company.com/companyx/platform/agent-backend@stable
+opencode /init https://trove.company.com/companyx/platform/agent-backend@latest
 ```
 
 The URL should resolve to package metadata, manifest, raw artifact URLs, and archive download links.

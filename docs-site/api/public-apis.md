@@ -88,8 +88,8 @@ List endpoints use cursor pagination:
   "org": "nwks",
   "namespace": "platform",
   "package": "agent-backend",
-  "selector": "stable",
-  "resolvedVersion": "1.0.0",
+  "selector": "latest",
+  "resolvedVersion": "2.1.0",
   "digest": "sha256:abc123...",
   "manifestUrl": "/api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/manifest",
   "archiveUrl": "/api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/archive.tar.gz"
@@ -108,7 +108,6 @@ List endpoints use cursor pagination:
   "visibility": "public",
   "lifecycle": "active",
   "latestVersion": "1.0.0",
-  "stableVersion": "1.0.0",
   "maintainers": [{ "team": "platform-engineering" }],
   "labels": { "language": "golang", "framework": "chi" },
   "createdAt": "2026-01-15T00:00:00Z",

@@ -14,7 +14,7 @@ where o.slug = sqlc.arg(org)
   and v.version = sqlc.arg(version)
   and v.lifecycle in ('published', 'deprecated', 'yanked');
 
--- name: ResolveChannel :one
+-- name: ResolveLatest :one
 select o.slug as org,
        n.slug as namespace,
        p.name as package_name,
@@ -24,12 +24,12 @@ from package_versions v
 join packages p on p.id = v.package_id
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
-join channels c on c.package_id = p.id and c.package_version_id = v.id
 where o.slug = sqlc.arg(org)
   and n.slug = sqlc.arg(namespace)
   and p.name = sqlc.arg(package_name)
-  and c.name = sqlc.arg(channel)
-  and v.lifecycle in ('published', 'deprecated', 'yanked');
+  and v.lifecycle in ('published', 'deprecated', 'yanked')
+order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+limit 1;
 
 -- name: ResolveDigest :one
 select o.slug as org,
@@ -149,15 +149,18 @@ select o.slug as org,
        coalesce(p.description, '') as description,
        p.visibility as visibility,
        p.lifecycle as lifecycle,
-       coalesce(latest.version, '') as latest_version,
-       coalesce(stable.version, '') as stable_version
+       coalesce(latest.version, '') as latest_version
 from packages p
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
-left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
-left join package_versions latest on latest.id = latest_channel.package_version_id
-left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
-left join package_versions stable on stable.id = stable_channel.package_version_id
+left join lateral (
+  select v.version
+  from package_versions v
+  where v.package_id = p.id
+    and v.lifecycle in ('published', 'deprecated', 'yanked')
+  order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+  limit 1
+) latest on true
 where p.lifecycle = 'active'
   and exists (select 1 from package_versions v where v.package_id = p.id and v.lifecycle = 'published')
   and ((sqlc.arg(cursor)::text = '') or ((o.slug || '/' || n.slug || '/' || p.name) > sqlc.arg(cursor)::text))
@@ -172,15 +175,18 @@ select o.slug as org,
        coalesce(p.description, '') as description,
        p.visibility as visibility,
        p.lifecycle as lifecycle,
-       coalesce(latest.version, '') as latest_version,
-       coalesce(stable.version, '') as stable_version
+       coalesce(latest.version, '') as latest_version
 from packages p
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
-left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
-left join package_versions latest on latest.id = latest_channel.package_version_id
-left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
-left join package_versions stable on stable.id = stable_channel.package_version_id
+left join lateral (
+  select v.version
+  from package_versions v
+  where v.package_id = p.id
+    and v.lifecycle in ('published', 'deprecated', 'yanked')
+  order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+  limit 1
+) latest on true
 where o.slug = sqlc.arg(org)
   and n.slug = sqlc.arg(namespace)
   and p.name = sqlc.arg(package_name)
@@ -195,16 +201,19 @@ select o.slug as org,
        p.visibility as visibility,
        p.lifecycle as lifecycle,
        coalesce(latest.version, '') as latest_version,
-       coalesce(stable.version, '') as stable_version,
        ts_rank(sd.search_text, plainto_tsquery('english', sqlc.arg(query)::text)) as rank
 from package_search_documents sd
 join packages p on p.id = sd.package_id
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
-left join channels latest_channel on latest_channel.package_id = p.id and latest_channel.name = 'latest'
-left join package_versions latest on latest.id = latest_channel.package_version_id
-left join channels stable_channel on stable_channel.package_id = p.id and stable_channel.name = 'stable'
-left join package_versions stable on stable.id = stable_channel.package_version_id
+left join lateral (
+  select v.version
+  from package_versions v
+  where v.package_id = p.id
+    and v.lifecycle in ('published', 'deprecated', 'yanked')
+  order by v.semver_major desc, v.semver_minor desc, v.semver_patch desc
+  limit 1
+) latest on true
 where sd.search_text @@ plainto_tsquery('english', sqlc.arg(query)::text)
   and sd.lifecycle = 'active'
   and sd.visibility = 'public'
@@ -245,7 +254,6 @@ order by install_count desc, pv.semver_major desc, pv.semver_minor desc, pv.semv
 select v.version as version,
        coalesce(v.digest, '') as digest,
        v.lifecycle as lifecycle,
-       coalesce(v.channel, '') as channel,
        coalesce(to_char(v.published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as published_at
 from package_versions v
 join packages p on p.id = v.package_id

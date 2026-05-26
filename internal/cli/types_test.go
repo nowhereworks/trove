@@ -11,12 +11,12 @@ func TestParsePackageRef(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			input: "companyx/platform/agent-backend@stable",
+			input: "companyx/platform/agent-backend@latest",
 			want: PackageRef{
 				Org:       "companyx",
 				Namespace: "platform",
 				Name:      "agent-backend",
-				Selector:  "stable",
+				Selector: "latest",
 			},
 		},
 		{
@@ -43,7 +43,7 @@ func TestParsePackageRef(t *testing.T) {
 				Org:       "org",
 				Namespace: "ns",
 				Name:      "pkg",
-				Selector:  "stable",
+				Selector: "latest",
 			},
 		},
 		{
@@ -89,9 +89,9 @@ func TestPackageRefString(t *testing.T) {
 		Org:       "companyx",
 		Namespace: "platform",
 		Name:      "agent-backend",
-		Selector:  "stable",
+		Selector: "latest",
 	}
-	want := "companyx/platform/agent-backend@stable"
+	want := "companyx/platform/agent-backend@latest"
 	if got := ref.String(); got != want {
 		t.Errorf("String() = %q, want %q", got, want)
 	}
@@ -102,7 +102,7 @@ func TestPackageRefPackagePath(t *testing.T) {
 		Org:       "companyx",
 		Namespace: "platform",
 		Name:      "agent-backend",
-		Selector:  "stable",
+		Selector: "latest",
 	}
 	want := "companyx/platform/agent-backend"
 	if got := ref.PackagePath(); got != want {

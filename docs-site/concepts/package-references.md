@@ -18,7 +18,7 @@ Examples:
 
 ```
 nwks/platform/agent-backend@1.0.0
-nwks/platform/agent-backend@stable
+nwks/platform/agent-backend@latest
 nwks/frontend/react-defaults@latest
 nwks/ai/security-reviewer@sha256:abc123...
 ```
@@ -65,7 +65,7 @@ Shorthand references are not supported in the MVP.
 | Reference | Valid? | Reason |
 |---|---|---|
 | `nwks/platform/agent-backend@1.0.0` | Yes | Full reference with exact version |
-| `nwks/platform/agent-backend@stable` | Yes | Full reference with named alias |
+| `nwks/platform/agent-backend@latest` | Yes | Full reference with named alias |
 | `platform/agent-backend@1.0.0` | No | Missing org |
 | `agent-backend@1.0.0` | No | Missing org and namespace |
 | `nwks/Platform/agent-backend@1.0.0` | No | Namespace must be lowercase |

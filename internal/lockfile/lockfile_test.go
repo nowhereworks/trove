@@ -20,7 +20,7 @@ project:
   repo: https://git.company.com/payments/payments-api
 installs:
   - package: companyx/platform/agent-backend
-    requestedSelector: stable
+    requestedSelector: latest
     version: 1.0.0
     digest: sha256:abc123
     installedAt: "2026-05-21T00:00:00Z"
@@ -161,7 +161,7 @@ func TestAddAndGetInstall(t *testing.T) {
 
 	entry := InstallEntry{
 		Package:           "test/pkg",
-		RequestedSelector: "stable",
+		RequestedSelector: "latest",
 		Version:           "1.0.0",
 		Digest:            "sha256:abc",
 		InstalledAt:       time.Now().UTC(),
@@ -224,7 +224,7 @@ func TestMarshalAndRoundTrip(t *testing.T) {
 	lock := New("trove", "0.1.0", ProjectInfo{Org: "test", Name: "test"})
 	lock.AddInstall(InstallEntry{
 		Package:           "test/pkg",
-		RequestedSelector: "stable",
+		RequestedSelector: "latest",
 		Version:           "1.0.0",
 		Digest:            "sha256:abc",
 		InstalledAt:       time.Date(2026, 5, 21, 0, 0, 0, 0, time.UTC),

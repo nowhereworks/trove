@@ -94,7 +94,6 @@ package_versions (
   semver_minor int,
   semver_patch int,
   lifecycle text not null,
-  channel text,
   manifest_json jsonb not null,
   changelog text,
   digest text,
@@ -141,18 +140,6 @@ artifact_locations (
 ```
 
 For MVP, `artifact_locations.storage_driver` is `postgres` and `storage_uri` is null. This table reserves the migration path to S3-compatible storage without changing artifact file references.
-
-```sql
-channels (
-  id uuid primary key,
-  package_id uuid not null references packages(id),
-  name text not null,
-  package_version_id uuid not null references package_versions(id),
-  updated_by uuid references users(id),
-  updated_at timestamptz not null,
-  unique(package_id, name)
-)
-```
 
 ```sql
 api_tokens (
@@ -229,7 +216,7 @@ package_search_documents (
 - Published versions must have a non-null `digest` and `published_at`.
 - Published versions must reject changes to manifest, artifact files, artifact blobs, version, and digest.
 - Published-version immutability is enforced by application checks for friendly API errors and PostgreSQL triggers/constraints for safety.
-- Channel rows are mutable pointers to immutable package versions; MVP managed channels are `latest` and `stable` only.
+- The `@latest` alias is a mutable pointer that updates automatically when a new version is published.
 - Package version digest covers canonical manifest JSON plus sorted artifact paths, artifact types, target paths, file digests, and file sizes.
 - Uploaded archive bytes are not part of package identity; uploads are normalized into artifact rows and blobs.
 - Enforce configurable max artifact file size, max unpacked package size, and max artifact count.
@@ -241,7 +228,7 @@ package_search_documents (
 - `package_versions(package_id, lifecycle)`
 - `package_versions(package_id, semver_major, semver_minor, semver_patch)`
 - `artifact_files(package_version_id, path)`
-- `channels(package_id, name)`
+
 - `project_artifact_installs(project_id, package_id)`
 - full-text index over package display name, description, labels, artifact paths, and manifest JSON
 

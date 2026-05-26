@@ -79,7 +79,7 @@ Adapted from https://github.com/vercel-labs/skills/blob/main/skills/find-skills/
 
 ```text
 Skills matching "react performance":
-- nwks/platform/react-best-practices@stable
+- nwks/platform/react-best-practices@latest
   React and Next.js performance optimization guidelines.
 ```
 

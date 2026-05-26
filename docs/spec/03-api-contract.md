@@ -29,7 +29,7 @@ Raw artifact URLs use the trailing selector syntax defined in [`12-command-seman
 /raw/{org}/{namespace}/{package}/{artifactPath...}[@selector]
 ```
 
-If the selector is omitted, raw artifact URLs resolve `stable`.
+If the selector is omitted, raw artifact URLs resolve `latest`.
 
 ## Authentication
 
@@ -59,7 +59,7 @@ Anonymous users may read public package metadata, manifests, archives, raw artif
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip` | visibility-dependent | Download package archive |
 | `GET` | `/raw/{org}/{namespace}/{package}/{path...}@{version}` | visibility-dependent | Fetch one immutable artifact file |
 | `GET` | `/raw/{org}/{namespace}/{package}/{path...}@{selector}` | visibility-dependent | Resolve selector, then redirect to exact file |
-| `GET` | `/raw/{org}/{namespace}/{package}/{path...}` | visibility-dependent | Resolve omitted selector as `stable`, then redirect to exact file |
+| `GET` | `/raw/{org}/{namespace}/{package}/{path...}` | visibility-dependent | Resolve omitted selector as `latest`, then redirect to exact file |
 | `POST` | `/api/v1/updates/check` | token/session | Check for newer compatible releases |
 | `POST` | `/api/v1/projects/report` | token/session | Report project lockfile/adoption summary |
 | `POST` | `/api/v1/compatibility/check` | token/session | Check if a package is compatible with a target |
@@ -122,7 +122,7 @@ When review approval blocks publication, `POST /api/v1/packages/{org}/{namespace
   "org": "companyx",
   "namespace": "platform",
   "package": "agent-backend",
-  "selector": "stable",
+  "selector": "latest",
   "resolvedVersion": "1.0.0",
   "digest": "sha256:abc123",
   "manifestUrl": "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/manifest",
@@ -169,7 +169,6 @@ Rules:
   "package": "companyx/platform/agent-backend",
   "currentVersion": "1.0.0",
   "currentDigest": "sha256:abc123",
-  "channel": "stable",
   "strictCompatibility": false,
   "target": {
     "tool": "opencode",

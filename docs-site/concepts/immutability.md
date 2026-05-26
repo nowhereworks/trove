@@ -42,7 +42,7 @@ You cannot edit a published version. Instead, publish a new version:
 ```
 nwks/platform/agent-backend@1.0.0  ← published, immutable
 nwks/platform/agent-backend@1.0.1  ← fix published as new version
-nwks/platform/agent-backend@stable ← now points to 1.0.1
+nwks/platform/agent-backend@latest ← now points to 1.0.1
 ```
 
 ### Deprecating and Yanking
@@ -50,11 +50,11 @@ nwks/platform/agent-backend@stable ← now points to 1.0.1
 If a version has a problem:
 
 - **Deprecate** — marks the version as discouraged but still resolvable. Use for versions that work but have a better replacement.
-- **Yank** — hides the version from `@latest` and `@stable` resolution. The version remains fetchable by exact version or digest for authorized clients, so locked projects stay reproducible.
+- **Yank** — hides the version from `@latest` resolution. The version remains fetchable by exact version or digest for authorized clients, so locked projects stay reproducible.
 
-### Channel Updates
+### Alias Updates
 
-Channel aliases (`latest`, `stable`) are mutable pointers stored in a separate table. Publishing a new version updates the relevant channel pointers without touching the immutable version content.
+The `@latest` alias is a mutable pointer updated automatically when a new version is published, without touching the immutable version content.
 
 ### Example: Immutability in Action
 

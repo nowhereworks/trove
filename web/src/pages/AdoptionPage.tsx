@@ -35,7 +35,7 @@ export default function AdoptionPage() {
   )
 }
 
-function AdoptionCard({ pkg }: { pkg: { org: string; namespace: string; name: string; displayName: string; stableVersion: string } }) {
+function AdoptionCard({ pkg }: { pkg: { org: string; namespace: string; name: string; displayName: string; latestVersion: string } }) {
   const { data: adoption } = useQuery({
     queryKey: ['adoption', pkg.org, pkg.namespace, pkg.name],
     queryFn: () => api.getAdoption(pkg.org, pkg.namespace, pkg.name),

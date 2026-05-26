@@ -21,7 +21,7 @@ project:
   repo: https://git.nwks.com/payments/payments-api
 installs:
   - package: nwks/platform/agent-backend
-    requestedSelector: stable
+    requestedSelector: latest
     version: 1.0.0
     digest: sha256:abc123...
     installedAt: "2026-05-23T00:00:00Z"
@@ -33,7 +33,7 @@ installs:
         target: .opencode/skills/backend-api/SKILL.md
         digest: sha256:ghi789...
   - package: nwks/frontend/react-defaults
-    requestedSelector: stable
+    requestedSelector: latest
     version: 2.0.0
     digest: sha256:jkl012...
     installedAt: "2026-05-23T00:00:00Z"
@@ -76,7 +76,7 @@ installs:
 | Field | Type | Required | Description |
 |---|---|---|---|
 | `package` | string | Yes | Full `org/namespace/package` reference |
-| `requestedSelector` | string | Yes | The selector used during install (e.g., `stable`) |
+| `requestedSelector` | string | Yes | The selector used during install (e.g., `latest`) |
 | `version` | string | Yes | Pinned exact version |
 | `digest` | string | Yes | Pinned package-version digest |
 | `installedAt` | string | Yes | RFC 3339 timestamp of installation |
@@ -128,11 +128,11 @@ When you run `trove check`, the server compares each pinned version and digest a
 
 ```
 Pinned: nwks/platform/agent-backend@1.0.0 (sha256:abc123...)
-@stable resolves to: 1.0.0 (sha256:abc123...)
+@latest resolves to: 1.0.0 (sha256:abc123...)
 → Status: current
 
 Pinned: nwks/frontend/react-defaults@2.0.0 (sha256:def456...)
-@stable resolves to: 2.1.0 (sha256:ghi789...)
+@latest resolves to: 2.1.0 (sha256:ghi789...)
 → Status: update available
 ```
 

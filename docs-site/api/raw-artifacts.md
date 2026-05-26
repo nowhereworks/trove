@@ -35,14 +35,14 @@ Cache-Control: public, max-age=31536000, immutable
 When you use a selector instead of an exact version, the server resolves and redirects:
 
 ```
-GET /raw/nwks/platform/agent-backend/AGENTS.md@stable
+GET /raw/nwks/platform/agent-backend/AGENTS.md@latest
 ```
 
 Response:
 
 ```
 HTTP/1.1 302 Found
-Location: /raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
+Location: /raw/nwks/platform/agent-backend/AGENTS.md@2.1.0
 Cache-Control: no-cache
 ```
 
@@ -104,7 +104,7 @@ Accessible URLs:
 /raw/nwks/platform/agent-backend/commands/lint.md@1.0.0
 ```
 
-Artifact paths cannot contain `@`; raw URLs reserve `@` for selectors. If the selector is omitted, Trove resolves `stable` and redirects to the exact immutable URL.
+Artifact paths cannot contain `@`; raw URLs reserve `@` for selectors. If the selector is omitted, Trove resolves `latest` and redirects to the exact immutable URL.
 
 ### Error Responses
 
@@ -123,7 +123,7 @@ Artifact paths cannot contain `@`; raw URLs reserve `@` for selectors. If the se
 curl -H "Authorization: Bearer $TROVE_TOKEN" \
   https://trove.nwks.com/raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
 
-# Omitted selector resolves stable and redirects to the exact version
+# Omitted selector resolves latest and redirects to the exact version
 curl -L -H "Authorization: Bearer $TROVE_TOKEN" \
   https://trove.nwks.com/raw/nwks/platform/agent-backend/AGENTS.md
 

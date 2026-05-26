@@ -55,15 +55,9 @@ func RunSkillsFind(args []string, jsonOutput bool) error {
 }
 
 func (p PackageSummary) Ref() string {
-	selector := p.StableVersion
-	if selector != "" {
-		selector = "stable"
-	} else if p.LatestVersion != "" {
-		selector = "latest"
-	}
 	ref := p.Org + "/" + p.Namespace + "/" + p.Name
-	if selector != "" {
-		ref += "@" + selector
+	if p.LatestVersion != "" {
+		ref += "@latest"
 	}
 	return ref
 }

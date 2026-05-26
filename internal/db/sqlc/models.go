@@ -70,15 +70,6 @@ type AuditEvent struct {
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 }
 
-type Channel struct {
-	ID               pgtype.UUID        `json:"id"`
-	PackageID        pgtype.UUID        `json:"package_id"`
-	Name             string             `json:"name"`
-	PackageVersionID pgtype.UUID        `json:"package_version_id"`
-	UpdatedBy        pgtype.UUID        `json:"updated_by"`
-	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
-}
-
 type Namespace struct {
 	ID          pgtype.UUID        `json:"id"`
 	OrgID       pgtype.UUID        `json:"org_id"`
@@ -144,7 +135,6 @@ type PackageVersion struct {
 	SemverPatch  pgtype.Int4        `json:"semver_patch"`
 	Lifecycle    string             `json:"lifecycle"`
 	Visibility   string             `json:"visibility"`
-	Channel      pgtype.Text        `json:"channel"`
 	ManifestJson []byte             `json:"manifest_json"`
 	Changelog    pgtype.Text        `json:"changelog"`
 	Digest       pgtype.Text        `json:"digest"`

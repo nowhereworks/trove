@@ -149,7 +149,6 @@ func filterFlags(args []string) []string {
 		"--visibility":      true,
 		"--maintainer-team": true,
 		"--maintainer-user": true,
-		"--channel":         true,
 		"--version":         true,
 	}
 

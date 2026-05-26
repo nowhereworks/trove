@@ -10,7 +10,6 @@ import (
 func RunPush(args []string, jsonOutput bool) error {
 	remoteNameFlag := flagValue(args, "--remote")
 	visibilityOverride := flagValue(args, "--visibility")
-	channelOverride := flagValue(args, "--channel")
 	explicitVersion := flagValue(args, "--version")
 	force := hasFlag(args, "--force")
 	bump := "patch"
@@ -90,7 +89,7 @@ func RunPush(args []string, jsonOutput bool) error {
 			return fmt.Errorf("version %s already exists with lifecycle %s; try --version %s", version, existing.Lifecycle, suggested)
 		}
 	}
-	m = applyGeneratedManifestFields(m, ref, version, cfg, visibilityOverride, channelOverride)
+	m = applyGeneratedManifestFields(m, ref, version, cfg, visibilityOverride)
 	if problems := validateAgentsManifest(m); len(problems) > 0 {
 		return fmt.Errorf("manifest is invalid: %s", problems[0])
 	}
@@ -171,7 +170,7 @@ func RunPush(args []string, jsonOutput bool) error {
 	_ = updateStateAfterPush(remoteName, ref.Selector, result, manifestBytes, agentsBytes)
 
 	if jsonOutput {
-		return outputJSON(map[string]string{"package": ref.PackagePath(), "version": version, "lifecycle": firstNonEmpty(result.Lifecycle, "review"), "digest": result.Digest, "channel": m.Spec.Channel, "visibility": m.Spec.Visibility, "reviewUrl": reviewURL, "installCommand": "trove install " + ref.PackagePath() + "@" + m.Spec.Channel})
+		return outputJSON(map[string]string{"package": ref.PackagePath(), "version": version, "lifecycle": firstNonEmpty(result.Lifecycle, "review"), "digest": result.Digest, "visibility": m.Spec.Visibility, "reviewUrl": reviewURL, "installCommand": "trove install " + ref.PackagePath() + "@latest"})
 	}
 	if reviewURL != "" {
 		fmt.Printf("Uploaded %s@%s\n", ref.PackagePath(), version)
@@ -185,7 +184,7 @@ func RunPush(args []string, jsonOutput bool) error {
 	}
 	fmt.Printf("Published %s@%s\n", ref.PackagePath(), version)
 	fmt.Println("Install with:")
-	fmt.Printf("  trove install %s@%s\n", ref.PackagePath(), m.Spec.Channel)
+	fmt.Printf("  trove install %s@latest\n", ref.PackagePath())
 	return nil
 }
 
@@ -201,7 +200,7 @@ func firstNonEmpty(values ...string) string {
 func updateStateAfterPush(remoteName, requestedSelector string, result VersionResponse, manifestBytes []byte, agentsBytes []byte) error {
 	selector := requestedSelector
 	if selector == "" {
-		selector = "stable"
+		selector = "latest"
 	}
 	manifestDigest := computeDigest(manifestBytes)
 	state := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: remoteName, RequestedSelector: selector, ResolvedVersion: result.Version, PackageDigest: result.Digest, ManifestDigest: manifestDigest}, Files: map[string]StateFile{manifestPath: {Digest: manifestDigest}, agentsMDPath: {Digest: computeDigest(agentsBytes)}}}

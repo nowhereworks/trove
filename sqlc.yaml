@@ -5,6 +5,7 @@ sql:
       - migrations/000001_init.up.sql
       - migrations/000003_auth_review.up.sql
       - migrations/000004_search_projects.up.sql
+      - migrations/000005_remove_channels.up.sql
     queries:
       - internal/db/queries
     gen:

@@ -118,9 +118,9 @@ function PackageList({ items, filter }: { items: PackageSummary[]; filter: strin
           <p className="mt-2 text-sm text-muted-foreground line-clamp-2">
             {pkg.description}
           </p>
-          {pkg.stableVersion && (
+          {pkg.latestVersion && (
             <p className="mt-2 text-xs font-mono text-muted-foreground">
-              stable: {pkg.stableVersion}
+              stable: {pkg.latestVersion}
             </p>
           )}
         </Link>

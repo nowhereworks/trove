@@ -9,13 +9,13 @@ You've found the package you need. Now you want its artifacts installed into you
 ### Basic Usage
 
 ```bash
-trove install nwks/platform/agent-backend@stable --target .
+trove install nwks/platform/agent-backend@latest --target .
 ```
 
 Output:
 
 ```
-Resolving nwks/platform/agent-backend@stable → 1.0.0
+Resolving nwks/platform/agent-backend@latest → 1.0.0
 Installing required artifacts:
   ✓ AGENTS.md → AGENTS.md (4096 bytes)
   ✓ skills/backend-api/SKILL.md → .opencode/skills/backend-api/SKILL.md (2048 bytes)
@@ -43,7 +43,7 @@ spec:
 To include optional artifacts, use the `--all` flag:
 
 ```bash
-trove install nwks/platform/agent-backend@stable --target . --all
+trove install nwks/platform/agent-backend@latest --target . --all
 ```
 
 ### Overwriting Existing Files
@@ -51,7 +51,7 @@ trove install nwks/platform/agent-backend@stable --target . --all
 If a target file already exists with different content, `trove install` fails:
 
 ```bash
-trove install nwks/platform/agent-backend@stable --target .
+trove install nwks/platform/agent-backend@latest --target .
 # ERROR: AGENTS.md already exists and differs from fetched artifact.
 # Use --overwrite to replace it.
 ```
@@ -59,7 +59,7 @@ trove install nwks/platform/agent-backend@stable --target .
 To force overwrite:
 
 ```bash
-trove install nwks/platform/agent-backend@stable --target . --overwrite
+trove install nwks/platform/agent-backend@latest --target . --overwrite
 ```
 
 ### Lockfile Generation
@@ -79,7 +79,7 @@ project:
   repo: https://git.nwks.com/payments/payments-api
 installs:
   - package: nwks/platform/agent-backend
-    requestedSelector: stable
+    requestedSelector: latest
     version: 1.0.0
     digest: sha256:abc123...
     installedAt: "2026-05-23T00:00:00Z"
@@ -97,7 +97,7 @@ installs:
 When configured with an API token, `trove install` reports adoption:
 
 ```bash
-trove install nwks/platform/agent-backend@stable --target . --report
+trove install nwks/platform/agent-backend@latest --target . --report
 ```
 
 This sends the lockfile summary to the server so the adoption dashboard stays current.
@@ -105,7 +105,7 @@ This sends the lockfile summary to the server so the adoption dashboard stays cu
 ### JSON Output
 
 ```bash
-trove install nwks/platform/agent-backend@stable --target . --json
+trove install nwks/platform/agent-backend@latest --target . --json
 ```
 
 Output:

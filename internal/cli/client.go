@@ -481,7 +481,6 @@ type PackageDetailResponse struct {
 	Visibility    string           `json:"visibility"`
 	Lifecycle     string           `json:"lifecycle"`
 	LatestVersion string           `json:"latestVersion"`
-	StableVersion string           `json:"stableVersion"`
 	Versions      []PackageVersion `json:"versions"`
 }
 
@@ -489,7 +488,6 @@ type PackageVersion struct {
 	Version     string `json:"version"`
 	Digest      string `json:"digest"`
 	Lifecycle   string `json:"lifecycle"`
-	Channel     string `json:"channel"`
 	PublishedAt string `json:"publishedAt"`
 }
 
@@ -531,7 +529,6 @@ type PackageSummary struct {
 	Visibility    string `json:"visibility"`
 	Lifecycle     string `json:"lifecycle"`
 	LatestVersion string `json:"latestVersion,omitempty"`
-	StableVersion string `json:"stableVersion,omitempty"`
 }
 
 type ApprovalStatusResponse struct {
@@ -544,7 +541,6 @@ type UpdateCheckRequest struct {
 	Package             string `json:"package"`
 	CurrentVersion      string `json:"currentVersion"`
 	CurrentDigest       string `json:"currentDigest"`
-	Channel             string `json:"channel"`
 	StrictCompatibility bool   `json:"strictCompatibility"`
 	Target              Target `json:"target"`
 }

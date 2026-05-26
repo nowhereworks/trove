@@ -452,7 +452,6 @@ func TestCheckUpdate_NoUpdateAvailable(t *testing.T) {
 	resp, err := service.CheckUpdate(nil, UpdateCheckRequest{
 		Package:        "companyx/platform/agent-backend",
 		CurrentVersion: "1.0.0",
-		Channel:        "stable",
 		Target: Target{
 			Tool:        "opencode",
 			ToolVersion: "0.6.0",
@@ -476,7 +475,10 @@ func TestCheckUpdate_ChangelogURL(t *testing.T) {
 	resp, err := service.CheckUpdate(nil, UpdateCheckRequest{
 		Package:        "companyx/platform/agent-backend",
 		CurrentVersion: "1.0.0",
-		Channel:        "stable",
+		Target: Target{
+			Tool:        "opencode",
+			ToolVersion: "0.6.0",
+		},
 	})
 	if err != nil {
 		t.Fatalf("CheckUpdate error = %v", err)

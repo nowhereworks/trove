@@ -117,7 +117,7 @@ Publishing performs:
 - package digest computation
 - per-file digest computation
 - immutable content lock
-- channel alias update
+- alias pointer update
 - audit event write
 - webhook emission when configured
 
@@ -165,5 +165,5 @@ Required audited actions:
 
 - create/update/delete org, namespace, package, version, artifact, token, team, membership, policy
 - submit, approve, reject, publish, deprecate, yank
-- channel alias update
+- alias pointer update
 - auth failures for sensitive operations
