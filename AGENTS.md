@@ -1,5 +1,14 @@
 # AGENTS.md
 
+## Workflow Rules **CRITICAL: MUST FOLLOW**
+
+- Work in small, atomic units of work, committing between each unit.
+- Execute new work on branches, then merge to `main` using the GitHub `gh` tool.
+- Preserve durable user instructions or project facts in `AGENTS.md` or another discoverable Markdown file when asked to persist them.
+- Keep `AGENTS.md` up to date, but make the smallest accurate edit instead of rewriting unrelated guidance.
+- Whenever changing the Helm chart, bump the chart version so publishing does not fail.
+- Before publishing or approval workflows are implemented, keep blocking checks in mind: manifest validation, route/version consistency, path validation, size limits, required metadata, secret scanning, and high-risk unsafe-instruction scanning.
+
 ## Current State
 
 - Slices 1-5 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI, Search And Adoption) are substantially implemented.
@@ -73,15 +82,6 @@
 - Package version digests cover canonical manifest JSON plus sorted artifact paths, types, target paths, file digests, and sizes.
 - Registry changes should usually be surfaced through CLI, CI, Backstage, or agent proposals; the registry should not directly edit downstream repos by default.
 - Adoption reporting comes from configured CLI install/check/update flows; public dashboards show aggregate counts by default.
-
-## Workflow Notes **CRITICAL: MUST FOLLOW**
-
-- Work in small, atomic units of work, committing between each unit.
-- Execute new work on branches, then merge to `main` using the GitHub `gh` tool.
-- Preserve durable user instructions or project facts in `AGENTS.md` or another discoverable Markdown file when asked to persist them.
-- Keep `AGENTS.md` up to date, but make the smallest accurate edit instead of rewriting unrelated guidance.
-- Whenever changing the Helm chart, bump the chart version so publishing does not fail.
-- Before publishing or approval workflows are implemented, keep blocking checks in mind: manifest validation, route/version consistency, path validation, size limits, required metadata, secret scanning, and high-risk unsafe-instruction scanning.
 
 ## Documentation
 
