@@ -589,7 +589,7 @@ func TestManifestEndpointReturnsManifestJSON(t *testing.T) {
 	if err := json.NewDecoder(res.Body).Decode(&body); err != nil {
 		t.Fatalf("decode response body: %v", err)
 	}
-	if body.Metadata.Org != "companyx" || body.Metadata.Namespace != "platform" || body.Metadata.Name != "agent-backend" || body.Spec.Version != "1.0.0" {
+	if body.Metadata.Org != "companyx" || body.Metadata.Namespace != "platform" || body.Metadata.Name != "agent-backend" {
 		t.Fatalf("manifest body = %+v", body)
 	}
 }
@@ -821,7 +821,6 @@ metadata:
   displayName: Backend Agent Defaults
   description: Default agent instructions, skills, and commands for backend services.
 spec:
-  version: 1.0.1
   visibility: public
   lifecycle: draft
   artifacts:

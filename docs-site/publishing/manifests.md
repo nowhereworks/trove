@@ -24,7 +24,6 @@ metadata:
   annotations:
     owner: platform-engineering
 spec:
-  version: 1.0.0
   license: internal
   visibility: private
   lifecycle: draft
@@ -66,7 +65,6 @@ spec:
 | `metadata.name` | string | Package slug (e.g., `agent-backend`) |
 | `metadata.displayName` | string | Human-readable name |
 | `metadata.description` | string | Non-empty description (required at publish) |
-| `spec.version` | string | Strict SemVer `MAJOR.MINOR.PATCH` |
 | `spec.visibility` | string | `private`, `internal`, or `public` |
 | `spec.lifecycle` | string | Current lifecycle state |
 | `spec.artifacts` | array | List of artifact declarations |
@@ -102,7 +100,6 @@ Publishing fails when:
 | Rule | Error |
 |---|---|
 | `metadata.org`, `namespace`, or `name` don't match the route | `INVALID_MANIFEST` |
-| `spec.version` doesn't match the version being published | `INVALID_MANIFEST` |
 | Artifact path escapes package root or contains `..` | `INVALID_MANIFEST` |
 | Duplicate artifact paths | `INVALID_MANIFEST` |
 | Required artifact file missing | `INVALID_MANIFEST` |

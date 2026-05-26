@@ -145,7 +145,7 @@ func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRe
 		if err != nil {
 			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
 		}
-		if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.Version}); err != nil {
+		if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package}); err != nil {
 			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
 		}
 		manifestJSON, err := json.Marshal(parsed)
@@ -226,7 +226,7 @@ func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRe
 	if !ok || parsed.APIVersion == "" {
 		return VersionResource{}, ErrInvalidManifest
 	}
-	if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: version.Version}); err != nil {
+	if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package}); err != nil {
 		return VersionResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
 	}
 

@@ -161,7 +161,7 @@ func printStatus(out statusOutput) {
 	}
 }
 
-func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, version string, cfg ProjectConfig, visibilityOverride string) manifest.Manifest {
+func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, cfg ProjectConfig, visibilityOverride string) manifest.Manifest {
 	m.Metadata.Org = ref.Org
 	m.Metadata.Namespace = ref.Namespace
 	m.Metadata.Name = ref.Name
@@ -171,7 +171,6 @@ func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, version s
 	if m.Metadata.Description == "" {
 		m.Metadata.Description = "Shared AGENTS.md instructions."
 	}
-	m.Spec.Version = version
 	m.Spec.Lifecycle = "draft"
 	if visibilityOverride != "" {
 		m.Spec.Visibility = visibilityOverride

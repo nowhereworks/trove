@@ -242,7 +242,6 @@ func agentsManifestBytes(t *testing.T, version string) []byte {
 
 func agentsManifest(version string) manifest.Manifest {
 	m := generatedAgentsManifest(PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}, "Agent Defaults", "Shared AGENTS.md instructions.", "private")
-	m.Spec.Version = strings.TrimPrefix(version, "v")
 	m.Spec.Lifecycle = "published"
 	return m
 }

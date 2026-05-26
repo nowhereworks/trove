@@ -32,7 +32,6 @@ type Metadata struct {
 }
 
 type Spec struct {
-	Version       string            `yaml:"version" json:"version"`
 	License       string            `yaml:"license" json:"license,omitempty"`
 	Visibility    string            `yaml:"visibility" json:"visibility"`
 	Lifecycle     string            `yaml:"lifecycle" json:"lifecycle"`
@@ -71,7 +70,6 @@ type ValidateOptions struct {
 	Org       string
 	Namespace string
 	Package   string
-	Version   string
 }
 
 type Error struct {
@@ -92,7 +90,6 @@ func (e *Error) Error() string {
 
 var (
 	slugRE      = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`)
-	semverRE    = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 	slugValueRE = regexp.MustCompile(`^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$`)
 )
 
@@ -127,7 +124,6 @@ func Validate(m Manifest, opts ValidateOptions) error {
 	requireSlug(&problems, "metadata.name", m.Metadata.Name)
 	requireNonEmpty(&problems, "metadata.displayName", m.Metadata.DisplayName)
 	requireNonEmpty(&problems, "metadata.description", m.Metadata.Description)
-	requireSemver(&problems, "spec.version", m.Spec.Version)
 	requireVisibility(&problems, "spec.visibility", m.Spec.Visibility)
 	requireNonEmpty(&problems, "spec.lifecycle", m.Spec.Lifecycle)
 
@@ -139,9 +135,6 @@ func Validate(m Manifest, opts ValidateOptions) error {
 	}
 	if opts.Package != "" && m.Metadata.Name != opts.Package {
 		problems = append(problems, Problem{Field: "metadata.name", Message: "must match route package"})
-	}
-	if opts.Version != "" && m.Spec.Version != opts.Version {
-		problems = append(problems, Problem{Field: "spec.version", Message: "must match route version"})
 	}
 
 	validateArtifacts(&problems, m.Spec.Artifacts)
@@ -172,11 +165,6 @@ func requireSlug(problems *[]Problem, field string, value string) {
 	}
 }
 
-func requireSemver(problems *[]Problem, field string, value string) {
-	if !semverRE.MatchString(value) {
-		*problems = append(*problems, Problem{Field: field, Message: "must be strict SemVer MAJOR.MINOR.PATCH"})
-	}
-}
 
 func requireVisibility(problems *[]Problem, field string, value string) {
 	switch value {

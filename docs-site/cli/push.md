@@ -94,7 +94,7 @@ When review is required, JSON output reports the submitted review state:
 | `--force` | No | Reset an unpublished review version to draft before upload |
 | `--json` | No | Emit machine-readable output |
 
-`trove push` never rewrites `AGENTS.md`. It may rewrite generated fields in `trove.yaml` so the uploaded manifest matches the selected remote and version.
+`trove push` never rewrites `AGENTS.md`. It may rewrite generated fields in `trove.yaml` so the uploaded manifest matches the selected remote.
 
 `trove push` does not create orgs. Create the org first or configure `TROVE_ORG` on the server to bootstrap it at startup.
 

@@ -89,7 +89,7 @@ func RunPush(args []string, jsonOutput bool) error {
 			return fmt.Errorf("version %s already exists with lifecycle %s; try --version %s", version, existing.Lifecycle, suggested)
 		}
 	}
-	m = applyGeneratedManifestFields(m, ref, version, cfg, visibilityOverride)
+	m = applyGeneratedManifestFields(m, ref, cfg, visibilityOverride)
 	if problems := validateAgentsManifest(m); len(problems) > 0 {
 		return fmt.Errorf("manifest is invalid: %s", problems[0])
 	}

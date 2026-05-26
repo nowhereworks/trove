@@ -393,7 +393,6 @@ func generatedAgentsManifest(ref PackageRef, displayName, description, visibilit
 			Description: description,
 		},
 		Spec: manifest.Spec{
-			Version:    "1.0.0",
 			Visibility: visibility,
 			Lifecycle:  "draft",
 			Artifacts:  agentsArtifacts(),

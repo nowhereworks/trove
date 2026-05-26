@@ -11,7 +11,7 @@ func TestParseAndValidateValidManifest(t *testing.T) {
 		t.Fatalf("Parse() error = %v", err)
 	}
 
-	if err := Validate(m, ValidateOptions{Org: "companyx", Namespace: "platform", Package: "agent-backend", Version: "1.0.0"}); err != nil {
+	if err := Validate(m, ValidateOptions{Org: "companyx", Namespace: "platform", Package: "agent-backend"}); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
 }
@@ -28,7 +28,6 @@ func TestValidateReportsRequiredFields(t *testing.T) {
 		"metadata.name",
 		"metadata.displayName",
 		"metadata.description",
-		"spec.version",
 		"spec.visibility",
 		"spec.lifecycle",
 		"spec.artifacts",
@@ -39,10 +38,10 @@ func TestValidateReportsRequiredFields(t *testing.T) {
 
 func TestValidateReportsRouteMismatches(t *testing.T) {
 	m := mustParse(t, validManifestYAML)
-	err := Validate(m, ValidateOptions{Org: "otherorg", Namespace: "otherns", Package: "otherpkg", Version: "2.0.0"})
+	err := Validate(m, ValidateOptions{Org: "otherorg", Namespace: "otherns", Package: "otherpkg"})
 	problems := validationProblems(t, err)
 
-	for _, field := range []string{"metadata.org", "metadata.namespace", "metadata.name", "spec.version"} {
+	for _, field := range []string{"metadata.org", "metadata.namespace", "metadata.name"} {
 		assertProblem(t, problems, field)
 	}
 }
@@ -52,12 +51,11 @@ func TestValidateRejectsInvalidSlugsAndSemver(t *testing.T) {
 	m.Metadata.Org = "CompanyX"
 	m.Metadata.Namespace = "p"
 	m.Metadata.Name = "bad_name"
-	m.Spec.Version = "1.0"
 
 	err := Validate(m, ValidateOptions{})
 	problems := validationProblems(t, err)
 
-	for _, field := range []string{"metadata.org", "metadata.namespace", "metadata.name", "spec.version"} {
+	for _, field := range []string{"metadata.org", "metadata.namespace", "metadata.name"} {
 		assertProblem(t, problems, field)
 	}
 }
@@ -147,7 +145,6 @@ metadata:
     language: golang
     framework: chi
 spec:
-  version: 1.0.0
   license: internal
   visibility: public
   lifecycle: published
