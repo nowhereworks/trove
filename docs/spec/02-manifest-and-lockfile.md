@@ -58,7 +58,6 @@ spec:
 - `metadata.name`
 - `metadata.displayName`
 - `metadata.description`
-- `spec.version`
 - `spec.visibility`
 - `spec.lifecycle`
 - `spec.artifacts`
@@ -72,7 +71,6 @@ At publish time, `metadata.description` must be non-empty.
 Publishing must fail when:
 
 - `metadata.org`, `metadata.namespace`, or `metadata.name` do not match the route/package.
-- `spec.version` does not match the version being published.
 - an artifact path escapes the package root.
 - an artifact path is duplicated.
 - a required artifact is missing.

@@ -235,8 +235,6 @@ Default generated values:
 |---|---|
 | `metadata.displayName` | Title-cased package name |
 | `metadata.description` | `Shared AGENTS.md instructions.` |
-| `spec.version` | `1.0.0` |
-
 | `spec.visibility` | `private` |
 | `spec.lifecycle` | `draft` |
 | maintainer | Require flag, prompt, or leave invalid with clear status error in non-interactive mode |
@@ -441,8 +439,6 @@ Allowed generated manifest fields:
 - `metadata.name`
 - `metadata.displayName` when generated and not user-set
 - `metadata.description` when generated and not user-set
-- `spec.version`
-
 - `spec.visibility`
 - `spec.lifecycle`
 - `spec.artifacts` for the required `AGENTS.md` artifact
@@ -619,8 +615,6 @@ metadata:
   displayName: Agent Defaults
   description: Shared AGENTS.md instructions.
 spec:
-  version: 1.0.0
-
   visibility: private
   lifecycle: draft
   artifacts:
