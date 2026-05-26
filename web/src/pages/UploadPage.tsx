@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
+import { api } from '../lib/api'
 
 type Step = 'create' | 'upload' | 'review' | 'publish' | 'done'
 
@@ -16,6 +17,13 @@ export default function UploadPage() {
   const [success, setSuccess] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
+  const { data: config } = useQuery({ queryKey: ['config'], queryFn: api.getConfig })
+
+  useEffect(() => {
+    if (!org && config?.org) {
+      setOrg(config.org)
+    }
+  }, [config?.org, org])
 
   const createDraft = useMutation({
     mutationFn: () =>

@@ -27,8 +27,8 @@ API tokens use scopes rather than roles. Each scope grants a specific capability
 | `package:write` | Create packages, draft versions, and upload artifacts |
 | `version:publish` | Publish immutable versions |
 | `review:write` | Submit for review, approve, request changes |
-| `namespace:admin` | Manage namespace settings |
-| `org:admin` | Manage organization settings |
+| `namespace:write` | Manage namespace settings |
+| `org:write` | Manage organization settings |
 
 ### Scope-Protected Routes
 
@@ -41,8 +41,8 @@ Write API routes require specific scopes:
 | `POST /api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish` | `version:publish` |
 | `POST /api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit` | `review:write` |
 | `POST /api/v1/reviews/{reviewId}/approve` | `review:write` |
-| `POST /api/v1/orgs` | `org:admin` |
-| `POST /api/v1/orgs/{org}/namespaces` | `namespace:admin` |
+| `POST /api/v1/orgs` | `org:write` |
+| `POST /api/v1/orgs/{org}/namespaces` | `namespace:write` |
 | `POST /api/v1/packages` | `package:write` |
 
 ### Token Restrictions

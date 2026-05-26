@@ -14,8 +14,9 @@ All management endpoints require authentication via session or API token. Specif
 
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
-| `POST` | `/api/v1/orgs` | `org:admin` | Create organization |
-| `POST` | `/api/v1/orgs/{org}/namespaces` | `namespace:admin` | Create namespace |
+| `GET` | `/api/v1/config` | none | Read public UI configuration |
+| `POST` | `/api/v1/orgs` | `org:write` | Create organization |
+| `POST` | `/api/v1/orgs/{org}/namespaces` | `namespace:write` | Create namespace |
 | `POST` | `/api/v1/packages` | `package:write` | Create package |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions` | `package:write` | Create draft version |
 | `PUT` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/{path...}` | `package:write` | Upload draft artifact |
@@ -35,6 +36,23 @@ All management endpoints require authentication via session or API token. Specif
 - **200 OK** — for state transition endpoints (submit, approve, publish, deprecate, yank)
 
 Create endpoints return the created resource JSON and a `Location` header.
+
+### Public UI Configuration
+
+```bash
+GET /api/v1/config
+```
+
+Response: `200 OK`
+
+```json
+{
+  "org": "nwks",
+  "allowCreateOrg": true
+}
+```
+
+The `org` value is the optional startup org configured with `TROVE_ORG`. The `allowCreateOrg` value mirrors `TROVE_ALLOW_CREATE_ORG` and lets the UI hide or disable org creation controls.
 
 ### Create Organization
 
@@ -59,6 +77,18 @@ Response: `201 Created`
   "displayName": "Nowhereworks",
   "visibility": "private",
   "createdAt": "2026-05-23T00:00:00Z"
+}
+```
+
+If `TROVE_ALLOW_CREATE_ORG=false`, the endpoint returns `403 Forbidden`:
+
+```json
+{
+  "error": {
+    "code": "ORG_CREATION_DISABLED",
+    "message": "Organization creation is disabled. Configure TROVE_ORG at startup or enable TROVE_ALLOW_CREATE_ORG.",
+    "requestId": "req_abc123"
+  }
 }
 ```
 

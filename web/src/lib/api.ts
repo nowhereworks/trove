@@ -89,6 +89,20 @@ export interface ReviewStatus {
   reviews: { id: string; action: string; comment: string; createdAt: string }[]
 }
 
+export interface AppConfig {
+  org: string
+  allowCreateOrg: boolean
+}
+
+export interface OrgResource {
+  id: string
+  slug: string
+  displayName: string
+  visibility: string
+  createdAt: string
+  updatedAt: string
+}
+
 const API_BASE = '/api/v1'
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -104,6 +118,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export const api = {
+  getConfig: () => request<AppConfig>('/config'),
+
+  createOrg: (body: { slug: string; displayName: string; visibility: string }) =>
+    request<OrgResource>('/orgs', { method: 'POST', body: JSON.stringify(body) }),
+
   listPackages: (params?: { limit?: number; cursor?: string }) => {
     const qs = new URLSearchParams()
     if (params?.limit) qs.set('limit', String(params.limit))
