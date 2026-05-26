@@ -5,6 +5,7 @@
 - Slices 1-5 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI, Search And Adoption) are substantially implemented.
 - `go test ./...` passes (196 tests across 17 packages).
 - `go build ./...` succeeds.
+- Runtime package storage is PostgreSQL-only; do not add an in-memory database/store fallback.
 - Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects.
 - `sqlc` generated code is committed and covers read, write, and auth query paths.
 - React/Vite/TypeScript SPA is implemented in `web/` and builds to `internal/ui/static/`.

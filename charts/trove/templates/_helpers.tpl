@@ -72,3 +72,12 @@ Whether the chart needs to create a secret.
 true
 {{- end -}}
 {{- end -}}
+
+{{/*
+Validate required PostgreSQL configuration.
+*/}}
+{{- define "trove.validateDatabase" -}}
+{{- if and (not .Values.database.url) (not .Values.database.existingSecret.name) -}}
+{{- fail "database.url or database.existingSecret.name is required; Trove supports PostgreSQL only" -}}
+{{- end -}}
+{{- end -}}

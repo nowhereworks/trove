@@ -29,19 +29,9 @@ It runs as a single Go binary that serves JSON APIs, raw artifact endpoints, hea
 
 ## Quick Start
 
-### Run With Seeded In-Memory Data
-
-This starts the server without PostgreSQL. It is useful for browsing the API and embedded UI with seeded sample data.
-
-```bash
-go run ./cmd/trove
-```
-
-Open [http://localhost:8080](http://localhost:8080).
-
-When `TROVE_DATABASE_URL` is unset, write APIs are not backed by PostgreSQL and the process logs that it is using the seeded in-memory store.
-
 ### Run With PostgreSQL
+
+PostgreSQL is required for server mode; Trove does not include an in-memory database fallback.
 
 Start PostgreSQL:
 
@@ -62,7 +52,7 @@ export TROVE_DATABASE_MIGRATE_ON_STARTUP=true
 export TROVE_AUTH_MODE=dev
 export TROVE_AUTH_DEV_MODE_ENABLED=true
 
-go run ./cmd/trove
+go run ./cmd/trove serve
 ```
 
 Open [http://localhost:8080](http://localhost:8080).
@@ -109,10 +99,9 @@ Trove publishes a multi-architecture Docker Hub image for `linux/amd64` and `lin
 
 ```bash
 docker pull nowhereworks/trove:latest
-docker run --rm -p 8080:8080 nowhereworks/trove:latest
 ```
 
-Run the image with PostgreSQL-backed storage:
+Start PostgreSQL and run Trove with PostgreSQL-backed storage:
 
 ```bash
 docker network create trove-dev
@@ -150,7 +139,7 @@ The Helm chart deploys Trove with PostgreSQL configured as an external dependenc
 
 ```bash
 helm install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.1 \
+  --version 0.1.3 \
   --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
   --set database.migrateOnStartup=true
 ```

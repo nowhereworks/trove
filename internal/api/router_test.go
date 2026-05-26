@@ -14,10 +14,11 @@ import (
 
 	"trove/internal/config"
 	"trove/internal/packages"
+	"trove/internal/testutil"
 )
 
 func TestHealthIncludesRequestID(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	res := httptest.NewRecorder()
 
@@ -42,7 +43,7 @@ func TestHealthIncludesRequestID(t *testing.T) {
 }
 
 func TestCoreFindTroveSkillServedWithoutAuth(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/core/skills/find-trove-skills/SKILL.md", nil)
 	res := httptest.NewRecorder()
 
@@ -69,7 +70,7 @@ func TestCoreFindTroveSkillServedWithoutAuth(t *testing.T) {
 }
 
 func TestUnknownCoreSkillReturnsNotFound(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/core/skills/unknown/SKILL.md", nil)
 	res := httptest.NewRecorder()
 
@@ -81,7 +82,7 @@ func TestUnknownCoreSkillReturnsNotFound(t *testing.T) {
 }
 
 func TestArchiveUploadPublishFlow(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.4","visibility":"public"}`))
 	createReq.Header.Set("Content-Type", "application/json")
@@ -123,7 +124,7 @@ func TestArchiveUploadPublishFlow(t *testing.T) {
 }
 
 func TestCreateDraftAutoCreatesNamespaceAndPackageByDefault(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/agents/new-defaults/versions", strings.NewReader(`{"version":"1.0.0","visibility":"private"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -146,7 +147,7 @@ func TestCreateDraftAutoCreatesNamespaceAndPackageByDefault(t *testing.T) {
 func TestCreateDraftDoesNotAutoCreatePackageWhenDisabled(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Packages.CreatePackageOnPush = false
-	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	router := testRouterWithConfig(t, cfg)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/new-defaults/versions", strings.NewReader(`{"version":"1.0.0"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -161,7 +162,7 @@ func TestCreateDraftDoesNotAutoCreatePackageWhenDisabled(t *testing.T) {
 func TestCreateDraftDoesNotAutoCreateNamespaceWhenDisabled(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Packages.CreateNamespaceOnPush = false
-	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	router := testRouterWithConfig(t, cfg)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/agents/new-defaults/versions", strings.NewReader(`{"version":"1.0.0"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -174,7 +175,7 @@ func TestCreateDraftDoesNotAutoCreateNamespaceWhenDisabled(t *testing.T) {
 }
 
 func TestCreateDraftDoesNotAutoCreateOrg(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/missing/agents/new-defaults/versions", strings.NewReader(`{"version":"1.0.0"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -187,7 +188,7 @@ func TestCreateDraftDoesNotAutoCreateOrg(t *testing.T) {
 }
 
 func TestArchiveUploadRejectsUnsafePath(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	archive := makeUploadZip(t, map[string]string{"../escape.md": "nope"})
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/archive", bytes.NewReader(archive))
 	req.Header.Set("Content-Type", "application/zip")
@@ -208,7 +209,7 @@ func TestArchiveUploadRejectsUnsafePath(t *testing.T) {
 }
 
 func TestDraftUploadPublishFlow(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.1","visibility":"public"}`))
 	createReq.Header.Set("Content-Type", "application/json")
@@ -271,7 +272,7 @@ func TestDraftUploadPublishFlow(t *testing.T) {
 }
 
 func TestPublishFailsWhenRequiredArtifactMissing(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.2","visibility":"public"}`))
 	createReq.Header.Set("Content-Type", "application/json")
@@ -299,7 +300,7 @@ func TestPublishFailsWhenRequiredArtifactMissing(t *testing.T) {
 }
 
 func TestUploadRejectsInvalidManifest(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.3","visibility":"public"}`))
 	createReq.Header.Set("Content-Type", "application/json")
@@ -328,7 +329,7 @@ func TestUploadRejectsInvalidManifest(t *testing.T) {
 }
 
 func TestPublishedVersionCannotBeMutated(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/artifacts/AGENTS.md", strings.NewReader("# Mutated\n"))
 	req.Header.Set("Content-Type", "text/markdown; charset=utf-8")
 	res := httptest.NewRecorder()
@@ -348,7 +349,7 @@ func TestPublishedVersionCannotBeMutated(t *testing.T) {
 }
 
 func TestRequestIDPropagatesFromRequest(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/healthz", nil)
 	req.Header.Set(HeaderRequestID, "req_client")
 	res := httptest.NewRecorder()
@@ -361,7 +362,7 @@ func TestRequestIDPropagatesFromRequest(t *testing.T) {
 }
 
 func TestNotFoundErrorIncludesRequestID(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/missing", nil)
 	req.Header.Set(HeaderRequestID, "req_missing")
 	res := httptest.NewRecorder()
@@ -388,7 +389,7 @@ func TestNotFoundErrorIncludesRequestID(t *testing.T) {
 }
 
 func TestResolveStable(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/resolve/companyx/platform/agent-backend@stable", nil)
 	res := httptest.NewRecorder()
 
@@ -423,7 +424,7 @@ func TestGetConfigReturnsOrgCreationSettings(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Orgs.DefaultOrg = "sample-org"
 	cfg.Orgs.AllowCreateOrg = false
-	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	router := testRouterWithConfig(t, cfg)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/config", nil)
 	res := httptest.NewRecorder()
 
@@ -445,7 +446,7 @@ func TestGetConfigReturnsOrgCreationSettings(t *testing.T) {
 }
 
 func TestCreateOrgAllowedByDefault(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/orgs", strings.NewReader(`{"slug":"sample-org","displayName":"Sample Org","visibility":"private"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -464,7 +465,7 @@ func TestCreateOrgDisabledByConfig(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Orgs.AllowCreateOrg = false
 	cfg.Orgs.DefaultOrg = "sample-org"
-	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	router := testRouterWithConfig(t, cfg)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/orgs", strings.NewReader(`{"slug":"other-org","displayName":"Other Org","visibility":"private"}`))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -484,7 +485,7 @@ func TestCreateOrgDisabledByConfig(t *testing.T) {
 }
 
 func TestManifestEndpointReturnsManifestJSON(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/manifest", nil)
 	res := httptest.NewRecorder()
 
@@ -513,7 +514,7 @@ func TestManifestEndpointReturnsManifestJSON(t *testing.T) {
 }
 
 func TestRawExactReturnsArtifactWithETag(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@1.0.0", nil)
 	res := httptest.NewRecorder()
 
@@ -534,7 +535,7 @@ func TestRawExactReturnsArtifactWithETag(t *testing.T) {
 }
 
 func TestRawAliasRedirectsToExact(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@stable", nil)
 	res := httptest.NewRecorder()
 
@@ -554,7 +555,7 @@ func TestRawAliasRedirectsToExact(t *testing.T) {
 func TestRawAliasRequiresAuthBeforeRedirectWhenPublicRawDisabled(t *testing.T) {
 	cfg := config.Defaults()
 	cfg.Raw.AllowPublicPackages = false
-	router := NewRouter(cfg, packages.NewSeedMemoryStore(), nil)
+	router := testRouterWithConfig(t, cfg)
 	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md@stable", nil)
 	res := httptest.NewRecorder()
 
@@ -569,7 +570,7 @@ func TestRawAliasRequiresAuthBeforeRedirectWhenPublicRawDisabled(t *testing.T) {
 }
 
 func TestRawOmittedSelectorRedirectsToStableExact(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS.md", nil)
 	res := httptest.NewRecorder()
 
@@ -584,7 +585,7 @@ func TestRawOmittedSelectorRedirectsToStableExact(t *testing.T) {
 }
 
 func TestRawArtifactPathWithAtIsRejected(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/raw/companyx/platform/agent-backend/AGENTS@bad.md@stable", nil)
 	res := httptest.NewRecorder()
 
@@ -596,7 +597,7 @@ func TestRawArtifactPathWithAtIsRejected(t *testing.T) {
 }
 
 func TestArchiveTarGzExactReturnsDeterministicArchive(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/archive.tar.gz", nil)
 	res := httptest.NewRecorder()
 
@@ -618,7 +619,7 @@ func TestArchiveTarGzExactReturnsDeterministicArchive(t *testing.T) {
 }
 
 func TestArchiveZipExactReturnsArchive(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.0/archive.zip", nil)
 	res := httptest.NewRecorder()
 
@@ -637,7 +638,7 @@ func TestArchiveZipExactReturnsArchive(t *testing.T) {
 }
 
 func TestArchiveAliasRedirectsToExact(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/stable/archive.tar.gz", nil)
 	res := httptest.NewRecorder()
 
@@ -655,7 +656,7 @@ func TestArchiveAliasRedirectsToExact(t *testing.T) {
 }
 
 func TestPackageListAndDetail(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	listReq := httptest.NewRequest(http.MethodGet, "/api/v1/packages", nil)
 	listRes := httptest.NewRecorder()
@@ -702,7 +703,7 @@ func TestPackageListAndDetail(t *testing.T) {
 }
 
 func TestEmbeddedUIServed(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	res := httptest.NewRecorder()
 
@@ -716,8 +717,18 @@ func TestEmbeddedUIServed(t *testing.T) {
 	}
 }
 
-func testRouter() http.Handler {
-	return NewRouter(config.Defaults(), packages.NewSeedMemoryStore(), nil)
+type routerTestStore struct {
+	packages.Store
+	packages.WriteStore
+}
+
+func testRouter(t *testing.T) http.Handler {
+	return testRouterWithConfig(t, config.Defaults())
+}
+
+func testRouterWithConfig(t *testing.T, cfg config.Config) http.Handler {
+	store := testutil.NewPostgresPackageStore(t)
+	return NewRouter(cfg, routerTestStore{Store: store, WriteStore: store}, nil)
 }
 
 const sliceTwoManifestYAML = `apiVersion: trove.io/v1
@@ -817,7 +828,7 @@ func readResponseZip(t *testing.T, data []byte) []responseArchiveEntry {
 }
 
 func TestSearchPackages(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/search/packages?q=backend+agent", nil)
 	res := httptest.NewRecorder()
@@ -842,7 +853,7 @@ func TestSearchPackages(t *testing.T) {
 }
 
 func TestSearchRequiresQuery(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/search/packages", nil)
 	res := httptest.NewRecorder()
@@ -853,7 +864,7 @@ func TestSearchRequiresQuery(t *testing.T) {
 }
 
 func TestGetPackageAdoption(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/adoption", nil)
 	res := httptest.NewRecorder()
@@ -875,7 +886,7 @@ func TestGetPackageAdoption(t *testing.T) {
 }
 
 func TestGetPackageAdoptionNotFound(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/packages/unknown/ns/pkg/adoption", nil)
 	res := httptest.NewRecorder()
@@ -886,7 +897,7 @@ func TestGetPackageAdoptionNotFound(t *testing.T) {
 }
 
 func TestCreateProjectRequiresAuth(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/projects", strings.NewReader(`{"org":"acme","name":"my-app","repoUrl":"https://github.com/acme/my-app"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -902,7 +913,7 @@ func TestCreateProjectRejectsMissingFields(t *testing.T) {
 }
 
 func TestReportProjectAdoptionRequiresAuth(t *testing.T) {
-	router := testRouter()
+	router := testRouter(t)
 
 	body := `{
 		"org": "acme",

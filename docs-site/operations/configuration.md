@@ -79,10 +79,10 @@ security:
 
 | Key | Type | Default | Description |
 |---|---|---|---|
-| `database.url` | string | — | PostgreSQL connection URL |
+| `database.url` | string | Required | PostgreSQL connection URL |
 | `database.migrateOnStartup` | boolean | `false` | Run migrations on startup (dev/tests only) |
 
-**Note:** `migrateOnStartup` is for local development and tests only. Production should run migrations as an explicit command or deployment job.
+**Note:** PostgreSQL is required. Trove does not support an in-memory database mode. `migrateOnStartup` is for local development and tests only. Production should run migrations as an explicit command or deployment job.
 
 ### Authentication
 

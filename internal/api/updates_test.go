@@ -7,13 +7,10 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"trove/internal/config"
-	"trove/internal/packages"
 )
 
 func TestUpdateCheck_ReturnsUpdateAvailable(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package":        "companyx/platform/agent-backend",
@@ -56,7 +53,7 @@ func TestUpdateCheck_ReturnsUpdateAvailable(t *testing.T) {
 }
 
 func TestUpdateCheck_NoUpdateWhenCurrentIsLatest(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package":        "companyx/platform/agent-backend",
@@ -90,7 +87,7 @@ func TestUpdateCheck_NoUpdateWhenCurrentIsLatest(t *testing.T) {
 }
 
 func TestUpdateCheck_RejectsInvalidJSON(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/updates/check", strings.NewReader("not json"))
 	req.Header.Set("Content-Type", "application/json")
@@ -112,7 +109,7 @@ func TestUpdateCheck_RejectsInvalidJSON(t *testing.T) {
 }
 
 func TestUpdateCheck_RejectsMissingPackage(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"currentVersion": "1.0.0",
@@ -130,7 +127,7 @@ func TestUpdateCheck_RejectsMissingPackage(t *testing.T) {
 }
 
 func TestUpdateCheck_RejectsMissingCurrentVersion(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package": "companyx/platform/agent-backend",
@@ -148,7 +145,7 @@ func TestUpdateCheck_RejectsMissingCurrentVersion(t *testing.T) {
 }
 
 func TestUpdateCheck_IncludesRequestID(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package":        "companyx/platform/agent-backend",
@@ -168,16 +165,16 @@ func TestUpdateCheck_IncludesRequestID(t *testing.T) {
 }
 
 func TestCompatibilityCheck_Compatible(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package": "companyx/platform/agent-backend",
 		"version": "1.0.0",
 		"target": map[string]any{
-			"tool":        "opencode",
-			"toolVersion": "0.6.0",
-			"runtime":     "linux",
-			"modelFamily": "gpt",
+			"tool":          "opencode",
+			"toolVersion":   "0.6.0",
+			"runtime":       "linux",
+			"modelFamily":   "gpt",
 			"contextWindow": 128000,
 		},
 	}
@@ -212,7 +209,7 @@ func TestCompatibilityCheck_Compatible(t *testing.T) {
 }
 
 func TestCompatibilityCheck_IncompatibleTool(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package": "companyx/platform/agent-backend",
@@ -245,7 +242,7 @@ func TestCompatibilityCheck_IncompatibleTool(t *testing.T) {
 }
 
 func TestCompatibilityCheck_IncompatibleRuntime(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package": "companyx/platform/agent-backend",
@@ -277,7 +274,7 @@ func TestCompatibilityCheck_IncompatibleRuntime(t *testing.T) {
 }
 
 func TestCompatibilityCheck_IncompatibleModel(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package": "companyx/platform/agent-backend",
@@ -310,7 +307,7 @@ func TestCompatibilityCheck_IncompatibleModel(t *testing.T) {
 }
 
 func TestCompatibilityCheck_RejectsInvalidJSON(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/compatibility/check", strings.NewReader("not json"))
 	req.Header.Set("Content-Type", "application/json")
@@ -324,7 +321,7 @@ func TestCompatibilityCheck_RejectsInvalidJSON(t *testing.T) {
 }
 
 func TestCompatibilityCheck_RejectsMissingPackage(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"version": "1.0.0",
@@ -342,7 +339,7 @@ func TestCompatibilityCheck_RejectsMissingPackage(t *testing.T) {
 }
 
 func TestCompatibilityCheck_RejectsMissingVersion(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package": "companyx/platform/agent-backend",
@@ -360,7 +357,7 @@ func TestCompatibilityCheck_RejectsMissingVersion(t *testing.T) {
 }
 
 func TestCompatibilityCheck_UnknownPackage(t *testing.T) {
-	router := testRouterWithUpdates()
+	router := testRouterWithUpdates(t)
 
 	reqBody := map[string]any{
 		"package": "unknown/ns/pkg",
@@ -378,6 +375,6 @@ func TestCompatibilityCheck_UnknownPackage(t *testing.T) {
 	}
 }
 
-func testRouterWithUpdates() http.Handler {
-	return NewRouter(config.Defaults(), packages.NewSeedMemoryStore(), nil)
+func testRouterWithUpdates(t *testing.T) http.Handler {
+	return testRouter(t)
 }

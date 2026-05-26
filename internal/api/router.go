@@ -45,7 +45,7 @@ type ReadinessCheck func(context.Context) error
 
 func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck) http.Handler {
 	if store == nil {
-		store = packages.NewSeedMemoryStore()
+		panic("api.NewRouter requires a PostgreSQL-backed package store")
 	}
 	writeStore, _ := store.(packages.WriteStore)
 

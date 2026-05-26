@@ -8,7 +8,7 @@ TROVE_CLI_INSTALL_PATH ?= /usr/local/bin/trove
 .PHONY: help
 help:
 	@printf 'Trove development targets:\n'
-	@printf '  make server              Run the Trove server with seeded in-memory data\n'
+	@printf '  make server              Run the Trove server with local PostgreSQL and dev auth\n'
 	@printf '  make server-db           Run the Trove server with local PostgreSQL and dev auth\n'
 	@printf '  make cli CLI_ARGS="help" Run the Trove CLI through go run\n'
 	@printf '  make install-cli         Build and install the Trove CLI to /usr/local/bin/trove\n'
@@ -26,7 +26,7 @@ help:
 
 .PHONY: server
 server:
-	$(GO) run ./cmd/trove
+	$(MAKE) server-db
 
 .PHONY: server-db
 server-db:
@@ -34,7 +34,7 @@ server-db:
 	TROVE_DATABASE_MIGRATE_ON_STARTUP=true \
 	TROVE_AUTH_MODE=dev \
 	TROVE_AUTH_DEV_MODE_ENABLED=true \
-	$(GO) run ./cmd/trove
+	$(GO) run ./cmd/trove serve
 
 .PHONY: cli
 cli:

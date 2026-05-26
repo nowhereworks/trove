@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"trove/internal/packages"
+	"trove/internal/testutil"
 )
 
 func TestSatisfiesSemVer_Equality(t *testing.T) {
@@ -283,8 +284,7 @@ func TestCompatibilityCheckResponse_JSONShape(t *testing.T) {
 }
 
 func TestUpdateCheckRequest_InvalidPackage(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
-	service := NewService(store)
+	service := NewService(nil)
 
 	_, err := service.CheckUpdate(nil, UpdateCheckRequest{
 		Package:        "invalid-package",
@@ -299,8 +299,7 @@ func TestUpdateCheckRequest_InvalidPackage(t *testing.T) {
 }
 
 func TestCompatibilityCheckRequest_InvalidPackage(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
-	service := NewService(store)
+	service := NewService(nil)
 
 	_, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
 		Package: "invalid",
@@ -312,7 +311,7 @@ func TestCompatibilityCheckRequest_InvalidPackage(t *testing.T) {
 }
 
 func TestCheckCompatibility_ToolCompatible(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
@@ -332,7 +331,7 @@ func TestCheckCompatibility_ToolCompatible(t *testing.T) {
 }
 
 func TestCheckCompatibility_ToolIncompatible(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
@@ -352,7 +351,7 @@ func TestCheckCompatibility_ToolIncompatible(t *testing.T) {
 }
 
 func TestCheckCompatibility_RuntimeCompatible(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
@@ -371,7 +370,7 @@ func TestCheckCompatibility_RuntimeCompatible(t *testing.T) {
 }
 
 func TestCheckCompatibility_RuntimeIncompatible(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
@@ -390,7 +389,7 @@ func TestCheckCompatibility_RuntimeIncompatible(t *testing.T) {
 }
 
 func TestCheckCompatibility_ModelCompatible(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
@@ -410,7 +409,7 @@ func TestCheckCompatibility_ModelCompatible(t *testing.T) {
 }
 
 func TestCheckCompatibility_ModelInsufficientContext(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
@@ -430,7 +429,7 @@ func TestCheckCompatibility_ModelInsufficientContext(t *testing.T) {
 }
 
 func TestCheckCompatibility_NoTargetReturnsCompatible(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckCompatibility(nil, CompatibilityCheckRequest{
@@ -447,7 +446,7 @@ func TestCheckCompatibility_NoTargetReturnsCompatible(t *testing.T) {
 }
 
 func TestCheckUpdate_NoUpdateAvailable(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckUpdate(nil, UpdateCheckRequest{
@@ -471,7 +470,7 @@ func TestCheckUpdate_NoUpdateAvailable(t *testing.T) {
 }
 
 func TestCheckUpdate_ChangelogURL(t *testing.T) {
-	store := packages.NewSeedMemoryStore()
+	store := testutil.NewPostgresPackageStore(t)
 	service := NewService(store)
 
 	resp, err := service.CheckUpdate(nil, UpdateCheckRequest{

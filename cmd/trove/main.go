@@ -67,26 +67,26 @@ func runServer() error {
 	}
 	ctx := context.Background()
 
-	var store packages.Store = packages.NewSeedMemoryStore()
-	var readiness api.ReadinessCheck
-	if cfg.Database.URL != "" {
-		if cfg.Database.MigrateOnStartup {
-			if err := db.RunMigrations(cfg.Database.URL); err != nil {
-				return err
-			}
-		}
+	if cfg.Database.URL == "" {
+		return errors.New("TROVE_DATABASE_URL is required; PostgreSQL is the only supported database")
+	}
 
-		pool, err := db.Open(ctx, cfg.Database)
-		if err != nil {
+	var store packages.Store
+	var readiness api.ReadinessCheck
+	if cfg.Database.MigrateOnStartup {
+		if err := db.RunMigrations(cfg.Database.URL); err != nil {
 			return err
 		}
-		defer pool.Close()
-
-		store = packages.NewPostgresStore(pool)
-		readiness = pool.Ping
-	} else {
-		log.Print("TROVE_DATABASE_URL is unset; using in-memory seeded store")
 	}
+
+	pool, err := db.Open(ctx, cfg.Database)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	store = packages.NewPostgresStore(pool)
+	readiness = pool.Ping
 	if cfg.Orgs.DefaultOrg != "" {
 		writeStore, ok := store.(packages.WriteStore)
 		if !ok {

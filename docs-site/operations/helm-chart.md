@@ -21,7 +21,7 @@ Use the GHCR-published chart for normal installs:
 
 ```bash
 helm install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.1 \
+  --version 0.1.3 \
   --set database.url='postgres://trove:trove@postgres.example:5432/trove?sslmode=require' \
   --set database.migrateOnStartup=true
 ```
@@ -44,7 +44,7 @@ Upgrade a GHCR-installed release by changing the chart version and, when needed,
 
 ```bash
 helm upgrade trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.1 \
+  --version 0.1.3 \
   --set image.tag=0.1.0 \
   --reuse-values
 ```
@@ -53,7 +53,7 @@ If you need to change configuration, prefer a checked-in values file:
 
 ```bash
 helm upgrade --install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.1 \
+  --version 0.1.3 \
   --values values.production.yaml
 ```
 
@@ -123,7 +123,7 @@ Install it:
 
 ```bash
 helm upgrade --install trove oci://ghcr.io/nowhereworks/charts/trove \
-  --version 0.1.1 \
+  --version 0.1.3 \
   --values values.production.yaml
 ```
 
@@ -162,6 +162,8 @@ Chart releases in GHCR are immutable. Bump `version` in `charts/trove/Chart.yaml
 ## Reference
 
 ### Required Configuration
+
+Set either `database.url` or `database.existingSecret.name`. The chart fails rendering when neither is configured because Trove supports PostgreSQL only.
 
 | Value | Type | Default | Description |
 |---|---|---|---|

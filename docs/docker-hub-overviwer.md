@@ -24,19 +24,13 @@ The image runs Trove as a single Go binary with the embedded React/Vite web UI.
 
 ## Quick Start
 
-Run Trove with seeded in-memory data:
+Pull the Trove image:
 
 ```bash
 docker pull nowhereworks/trove:latest
-
-docker run --rm \
-  -p 8080:8080 \
-  nowhereworks/trove:latest
 ```
 
-Open http://localhost:8080.
-
-When `TROVE_DATABASE_URL` is unset, Trove uses seeded in-memory data. This is useful for trying the UI and APIs, but it is not persistent storage.
+PostgreSQL is required for server mode; Trove does not support an in-memory database mode.
 
 ## Run With PostgreSQL
 
