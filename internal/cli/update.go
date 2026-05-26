@@ -16,7 +16,6 @@ type UpdateResult struct {
 	LatestVersion    string `json:"latestVersion"`
 	Updated          bool   `json:"updated"`
 	Compatibility    string `json:"compatibility"`
-	RequiresApproval bool   `json:"requiresManualApproval"`
 }
 
 func RunUpdate(args []string, apply bool, jsonOutput bool) error {
@@ -54,7 +53,6 @@ func RunUpdate(args []string, apply bool, jsonOutput bool) error {
 			CurrentVersion:   install.Version,
 			LatestVersion:    resp.LatestVersion,
 			Compatibility:    resp.Compatibility,
-			RequiresApproval: resp.RequiresManualApproval,
 		}
 
 		if resp.UpdateAvailable && apply {

@@ -43,8 +43,6 @@ spec:
       required: false
       targetPath: .opencode/skills/backend-api/SKILL.md
   dependencies: []
-  updatePolicy:
-    breakingChangeRequiresManualApproval: true
   links:
     docs: https://docs.company.com/agent-backend
 ```

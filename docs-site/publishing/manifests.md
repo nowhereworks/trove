@@ -46,8 +46,6 @@ spec:
       required: false
       targetPath: .opencode/skills/backend-api/SKILL.md
   dependencies: []
-  updatePolicy:
-    breakingChangeRequiresManualApproval: true
   maintainers:
     - team: platform-engineering
   links:
@@ -79,7 +77,6 @@ spec:
 | `spec.license` | string | License identifier |
 | `spec.compatibility` | object | Tool, model, and runtime constraints |
 | `spec.dependencies` | array | Declare-only dependency references |
-| `spec.updatePolicy` | object | Update behavior configuration |
 | `spec.links` | object | Documentation and related URLs |
 
 ### Artifact Declaration

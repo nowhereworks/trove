@@ -558,6 +558,5 @@ type UpdateCheckResponse struct {
 	LatestVersion          string `json:"latestVersion"`
 	LatestDigest           string `json:"latestDigest"`
 	Compatibility          string `json:"compatibility"`
-	RequiresManualApproval bool   `json:"requiresManualApproval"`
 	ChangelogURL           string `json:"changelogUrl"`
 }

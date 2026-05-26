@@ -216,12 +216,11 @@ func TestCompareSemVer(t *testing.T) {
 
 func TestUpdateCheckResponse_JSONShape(t *testing.T) {
 	resp := UpdateCheckResponse{
-		UpdateAvailable:        true,
-		LatestVersion:          "1.1.0",
-		LatestDigest:           "sha256:def456",
-		Compatibility:          "compatible",
-		RequiresManualApproval: false,
-		ChangelogURL:           "/api/v1/packages/companyx/platform/agent-backend/compare/1.0.0...1.1.0",
+		UpdateAvailable:      true,
+		LatestVersion:        "1.1.0",
+		LatestDigest:         "sha256:def456",
+		Compatibility:        "compatible",
+		ChangelogURL:         "/api/v1/packages/companyx/platform/agent-backend/compare/1.0.0...1.1.0",
 	}
 
 	data, err := json.Marshal(resp)

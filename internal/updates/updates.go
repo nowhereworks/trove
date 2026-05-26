@@ -33,7 +33,6 @@ type UpdateCheckResponse struct {
 	LatestVersion        string `json:"latestVersion"`
 	LatestDigest         string `json:"latestDigest"`
 	Compatibility        string `json:"compatibility"`
-	RequiresManualApproval bool `json:"requiresManualApproval"`
 	ChangelogURL         string `json:"changelogUrl"`
 }
 
@@ -80,28 +79,11 @@ func (s *Service) CheckUpdate(ctx context.Context, req UpdateCheckRequest) (Upda
 	updateAvailable := resolved.ResolvedVersion != req.CurrentVersion
 
 	compatibility := "unknown"
-	requiresManualApproval := false
 
 	if updateAvailable {
 		compatResult, err := s.checkCompatibilityForVersion(ctx, org, namespace, name, resolved.ResolvedVersion, req.Target, req.StrictCompatibility)
 		if err == nil {
 			compatibility = compatResult.Compatibility
-		}
-
-		manifestResult, merr := s.store.GetManifest(ctx, org, namespace, name, resolved.ResolvedVersion)
-		if merr == nil {
-			var m manifest.Manifest
-			if jerr := json.Unmarshal(manifestResult.Manifest, &m); jerr == nil {
-				if policy, ok := m.Spec.UpdatePolicy["breakingChangeRequiresManualApproval"]; ok {
-					if b, ok := policy.(bool); ok && b {
-						currentMajor, _, _, cErr := packages.ParseStrictSemver(req.CurrentVersion)
-						latestMajor, _, _, lErr := packages.ParseStrictSemver(resolved.ResolvedVersion)
-						if cErr == nil && lErr == nil && latestMajor > currentMajor {
-							requiresManualApproval = true
-						}
-					}
-				}
-			}
 		}
 	} else {
 		compatResult, err := s.checkCompatibilityForVersion(ctx, org, namespace, name, req.CurrentVersion, req.Target, req.StrictCompatibility)
@@ -113,12 +95,11 @@ func (s *Service) CheckUpdate(ctx context.Context, req UpdateCheckRequest) (Upda
 	changelogURL := "/api/v1/packages/" + org + "/" + namespace + "/" + name + "/compare/" + req.CurrentVersion + "..." + resolved.ResolvedVersion
 
 	return UpdateCheckResponse{
-		UpdateAvailable:        updateAvailable,
-		LatestVersion:          resolved.ResolvedVersion,
-		LatestDigest:           resolved.Digest,
-		Compatibility:          compatibility,
-		RequiresManualApproval: requiresManualApproval,
-		ChangelogURL:           changelogURL,
+		UpdateAvailable:      updateAvailable,
+		LatestVersion:        resolved.ResolvedVersion,
+		LatestDigest:         resolved.Digest,
+		Compatibility:        compatibility,
+		ChangelogURL:         changelogURL,
 	}, nil
 }
 

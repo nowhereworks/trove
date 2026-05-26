@@ -22,7 +22,6 @@ type CheckResult struct {
 	LatestVersion    string `json:"latestVersion"`
 	UpdateAvailable  bool   `json:"updateAvailable"`
 	Compatibility    string `json:"compatibility"`
-	RequiresApproval bool   `json:"requiresManualApproval"`
 	ChangelogURL     string `json:"changelogUrl,omitempty"`
 }
 
@@ -77,7 +76,6 @@ func RunCheck(args []string, jsonOutput bool) error {
 			LatestVersion:    resp.LatestVersion,
 			UpdateAvailable:  resp.UpdateAvailable,
 			Compatibility:    resp.Compatibility,
-			RequiresApproval: resp.RequiresManualApproval,
 			ChangelogURL:     resp.ChangelogURL,
 		}
 		results = append(results, result)

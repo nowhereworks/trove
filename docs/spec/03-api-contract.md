@@ -188,7 +188,6 @@ Rules:
   "latestVersion": "1.1.0",
   "latestDigest": "sha256:def456",
   "compatibility": "compatible",
-  "requiresManualApproval": false,
   "changelogUrl": "/api/v1/packages/companyx/platform/agent-backend/compare/1.0.0...1.1.0"
 }
 ```

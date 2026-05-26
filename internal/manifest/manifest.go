@@ -38,7 +38,6 @@ type Spec struct {
 	Compatibility Compatibility     `yaml:"compatibility" json:"compatibility,omitempty"`
 	Artifacts     []Artifact        `yaml:"artifacts" json:"artifacts"`
 	Dependencies  []string          `yaml:"dependencies" json:"dependencies,omitempty"`
-	UpdatePolicy  map[string]any    `yaml:"updatePolicy" json:"updatePolicy,omitempty"`
 	Links         map[string]string `yaml:"links" json:"links,omitempty"`
 }
 
