@@ -881,7 +881,7 @@ func TestGetPackageAdoption(t *testing.T) {
 		t.Fatalf("decode adoption body: %v", err)
 	}
 	if body.ProjectCount != 0 || body.VersionCount != 0 {
-		t.Fatalf("adoption body = %+v, want zeros for memory store", body)
+		t.Fatalf("adoption body = %+v, want zeros", body)
 	}
 }
 
