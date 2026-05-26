@@ -46,6 +46,9 @@ type WriteStore interface {
 	EnsurePackage(ctx context.Context, req CreatePackageRequest) (PackageResource, error)
 	CreateProject(ctx context.Context, req CreateProjectRequest) (ProjectResource, error)
 	ReportProjectAdoption(ctx context.Context, req ReportProjectAdoptionRequest) error
+	ListMaintainers(ctx context.Context, org, namespace, pkg string) ([]MaintainerResource, error)
+	AddMaintainer(ctx context.Context, org, namespace, pkg, userID, role string) error
+	RemoveMaintainer(ctx context.Context, org, namespace, pkg, userID string) error
 }
 
 type ManagementStore interface {
@@ -80,6 +83,14 @@ type CreatePackageRequest struct {
 	DisplayName string
 	Description string
 	Visibility  string
+	OwnerUserID string
+}
+
+type MaintainerResource struct {
+	UserID      string `json:"userId"`
+	DisplayName string `json:"displayName"`
+	Email       string `json:"email"`
+	Role        string `json:"role"`
 }
 
 type CreateProjectRequest struct {

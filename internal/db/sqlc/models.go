@@ -110,8 +110,8 @@ type PackageMaintainer struct {
 	ID        pgtype.UUID        `json:"id"`
 	PackageID pgtype.UUID        `json:"package_id"`
 	UserID    pgtype.UUID        `json:"user_id"`
-	TeamID    pgtype.UUID        `json:"team_id"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Role      string             `json:"role"`
 }
 
 type PackageSearchDocument struct {

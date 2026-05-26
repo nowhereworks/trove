@@ -499,11 +499,19 @@ func (s *PostgresStore) CreatePackage(ctx context.Context, req CreatePackageRequ
 	if req.DisplayName == "" {
 		req.DisplayName = req.Name
 	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return PackageResource{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.queries.WithTx(tx)
+
 	id, err := newUUID()
 	if err != nil {
 		return PackageResource{}, err
 	}
-	row, err := s.queries.CreatePackage(ctx, sqlc.CreatePackageParams{
+	row, err := q.CreatePackage(ctx, sqlc.CreatePackageParams{
 		ID:            id,
 		OrgSlug:       req.Org,
 		NamespaceSlug: req.Namespace,
@@ -515,6 +523,28 @@ func (s *PostgresStore) CreatePackage(ctx context.Context, req CreatePackageRequ
 	if err != nil {
 		return PackageResource{}, mapWriteError(err)
 	}
+
+	if req.OwnerUserID != "" {
+		ownerID, err := newUUID()
+		if err == nil {
+			ownerUUID, parseErr := uuid.Parse(req.OwnerUserID)
+			if parseErr == nil {
+				if _, err := q.AddPackageMaintainer(ctx, sqlc.AddPackageMaintainerParams{
+					ID:        ownerID,
+					PackageID: row.ID,
+					UserID:    pgtype.UUID{Bytes: ownerUUID, Valid: true},
+					Role:      "owner",
+				}); err != nil {
+					return PackageResource{}, err
+				}
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return PackageResource{}, err
+	}
+
 	return PackageResource{
 		ID:          uuid.UUID(row.ID.Bytes).String(),
 		NamespaceID: uuid.UUID(row.NamespaceID.Bytes).String(),
@@ -537,11 +567,19 @@ func (s *PostgresStore) EnsurePackage(ctx context.Context, req CreatePackageRequ
 	if req.DisplayName == "" {
 		req.DisplayName = req.Name
 	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return PackageResource{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.queries.WithTx(tx)
+
 	id, err := newUUID()
 	if err != nil {
 		return PackageResource{}, err
 	}
-	row, err := s.queries.EnsurePackage(ctx, sqlc.EnsurePackageParams{
+	row, err := q.EnsurePackage(ctx, sqlc.EnsurePackageParams{
 		ID:            id,
 		OrgSlug:       req.Org,
 		NamespaceSlug: req.Namespace,
@@ -556,6 +594,28 @@ func (s *PostgresStore) EnsurePackage(ctx context.Context, req CreatePackageRequ
 		}
 		return PackageResource{}, mapWriteError(err)
 	}
+
+	if req.OwnerUserID != "" {
+		ownerID, err := newUUID()
+		if err == nil {
+			ownerUUID, parseErr := uuid.Parse(req.OwnerUserID)
+			if parseErr == nil {
+				if err := q.EnsurePackageMaintainer(ctx, sqlc.EnsurePackageMaintainerParams{
+					ID:        ownerID,
+					PackageID: row.ID,
+					UserID:    pgtype.UUID{Bytes: ownerUUID, Valid: true},
+					Role:      "owner",
+				}); err != nil {
+					return PackageResource{}, err
+				}
+			}
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return PackageResource{}, err
+	}
+
 	return PackageResource{
 		ID:          uuid.UUID(row.ID.Bytes).String(),
 		NamespaceID: uuid.UUID(row.NamespaceID.Bytes).String(),
@@ -988,14 +1048,6 @@ func mapWriteError(err error) error {
 
 func buildSearchText(parsed manifest.Manifest, org, namespace, name string, artifactRows []sqlc.ListArtifactMetadataForVersionRow) string {
 	parts := []string{org, namespace, name, parsed.Metadata.DisplayName, parsed.Metadata.Description}
-	for _, maintainer := range parsed.Spec.Maintainers {
-		if maintainer.Team != "" {
-			parts = append(parts, maintainer.Team)
-		}
-		if maintainer.User != "" {
-			parts = append(parts, maintainer.User)
-		}
-	}
 	for _, artifact := range parsed.Spec.Artifacts {
 		parts = append(parts, artifact.Path, artifact.Type)
 	}
@@ -1006,6 +1058,64 @@ func buildSearchText(parsed manifest.Manifest, org, namespace, name string, arti
 		parts = append(parts, label, fmt.Sprintf("%v", value))
 	}
 	return strings.Join(parts, " ")
+}
+
+func (s *PostgresStore) ListMaintainers(ctx context.Context, org, namespace, pkg string) ([]MaintainerResource, error) {
+	packageID, err := s.queries.GetPackageID(ctx, sqlc.GetPackageIDParams{Org: org, Namespace: namespace, PackageName: pkg})
+	if err != nil {
+		return nil, mapReadError(err)
+	}
+	rows, err := s.queries.ListPackageMaintainers(ctx, packageID)
+	if err != nil {
+		return nil, err
+	}
+	res := make([]MaintainerResource, len(rows))
+	for i, row := range rows {
+		res[i] = MaintainerResource{
+			UserID:      uuid.UUID(row.UserID.Bytes).String(),
+			DisplayName: row.DisplayName,
+			Email:       row.Email,
+			Role:        row.Role,
+		}
+	}
+	return res, nil
+}
+
+func (s *PostgresStore) AddMaintainer(ctx context.Context, org, namespace, pkg, userID, role string) error {
+	packageID, err := s.queries.GetPackageID(ctx, sqlc.GetPackageIDParams{Org: org, Namespace: namespace, PackageName: pkg})
+	if err != nil {
+		return mapReadError(err)
+	}
+	id, err := newUUID()
+	if err != nil {
+		return err
+	}
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return err
+	}
+	_, err = s.queries.AddPackageMaintainer(ctx, sqlc.AddPackageMaintainerParams{
+		ID:        id,
+		PackageID: packageID,
+		UserID:    pgtype.UUID{Bytes: userUUID, Valid: true},
+		Role:      role,
+	})
+	return err
+}
+
+func (s *PostgresStore) RemoveMaintainer(ctx context.Context, org, namespace, pkg, userID string) error {
+	packageID, err := s.queries.GetPackageID(ctx, sqlc.GetPackageIDParams{Org: org, Namespace: namespace, PackageName: pkg})
+	if err != nil {
+		return mapReadError(err)
+	}
+	userUUID, err := uuid.Parse(userID)
+	if err != nil {
+		return err
+	}
+	return s.queries.RemovePackageMaintainerByUser(ctx, sqlc.RemovePackageMaintainerByUserParams{
+		PackageID: packageID,
+		UserID:    pgtype.UUID{Bytes: userUUID, Valid: true},
+	})
 }
 
 func extractArtifactTypes(parsed manifest.Manifest) []string {

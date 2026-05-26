@@ -19,7 +19,6 @@ var (
 	ErrAlreadyApproved       = errors.New("already approved by this reviewer")
 	ErrSelfApproval          = errors.New("self-approval is not allowed")
 	ErrInsufficientApprovals = errors.New("insufficient approvals")
-	ErrNotMaintainer         = errors.New("not a package maintainer")
 	ErrInvalidReviewer       = errors.New("reviewer must be a user")
 	ErrVersionNotSubmittable = errors.New("version is not submittable")
 )

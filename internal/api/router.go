@@ -99,6 +99,9 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz", handleGetArchive(store, packages.ArchiveTarGz))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip", handleGetArchive(store, packages.ArchiveZip))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/adoption", handleGetPackageAdoption(store))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}/maintainers", auth.RequireAuth(handleListMaintainers(writeStore)))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/maintainers", auth.RequireAuth(auth.RequireScope("package:write")(handleAddMaintainer(writeStore))))
+	r.Delete("/api/v1/packages/{org}/{namespace}/{package}/maintainers/{userId}", auth.RequireAuth(auth.RequireScope("package:write")(handleRemoveMaintainer(writeStore))))
 	r.Get("/raw/{org}/{namespace}/{package}/*", handleRawArtifact(store, cfg))
 
 	r.Post("/api/v1/updates/check", handleCheckUpdate(updateService))
@@ -512,6 +515,11 @@ func handleCreatePackage(writeStore packages.WriteStore) http.HandlerFunc {
 			return
 		}
 
+		userID := ""
+		if u, ok := auth.UserFromContext(r.Context()); ok {
+			userID = u.ID
+		}
+
 		result, err := writeStore.CreatePackage(r.Context(), packages.CreatePackageRequest{
 			Org:         body.Org,
 			Namespace:   body.Namespace,
@@ -519,6 +527,7 @@ func handleCreatePackage(writeStore packages.WriteStore) http.HandlerFunc {
 			DisplayName: body.DisplayName,
 			Description: body.Description,
 			Visibility:  body.Visibility,
+			OwnerUserID: userID,
 		})
 		if err != nil {
 			writeStoreError(w, r, err)
@@ -527,6 +536,78 @@ func handleCreatePackage(writeStore packages.WriteStore) http.HandlerFunc {
 
 		w.Header().Set("Location", "/api/v1/packages/"+result.Org+"/"+result.Namespace+"/"+result.Name)
 		writeJSON(w, http.StatusCreated, result)
+	}
+}
+
+func handleListMaintainers(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+		org := chi.URLParam(r, "org")
+		namespace := chi.URLParam(r, "namespace")
+		pkg := chi.URLParam(r, "package")
+
+		maintainers, err := writeStore.ListMaintainers(r.Context(), org, namespace, pkg)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, maintainers)
+	}
+}
+
+func handleAddMaintainer(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+		org := chi.URLParam(r, "org")
+		namespace := chi.URLParam(r, "namespace")
+		pkg := chi.URLParam(r, "package")
+
+		var body struct {
+			UserID string `json:"userId"`
+			Role   string `json:"role"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+		if body.Role == "" {
+			body.Role = "maintainer"
+		}
+		if body.Role != "owner" && body.Role != "maintainer" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_ROLE", "Role must be 'owner' or 'maintainer'.")
+			return
+		}
+
+		if err := writeStore.AddMaintainer(r.Context(), org, namespace, pkg, body.UserID, body.Role); err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+	}
+}
+
+func handleRemoveMaintainer(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+		org := chi.URLParam(r, "org")
+		namespace := chi.URLParam(r, "namespace")
+		pkg := chi.URLParam(r, "package")
+		userID := chi.URLParam(r, "userId")
+
+		if err := writeStore.RemoveMaintainer(r.Context(), org, namespace, pkg, userID); err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	}
 }
 

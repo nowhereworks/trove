@@ -9,6 +9,13 @@ export interface PackageSummary {
   lifecycle: string
 }
 
+export interface MaintainerInfo {
+  userId: string
+  displayName: string
+  email: string
+  role: string
+}
+
 export interface PackageDetail {
   org: string
   namespace: string
@@ -18,7 +25,6 @@ export interface PackageDetail {
   visibility: string
   lifecycle: string
   latestVersion: string
-  maintainers: { team?: string; user?: string }[]
   labels: string[]
   versions: { version: string; lifecycle: string; digest: string; publishedAt: string }[]
 }
@@ -68,7 +74,6 @@ export interface ManifestData {
       required: boolean
       targetPath: string
     }[]
-    maintainers: { team?: string; user?: string }[]
     compatibility?: {
       tools?: { name: string; version: string }[]
       runtimes?: string[]
@@ -157,4 +162,18 @@ export const api = {
 
   getArchiveUrl: (org: string, namespace: string, name: string, version: string, format: 'tar.gz' | 'zip' = 'tar.gz') =>
     `/api/v1/packages/${org}/${namespace}/${name}/versions/${version}/archive.${format}`,
+
+  getMaintainers: (org: string, namespace: string, name: string) =>
+    request<MaintainerInfo[]>(`/packages/${org}/${namespace}/${name}/maintainers`),
+
+  addMaintainer: (org: string, namespace: string, name: string, userId: string, role: string = 'maintainer') =>
+    request<void>(`/packages/${org}/${namespace}/${name}/maintainers`, {
+      method: 'POST',
+      body: JSON.stringify({ userId, role }),
+    }),
+
+  removeMaintainer: (org: string, namespace: string, name: string, userId: string) =>
+    request<void>(`/packages/${org}/${namespace}/${name}/maintainers/${userId}`, {
+      method: 'DELETE',
+    }),
 }

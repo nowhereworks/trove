@@ -45,8 +45,6 @@ spec:
   dependencies: []
   updatePolicy:
     breakingChangeRequiresManualApproval: true
-  maintainers:
-    - team: platform-engineering
   links:
     docs: https://docs.company.com/agent-backend
 ```
@@ -64,11 +62,10 @@ spec:
 - `spec.visibility`
 - `spec.lifecycle`
 - `spec.artifacts`
-- `spec.maintainers`
 
 Package references in manifests must use full `org/namespace/package` form. Contextual shorthand is not supported in the MVP.
 
-At publish time, `metadata.description` must be non-empty and `spec.maintainers` must contain at least one user or team owner.
+At publish time, `metadata.description` must be non-empty.
 
 ## Manifest Validation
 
@@ -80,7 +77,6 @@ Publishing must fail when:
 - an artifact path is duplicated.
 - a required artifact is missing.
 - `metadata.description` is empty.
-- no maintainer is declared.
 - an artifact type is unknown.
 - compatibility metadata is malformed.
 - dependency references are malformed.

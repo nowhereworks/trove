@@ -264,6 +264,38 @@ func (a *Authenticator) CanAccessPackage(user User, org, namespace, pkg string, 
 	return hasScope(user.TokenScopes, requiredScope)
 }
 
+type MaintainerCheckFunc func(ctx context.Context, userID string) (bool, error)
+
+func RequireMaintainer(resolveAndCheck MaintainerCheckFunc) func(http.HandlerFunc) http.HandlerFunc {
+	return func(next http.HandlerFunc) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			user, ok := UserFromContext(r.Context())
+			if !ok || (!user.IsAuthenticated && !user.IsDev) {
+				writeAuthError(w, r, http.StatusUnauthorized, "UNAUTHORIZED", "Authentication is required.")
+				return
+			}
+			if user.IsDev {
+				next(w, r)
+				return
+			}
+			if hasScope(user.TokenScopes, "*:*") {
+				next(w, r)
+				return
+			}
+			ok, err := resolveAndCheck(r.Context(), user.ID)
+			if err != nil {
+				writeAuthError(w, r, http.StatusInternalServerError, "MAINTAINER_CHECK_FAILED", "Could not verify maintainer status.")
+				return
+			}
+			if !ok {
+				writeAuthError(w, r, http.StatusForbidden, "NOT_MAINTAINER", "You must be a package maintainer to perform this action.")
+				return
+			}
+			next(w, r)
+		}
+	}
+}
+
 func (a *Authenticator) IsPublicRead(org, namespace, pkg string) bool {
 	if !a.cfg.Raw.AllowPublicPackages {
 		return false

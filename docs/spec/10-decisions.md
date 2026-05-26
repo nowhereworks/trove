@@ -68,7 +68,7 @@
 | Support `.tar.gz` and `.zip` uploads | Accepted | Covers common CLI and GitHub-style package workflows |
 | Use configurable size limits | Accepted | Protects PostgreSQL-backed blob storage while allowing operator tuning |
 | Require manifest descriptions | Accepted | Improves discovery, review quality, and package pages |
-| Require manifest maintainers | Accepted | Every published package needs explicit ownership |
+| Require manifest maintainers | Deprecated — converted to DB-managed owners | Creator auto-becomes owner on package creation; managed via API |
 | Default missing artifact `targetPath` to `path` | Accepted | Keeps simple packages concise while allowing install remapping |
 | Treat manifest dependencies as declare-only in MVP | Accepted | Captures metadata without expanding install/publish scope |
 | Include lockfile generator metadata | Accepted | Records tool name, version, and generation timestamp for debugging |

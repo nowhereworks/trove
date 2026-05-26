@@ -12,7 +12,7 @@
 ## Current State
 
 - Slices 1-5 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI, Search And Adoption) are substantially implemented.
-- `go test ./...` passes (196 tests across 17 packages).
+- `go test ./...` passes (191 tests across 19 packages).
 - `go build ./...` succeeds.
 - Runtime package storage is PostgreSQL-only; do not add an in-memory database/store fallback.
 - Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects.

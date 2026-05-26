@@ -372,7 +372,7 @@ func packageVersionsForRemote(remote ProjectRemote) ([]PackageVersion, *PackageD
 	return detail.Versions, detail, nil
 }
 
-func generatedAgentsManifest(ref PackageRef, displayName, description, visibility string, maintainers []manifest.Maintainer) manifest.Manifest {
+func generatedAgentsManifest(ref PackageRef, displayName, description, visibility string) manifest.Manifest {
 	if displayName == "" {
 		displayName = titleFromSlug(ref.Name)
 	}
@@ -393,11 +393,10 @@ func generatedAgentsManifest(ref PackageRef, displayName, description, visibilit
 			Description: description,
 		},
 		Spec: manifest.Spec{
-			Version:     "1.0.0",
-			Visibility:  visibility,
-			Lifecycle:   "draft",
-			Artifacts:   agentsArtifacts(),
-			Maintainers: maintainers,
+			Version:    "1.0.0",
+			Visibility: visibility,
+			Lifecycle:  "draft",
+			Artifacts:  agentsArtifacts(),
 		},
 	}
 }

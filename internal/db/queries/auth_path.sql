@@ -43,24 +43,43 @@ where id = sqlc.arg(id) and revoked_at is null;
 select exists (
   select 1 from package_maintainers pm
   where pm.package_id = sqlc.arg(package_id)
-    and (pm.user_id = sqlc.arg(user_id) or pm.team_id in (
-      select tm.team_id from team_memberships tm where tm.user_id = sqlc.arg(user_id)
-    ))
+    and pm.user_id = sqlc.arg(user_id)
 ) as is_maintainer;
 
+-- name: IsPackageOwner :one
+select exists (
+  select 1 from package_maintainers pm
+  where pm.package_id = sqlc.arg(package_id)
+    and pm.user_id = sqlc.arg(user_id)
+    and pm.role = 'owner'
+) as is_owner;
+
 -- name: ListPackageMaintainers :many
-select pm.id, pm.package_id, pm.user_id, pm.team_id, pm.created_at
+select pm.id, pm.package_id, pm.user_id, pm.role, pm.created_at,
+       u.display_name, u.email
 from package_maintainers pm
-where pm.package_id = sqlc.arg(package_id);
+join users u on u.id = pm.user_id
+where pm.package_id = sqlc.arg(package_id)
+order by pm.role, u.display_name;
 
 -- name: AddPackageMaintainer :one
-insert into package_maintainers (id, package_id, user_id, team_id, created_at)
-values (sqlc.arg(id), sqlc.arg(package_id), sqlc.arg(user_id), sqlc.arg(team_id), now())
-returning id, package_id, user_id, team_id, created_at;
+insert into package_maintainers (id, package_id, user_id, role, created_at)
+values (sqlc.arg(id), sqlc.arg(package_id), sqlc.arg(user_id), sqlc.arg(role), now())
+returning id, package_id, user_id, role, created_at;
 
--- name: RemovePackageMaintainer :exec
+-- name: EnsurePackageMaintainer :exec
+insert into package_maintainers (id, package_id, user_id, role, created_at)
+values (sqlc.arg(id), sqlc.arg(package_id), sqlc.arg(user_id), sqlc.arg(role), now())
+on conflict (package_id, user_id) do nothing;
+
+-- name: RemovePackageMaintainerByUser :exec
 delete from package_maintainers
-where id = sqlc.arg(id) and package_id = sqlc.arg(package_id);
+where package_id = sqlc.arg(package_id) and user_id = sqlc.arg(user_id);
+
+-- name: UpdateMaintainerRole :exec
+update package_maintainers
+set role = sqlc.arg(role)
+where package_id = sqlc.arg(package_id) and user_id = sqlc.arg(user_id);
 
 -- name: CreateReview :one
 with created_review as (

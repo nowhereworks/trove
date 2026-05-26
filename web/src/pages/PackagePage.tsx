@@ -1,8 +1,14 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { api } from '../lib/api'
+import { api, type MaintainerInfo } from '../lib/api'
 import { Copy, Package, Clock, Shield, Users } from 'lucide-react'
+
+function roleBadgeClass(role: string) {
+  return role === 'owner'
+    ? 'bg-amber-100 text-amber-700'
+    : 'bg-blue-100 text-blue-700'
+}
 
 export default function PackagePage() {
   const params = useParams<{ org: string; namespace: string; name: string }>()
@@ -14,6 +20,11 @@ export default function PackagePage() {
   const { data: pkg, isLoading: pkgLoading } = useQuery({
     queryKey: ['package', org, namespace, name],
     queryFn: () => api.getPackage(org, namespace, name),
+  })
+
+  const { data: maintainers } = useQuery({
+    queryKey: ['maintainers', org, namespace, name],
+    queryFn: () => api.getMaintainers(org, namespace, name),
   })
 
   const { data: adoption } = useQuery({
@@ -100,13 +111,16 @@ export default function PackagePage() {
         <StatCard icon={<Users className="w-4 h-4" />} label="Projects" value={String(adoption?.projectCount || 0)} />
       </div>
 
-      {pkg.maintainers && pkg.maintainers.length > 0 && (
+      {maintainers && maintainers.length > 0 && (
         <div>
           <h2 className="text-lg font-semibold mb-2">Maintainers</h2>
           <div className="flex flex-wrap gap-2">
-            {pkg.maintainers.map((m, i) => (
-              <span key={i} className="text-sm px-3 py-1 bg-muted rounded-full">
-                {m.team || m.user}
+            {maintainers.map((m: MaintainerInfo) => (
+              <span key={m.userId} className="inline-flex items-center gap-1.5 text-sm px-3 py-1 bg-muted rounded-full">
+                {m.displayName}
+                <span className={`text-xs px-1.5 py-0.5 rounded ${roleBadgeClass(m.role)}`}>
+                  {m.role}
+                </span>
               </span>
             ))}
           </div>

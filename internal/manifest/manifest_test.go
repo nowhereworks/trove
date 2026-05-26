@@ -32,7 +32,6 @@ func TestValidateReportsRequiredFields(t *testing.T) {
 		"spec.visibility",
 		"spec.lifecycle",
 		"spec.artifacts",
-		"spec.maintainers",
 	} {
 		assertProblem(t, problems, field)
 	}
@@ -85,15 +84,6 @@ func TestValidateRejectsArtifactPathProblems(t *testing.T) {
 	} {
 		assertProblem(t, problems, field)
 	}
-}
-
-func TestValidateRejectsMissingMaintainerIdentity(t *testing.T) {
-	m := mustParse(t, validManifestYAML)
-	m.Spec.Maintainers = []Maintainer{{}}
-
-	err := Validate(m, ValidateOptions{})
-	problems := validationProblems(t, err)
-	assertProblem(t, problems, "spec.maintainers[0]")
 }
 
 func TestValidateRejectsMalformedCompatibilityAndDependencies(t *testing.T) {
@@ -177,6 +167,4 @@ spec:
       targetPath: AGENTS.md
   dependencies:
     - companyx/platform/base-agent
-  maintainers:
-    - team: platform-engineering
 `

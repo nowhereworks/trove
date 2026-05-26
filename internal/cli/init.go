@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"os"
 	"strings"
-
-	"trove/internal/manifest"
 )
 
 func RunInit(args []string, jsonOutput bool) error {
 	targetAgentsMD := hasFlag(args, "--agents-md")
 	skipNext := false
-	valueFlags := map[string]bool{"--remote": true, "--package": true, "--display-name": true, "--description": true, "--visibility": true, "--maintainer-team": true, "--maintainer-user": true}
+	valueFlags := map[string]bool{"--remote": true, "--package": true, "--display-name": true, "--description": true, "--visibility": true}
 	for _, arg := range args {
 		if skipNext {
 			skipNext = false
@@ -35,7 +33,7 @@ func RunInit(args []string, jsonOutput bool) error {
 		if matchedValueFlag {
 			continue
 		}
-		if arg != "--json" && arg != "--yes" && arg != "--force" && arg != "--agents-md" && arg != "--remote" && arg != "--package" && arg != "--display-name" && arg != "--description" && arg != "--visibility" && arg != "--maintainer-team" && arg != "--maintainer-user" && !strings.HasPrefix(arg, "--") {
+		if arg != "--json" && arg != "--yes" && arg != "--force" && arg != "--agents-md" && arg != "--remote" && arg != "--package" && arg != "--display-name" && arg != "--description" && arg != "--visibility" && !strings.HasPrefix(arg, "--") {
 			return fmt.Errorf("unsupported init target %q; expected agents-md", arg)
 		}
 	}
@@ -49,9 +47,6 @@ func RunInit(args []string, jsonOutput bool) error {
 	displayName := flagValue(args, "--display-name")
 	description := flagValue(args, "--description")
 	visibility := flagValue(args, "--visibility")
-	maintainerTeam := flagValue(args, "--maintainer-team")
-	maintainerUser := flagValue(args, "--maintainer-user")
-
 	if visibility == "" {
 		visibility = "private"
 	}
@@ -98,16 +93,8 @@ func RunInit(args []string, jsonOutput bool) error {
 		return err
 	}
 
-	var maintainers []manifest.Maintainer
-	if maintainerTeam != "" {
-		maintainers = append(maintainers, manifest.Maintainer{Team: maintainerTeam})
-	}
-	if maintainerUser != "" {
-		maintainers = append(maintainers, manifest.Maintainer{User: maintainerUser})
-	}
-
 	if hasPackage && shouldWriteGenerated(manifestPath, force) {
-		m := generatedAgentsManifest(ref, displayName, description, visibility, maintainers)
+		m := generatedAgentsManifest(ref, displayName, description, visibility)
 		if err := writeManifestYAML(manifestPath, m); err != nil {
 			return fmt.Errorf("write %s: %w", manifestPath, err)
 		}

@@ -12,31 +12,39 @@ import (
 )
 
 const addPackageMaintainer = `-- name: AddPackageMaintainer :one
-insert into package_maintainers (id, package_id, user_id, team_id, created_at)
+insert into package_maintainers (id, package_id, user_id, role, created_at)
 values ($1, $2, $3, $4, now())
-returning id, package_id, user_id, team_id, created_at
+returning id, package_id, user_id, role, created_at
 `
 
 type AddPackageMaintainerParams struct {
 	ID        pgtype.UUID `json:"id"`
 	PackageID pgtype.UUID `json:"package_id"`
 	UserID    pgtype.UUID `json:"user_id"`
-	TeamID    pgtype.UUID `json:"team_id"`
+	Role      string      `json:"role"`
 }
 
-func (q *Queries) AddPackageMaintainer(ctx context.Context, arg AddPackageMaintainerParams) (PackageMaintainer, error) {
+type AddPackageMaintainerRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	PackageID pgtype.UUID        `json:"package_id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	Role      string             `json:"role"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) AddPackageMaintainer(ctx context.Context, arg AddPackageMaintainerParams) (AddPackageMaintainerRow, error) {
 	row := q.db.QueryRow(ctx, addPackageMaintainer,
 		arg.ID,
 		arg.PackageID,
 		arg.UserID,
-		arg.TeamID,
+		arg.Role,
 	)
-	var i PackageMaintainer
+	var i AddPackageMaintainerRow
 	err := row.Scan(
 		&i.ID,
 		&i.PackageID,
 		&i.UserID,
-		&i.TeamID,
+		&i.Role,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -239,6 +247,29 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const ensurePackageMaintainer = `-- name: EnsurePackageMaintainer :exec
+insert into package_maintainers (id, package_id, user_id, role, created_at)
+values ($1, $2, $3, $4, now())
+on conflict (package_id, user_id) do nothing
+`
+
+type EnsurePackageMaintainerParams struct {
+	ID        pgtype.UUID `json:"id"`
+	PackageID pgtype.UUID `json:"package_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+	Role      string      `json:"role"`
+}
+
+func (q *Queries) EnsurePackageMaintainer(ctx context.Context, arg EnsurePackageMaintainerParams) error {
+	_, err := q.db.Exec(ctx, ensurePackageMaintainer,
+		arg.ID,
+		arg.PackageID,
+		arg.UserID,
+		arg.Role,
+	)
+	return err
+}
+
 const getAPITokenByHash = `-- name: GetAPITokenByHash :one
 select id, token_hash, display_name, actor_user_id, actor_service_account, scopes,
        org_id, namespace_id, package_id, created_at, expires_at, last_used_at, revoked_at
@@ -432,9 +463,7 @@ const isPackageMaintainer = `-- name: IsPackageMaintainer :one
 select exists (
   select 1 from package_maintainers pm
   where pm.package_id = $1
-    and (pm.user_id = $2 or pm.team_id in (
-      select tm.team_id from team_memberships tm where tm.user_id = $2
-    ))
+    and pm.user_id = $2
 ) as is_maintainer
 `
 
@@ -450,27 +479,63 @@ func (q *Queries) IsPackageMaintainer(ctx context.Context, arg IsPackageMaintain
 	return is_maintainer, err
 }
 
-const listPackageMaintainers = `-- name: ListPackageMaintainers :many
-select pm.id, pm.package_id, pm.user_id, pm.team_id, pm.created_at
-from package_maintainers pm
-where pm.package_id = $1
+const isPackageOwner = `-- name: IsPackageOwner :one
+select exists (
+  select 1 from package_maintainers pm
+  where pm.package_id = $1
+    and pm.user_id = $2
+    and pm.role = 'owner'
+) as is_owner
 `
 
-func (q *Queries) ListPackageMaintainers(ctx context.Context, packageID pgtype.UUID) ([]PackageMaintainer, error) {
+type IsPackageOwnerParams struct {
+	PackageID pgtype.UUID `json:"package_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) IsPackageOwner(ctx context.Context, arg IsPackageOwnerParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isPackageOwner, arg.PackageID, arg.UserID)
+	var is_owner bool
+	err := row.Scan(&is_owner)
+	return is_owner, err
+}
+
+const listPackageMaintainers = `-- name: ListPackageMaintainers :many
+select pm.id, pm.package_id, pm.user_id, pm.role, pm.created_at,
+       u.display_name, u.email
+from package_maintainers pm
+join users u on u.id = pm.user_id
+where pm.package_id = $1
+order by pm.role, u.display_name
+`
+
+type ListPackageMaintainersRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	PackageID   pgtype.UUID        `json:"package_id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	Role        string             `json:"role"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	DisplayName string             `json:"display_name"`
+	Email       string             `json:"email"`
+}
+
+func (q *Queries) ListPackageMaintainers(ctx context.Context, packageID pgtype.UUID) ([]ListPackageMaintainersRow, error) {
 	rows, err := q.db.Query(ctx, listPackageMaintainers, packageID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	items := []PackageMaintainer{}
+	items := []ListPackageMaintainersRow{}
 	for rows.Next() {
-		var i PackageMaintainer
+		var i ListPackageMaintainersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.PackageID,
 			&i.UserID,
-			&i.TeamID,
+			&i.Role,
 			&i.CreatedAt,
+			&i.DisplayName,
+			&i.Email,
 		); err != nil {
 			return nil, err
 		}
@@ -565,18 +630,18 @@ func (q *Queries) RemoveApproval(ctx context.Context, arg RemoveApprovalParams) 
 	return err
 }
 
-const removePackageMaintainer = `-- name: RemovePackageMaintainer :exec
+const removePackageMaintainerByUser = `-- name: RemovePackageMaintainerByUser :exec
 delete from package_maintainers
-where id = $1 and package_id = $2
+where package_id = $1 and user_id = $2
 `
 
-type RemovePackageMaintainerParams struct {
-	ID        pgtype.UUID `json:"id"`
+type RemovePackageMaintainerByUserParams struct {
 	PackageID pgtype.UUID `json:"package_id"`
+	UserID    pgtype.UUID `json:"user_id"`
 }
 
-func (q *Queries) RemovePackageMaintainer(ctx context.Context, arg RemovePackageMaintainerParams) error {
-	_, err := q.db.Exec(ctx, removePackageMaintainer, arg.ID, arg.PackageID)
+func (q *Queries) RemovePackageMaintainerByUser(ctx context.Context, arg RemovePackageMaintainerByUserParams) error {
+	_, err := q.db.Exec(ctx, removePackageMaintainerByUser, arg.PackageID, arg.UserID)
 	return err
 }
 
@@ -588,6 +653,23 @@ where id = $1 and revoked_at is null
 
 func (q *Queries) RevokeAPIToken(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, revokeAPIToken, id)
+	return err
+}
+
+const updateMaintainerRole = `-- name: UpdateMaintainerRole :exec
+update package_maintainers
+set role = $1
+where package_id = $2 and user_id = $3
+`
+
+type UpdateMaintainerRoleParams struct {
+	Role      string      `json:"role"`
+	PackageID pgtype.UUID `json:"package_id"`
+	UserID    pgtype.UUID `json:"user_id"`
+}
+
+func (q *Queries) UpdateMaintainerRole(ctx context.Context, arg UpdateMaintainerRoleParams) error {
+	_, err := q.db.Exec(ctx, updateMaintainerRole, arg.Role, arg.PackageID, arg.UserID)
 	return err
 }
 

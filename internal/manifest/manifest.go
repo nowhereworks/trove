@@ -40,7 +40,6 @@ type Spec struct {
 	Artifacts     []Artifact        `yaml:"artifacts" json:"artifacts"`
 	Dependencies  []string          `yaml:"dependencies" json:"dependencies,omitempty"`
 	UpdatePolicy  map[string]any    `yaml:"updatePolicy" json:"updatePolicy,omitempty"`
-	Maintainers   []Maintainer      `yaml:"maintainers" json:"maintainers"`
 	Links         map[string]string `yaml:"links" json:"links,omitempty"`
 }
 
@@ -66,11 +65,6 @@ type Artifact struct {
 	Type       string `yaml:"type" json:"type"`
 	Required   bool   `yaml:"required" json:"required"`
 	TargetPath string `yaml:"targetPath" json:"targetPath,omitempty"`
-}
-
-type Maintainer struct {
-	User string `yaml:"user" json:"user,omitempty"`
-	Team string `yaml:"team" json:"team,omitempty"`
 }
 
 type ValidateOptions struct {
@@ -151,7 +145,6 @@ func Validate(m Manifest, opts ValidateOptions) error {
 	}
 
 	validateArtifacts(&problems, m.Spec.Artifacts)
-	validateMaintainers(&problems, m.Spec.Maintainers)
 	validateCompatibility(&problems, m.Spec.Compatibility)
 	validateDependencies(&problems, m.Spec.Dependencies)
 
@@ -230,18 +223,6 @@ func validatePath(problems *[]Problem, field string, value string) {
 	cleaned := path.Clean(value)
 	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.Contains(cleaned, "/../") {
 		*problems = append(*problems, Problem{Field: field, Message: "must not escape the package root"})
-	}
-}
-
-func validateMaintainers(problems *[]Problem, maintainers []Maintainer) {
-	if len(maintainers) == 0 {
-		*problems = append(*problems, Problem{Field: "spec.maintainers", Message: "must contain at least one maintainer"})
-		return
-	}
-	for i, maintainer := range maintainers {
-		if strings.TrimSpace(maintainer.User) == "" && strings.TrimSpace(maintainer.Team) == "" {
-			*problems = append(*problems, Problem{Field: fmt.Sprintf("spec.maintainers[%d]", i), Message: "must include user or team"})
-		}
 	}
 }
 

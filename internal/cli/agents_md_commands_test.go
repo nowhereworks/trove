@@ -14,7 +14,7 @@ func TestInitPackageOnlyCreatesManifestWithoutRemote(t *testing.T) {
 	chdirTemp(t)
 	t.Setenv("TROVE_SERVER_URL", "")
 
-	if err := RunInit([]string{"agents-md", "--package", "nwks/platform/agent-defaults", "--maintainer-team", "platform-engineering", "--yes"}, false); err != nil {
+	if err := RunInit([]string{"agents-md", "--package", "nwks/platform/agent-defaults", "--yes"}, false); err != nil {
 		t.Fatalf("RunInit() error = %v", err)
 	}
 
@@ -51,7 +51,7 @@ func TestInitPackageOnlyUsesExistingConfigServer(t *testing.T) {
 		t.Fatalf("write existing config: %v", err)
 	}
 
-	if err := RunInit([]string{"agents-md", "--package", "nwks/platform/agent-defaults", "--maintainer-team", "platform-engineering", "--force", "--yes"}, false); err != nil {
+	if err := RunInit([]string{"agents-md", "--package", "nwks/platform/agent-defaults", "--force", "--yes"}, false); err != nil {
 		t.Fatalf("RunInit() error = %v", err)
 	}
 

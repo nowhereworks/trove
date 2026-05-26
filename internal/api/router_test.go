@@ -829,8 +829,6 @@ spec:
       type: agent-instructions
       required: true
       targetPath: AGENTS.md
-  maintainers:
-    - team: platform-engineering
 `
 
 func makeUploadZip(t *testing.T, files map[string]string) []byte {
