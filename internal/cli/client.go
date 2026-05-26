@@ -458,8 +458,7 @@ type CreatePackageRequest struct {
 }
 
 type CreateDraftRequest struct {
-	Version    string `json:"version"`
-	Visibility string `json:"visibility"`
+	Version string `json:"version"`
 }
 
 type PackageResponse struct {
@@ -497,7 +496,6 @@ type VersionResponse struct {
 	Package     string `json:"package"`
 	Version     string `json:"version"`
 	Lifecycle   string `json:"lifecycle"`
-	Visibility  string `json:"visibility"`
 	Digest      string `json:"digest"`
 	PublishedAt string `json:"publishedAt"`
 }

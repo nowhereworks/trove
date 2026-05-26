@@ -34,7 +34,6 @@ func RunStatus(args []string, jsonOutput bool) error {
 		out.Problems = append(out.Problems, "missing .trove/config.yaml; run 'trove init agents-md'")
 	} else {
 		out.Problems = append(out.Problems, validateProjectConfig(cfg)...)
-		out.Visibility = cfg.Publish.Visibility
 		if name, remote, err := remoteForConfig(cfg, ""); err == nil {
 			out.Remote = &statusRemote{Name: name, ServerURL: remote.ServerURL, Package: remote.Package}
 			versions, _, err := packageVersionsForRemote(remote)
@@ -57,9 +56,6 @@ func RunStatus(args []string, jsonOutput bool) error {
 		out.Problems = append(out.Problems, "missing or invalid trove.yaml: "+err.Error())
 	} else {
 		out.Problems = append(out.Problems, validateAgentsManifest(m)...)
-		if out.Visibility == "" {
-			out.Visibility = m.Spec.Visibility
-		}
 		if out.Remote != nil && m.Metadata.Org+"/"+m.Metadata.Namespace+"/"+m.Metadata.Name != out.Remote.Package {
 			out.Problems = append(out.Problems, "manifest package does not match configured remote")
 		}
@@ -161,7 +157,7 @@ func printStatus(out statusOutput) {
 	}
 }
 
-func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, cfg ProjectConfig, visibilityOverride string) manifest.Manifest {
+func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, cfg ProjectConfig) manifest.Manifest {
 	m.Metadata.Org = ref.Org
 	m.Metadata.Namespace = ref.Namespace
 	m.Metadata.Name = ref.Name
@@ -172,13 +168,6 @@ func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, cfg Proje
 		m.Metadata.Description = "Shared AGENTS.md instructions."
 	}
 	m.Spec.Lifecycle = "draft"
-	if visibilityOverride != "" {
-		m.Spec.Visibility = visibilityOverride
-	} else if cfg.Publish.Visibility != "" {
-		m.Spec.Visibility = cfg.Publish.Visibility
-	} else if m.Spec.Visibility == "" {
-		m.Spec.Visibility = "private"
-	}
 	m.Spec.Artifacts = agentsArtifacts()
 	return m
 }

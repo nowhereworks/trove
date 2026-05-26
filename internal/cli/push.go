@@ -9,7 +9,6 @@ import (
 
 func RunPush(args []string, jsonOutput bool) error {
 	remoteNameFlag := flagValue(args, "--remote")
-	visibilityOverride := flagValue(args, "--visibility")
 	explicitVersion := flagValue(args, "--version")
 	force := hasFlag(args, "--force")
 	bump := "patch"
@@ -89,7 +88,7 @@ func RunPush(args []string, jsonOutput bool) error {
 			return fmt.Errorf("version %s already exists with lifecycle %s; try --version %s", version, existing.Lifecycle, suggested)
 		}
 	}
-	m = applyGeneratedManifestFields(m, ref, cfg, visibilityOverride)
+	m = applyGeneratedManifestFields(m, ref, cfg)
 	if problems := validateAgentsManifest(m); len(problems) > 0 {
 		return fmt.Errorf("manifest is invalid: %s", problems[0])
 	}
@@ -102,7 +101,7 @@ func RunPush(args []string, jsonOutput bool) error {
 		return err
 	}
 
-	if _, err := client.CreateDraft(ref.Org, ref.Namespace, ref.Name, CreateDraftRequest{Version: version, Visibility: m.Spec.Visibility}); err != nil {
+	if _, err := client.CreateDraft(ref.Org, ref.Namespace, ref.Name, CreateDraftRequest{Version: version}); err != nil {
 		var apiErr *APIError
 		if !errors.As(err, &apiErr) || apiErr.Code != "VERSION_ALREADY_EXISTS" {
 			return fmt.Errorf("create draft %s@%s: %w", ref.PackagePath(), version, err)
@@ -136,7 +135,7 @@ func RunPush(args []string, jsonOutput bool) error {
 		return fmt.Errorf("upload %s: %w", agentsMDPath, err)
 	}
 
-	result := VersionResponse{Org: ref.Org, Namespace: ref.Namespace, Package: ref.Name, Version: version, Lifecycle: "draft", Visibility: m.Spec.Visibility}
+	result := VersionResponse{Org: ref.Org, Namespace: ref.Namespace, Package: ref.Name, Version: version, Lifecycle: "draft"}
 	reviewURL := ""
 	switch mode {
 	case "draft":
@@ -170,7 +169,7 @@ func RunPush(args []string, jsonOutput bool) error {
 	_ = updateStateAfterPush(remoteName, ref.Selector, result, manifestBytes, agentsBytes)
 
 	if jsonOutput {
-		return outputJSON(map[string]string{"package": ref.PackagePath(), "version": version, "lifecycle": firstNonEmpty(result.Lifecycle, "review"), "digest": result.Digest, "visibility": m.Spec.Visibility, "reviewUrl": reviewURL, "installCommand": "trove install " + ref.PackagePath() + "@latest"})
+		return outputJSON(map[string]string{"package": ref.PackagePath(), "version": version, "lifecycle": firstNonEmpty(result.Lifecycle, "review"), "digest": result.Digest, "reviewUrl": reviewURL, "installCommand": "trove install " + ref.PackagePath() + "@latest"})
 	}
 	if reviewURL != "" {
 		fmt.Printf("Uploaded %s@%s\n", ref.PackagePath(), version)

@@ -28,7 +28,6 @@ func TestValidateReportsRequiredFields(t *testing.T) {
 		"metadata.name",
 		"metadata.displayName",
 		"metadata.description",
-		"spec.visibility",
 		"spec.lifecycle",
 		"spec.artifacts",
 	} {

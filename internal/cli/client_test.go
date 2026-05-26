@@ -29,23 +29,23 @@ func TestClientWriteMethods(t *testing.T) {
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				t.Fatalf("decode create package body: %v", err)
 			}
-			if req.Org != "nwks" || req.Namespace != "platform" || req.Name != "agent-defaults" || req.Visibility != "private" {
+			if req.Org != "nwks" || req.Namespace != "platform" || req.Name != "agent-defaults" {
 				t.Fatalf("create package body = %+v", req)
 			}
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(PackageResponse{Org: req.Org, Namespace: req.Namespace, Name: req.Name, Visibility: req.Visibility})
+			_ = json.NewEncoder(w).Encode(PackageResponse{Org: req.Org, Namespace: req.Namespace, Name: req.Name})
 		case "GET /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1":
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "draft", Visibility: "private"})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "draft"})
 		case "POST /api/v1/packages/nwks/platform/agent-defaults/versions":
 			var req CreateDraftRequest
 			if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 				t.Fatalf("decode create draft body: %v", err)
 			}
-			if req.Version != "1.0.1" || req.Visibility != "private" {
+			if req.Version != "1.0.1" {
 				t.Fatalf("create draft body = %+v", req)
 			}
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: req.Version, Lifecycle: "draft", Visibility: req.Visibility})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: req.Version, Lifecycle: "draft"})
 		case "PUT /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/artifacts/AGENTS.md":
 			body, err := io.ReadAll(r.Body)
 			if err != nil {
@@ -60,9 +60,9 @@ func TestClientWriteMethods(t *testing.T) {
 		case "GET /api/v1/reviews/nwks/platform/agent-defaults/versions/1.0.1/approval-status":
 			_ = json.NewEncoder(w).Encode(ApprovalStatusResponse{HasEnoughApprovals: true, CurrentCount: 1, RequiredCount: 1})
 		case "POST /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/publish":
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "published", Visibility: "private", Digest: "sha256:version"})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "published", Digest: "sha256:version"})
 		case "POST /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/reset-draft":
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "draft", Visibility: "private"})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "draft"})
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
@@ -79,7 +79,7 @@ func TestClientWriteMethods(t *testing.T) {
 	if version, err := client.GetVersion("nwks", "platform", "agent-defaults", "1.0.1"); err != nil || version.Lifecycle != "draft" {
 		t.Fatalf("GetVersion() = %+v, %v", version, err)
 	}
-	if draft, err := client.CreateDraft("nwks", "platform", "agent-defaults", CreateDraftRequest{Version: "1.0.1", Visibility: "private"}); err != nil || draft.Version != "1.0.1" {
+	if draft, err := client.CreateDraft("nwks", "platform", "agent-defaults", CreateDraftRequest{Version: "1.0.1"}); err != nil || draft.Version != "1.0.1" {
 		t.Fatalf("CreateDraft() = %+v, %v", draft, err)
 	}
 	if artifact, err := client.UploadArtifact("nwks", "platform", "agent-defaults", "1.0.1", "AGENTS.md", []byte("# Agents\n"), "text/markdown"); err != nil || artifact.Digest != "sha256:artifact" {
@@ -149,7 +149,7 @@ func TestClientStructuredAPIErrorUsesHeaderRequestID(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	_, err := NewClientForServer(server.URL).CreateDraft("nwks", "platform", "agent-defaults", CreateDraftRequest{Version: "1.0.1", Visibility: "private"})
+	_, err := NewClientForServer(server.URL).CreateDraft("nwks", "platform", "agent-defaults", CreateDraftRequest{Version: "1.0.1"})
 	apiErr, ok := err.(*APIError)
 	if !ok {
 		t.Fatalf("error type = %T, want *APIError", err)

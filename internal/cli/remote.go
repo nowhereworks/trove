@@ -27,7 +27,7 @@ func RunRemote(args []string, jsonOutput bool, force bool) error {
 func remoteAdd(name string, value string, force bool) error {
 	cfg := readOptionalProjectConfig()
 	if cfg.APIVersion == "" {
-		cfg = ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind, Publish: PublishConfig{Visibility: "private"}}
+		cfg = ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind}
 	}
 	spec, err := parseRemoteSpec(value, cfg)
 	if err != nil {
@@ -42,9 +42,6 @@ func remoteAdd(name string, value string, force bool) error {
 	cfg.Remotes[name] = ProjectRemote{ServerURL: spec.ServerURL, Package: spec.Package}
 	if cfg.DefaultRemote == "" {
 		cfg.DefaultRemote = name
-	}
-	if cfg.Publish.Visibility == "" {
-		cfg.Publish.Visibility = "private"
 	}
 	if err := writeProjectConfig(projectConfigPath, cfg); err != nil {
 		return err

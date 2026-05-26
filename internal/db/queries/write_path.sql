@@ -128,7 +128,6 @@ returning id, path, type, content_type, blob_digest, size_bytes, target_path, cr
 -- name: UpdateVersionManifest :exec
 update package_versions
 set manifest_json = sqlc.arg(manifest_json),
-    visibility = sqlc.arg(visibility),
     updated_at = now()
 where id = sqlc.arg(id);
 
@@ -168,6 +167,20 @@ set lifecycle = 'yanked',
 where id = sqlc.arg(id)
   and lifecycle in ('published', 'deprecated')
 returning version, lifecycle, updated_at;
+
+-- name: UpdatePackageVisibility :one
+update packages
+set visibility = sqlc.arg(visibility),
+    updated_at = now()
+where id = (
+  select p.id from packages p
+  join namespaces n on n.id = p.namespace_id
+  join organizations o on o.id = n.org_id
+  where o.slug = sqlc.arg(org)
+    and n.slug = sqlc.arg(namespace)
+    and p.name = sqlc.arg(package_name)
+)
+returning id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at;
 
 -- name: CreateOrganization :one
 insert into organizations (id, slug, display_name, visibility, created_at, updated_at)

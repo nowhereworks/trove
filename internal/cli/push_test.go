@@ -207,10 +207,10 @@ func newPushServer(t *testing.T, opts pushServerOptions) (*httptest.Server, *[]s
 				return
 			}
 			w.WriteHeader(http.StatusCreated)
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: req.Version, Lifecycle: "draft", Visibility: req.Visibility})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: req.Version, Lifecycle: "draft"})
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0":
 			calls = append(calls, "GET version 1.0.0")
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: opts.createConflictLifecycle, Visibility: "private"})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: opts.createConflictLifecycle})
 		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/artifacts/trove.yaml":
 			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "lifecycle: draft")
 		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/artifacts/trove.yaml":
@@ -225,13 +225,13 @@ func newPushServer(t *testing.T, opts pushServerOptions) (*httptest.Server, *[]s
 				return
 			}
 			version := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/packages/nwks/platform/agent-defaults/versions/"), "/publish")
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: version, Lifecycle: "published", Visibility: "private", Digest: "sha256:version"})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: version, Lifecycle: "published", Digest: "sha256:version"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/reviews/nwks/platform/agent-defaults/versions/1.0.0/submit":
 			calls = append(calls, "POST submit")
 			_ = json.NewEncoder(w).Encode(map[string]string{"status": "submitted"})
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/reset-draft":
 			calls = append(calls, "POST reset")
-			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: "draft", Visibility: "private"})
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: "draft"})
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}

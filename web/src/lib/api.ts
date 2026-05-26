@@ -66,7 +66,6 @@ export interface ManifestData {
   }
   spec: {
     version: string
-    visibility: string
     lifecycle: string
     artifacts: {
       path: string
@@ -175,5 +174,11 @@ export const api = {
   removeMaintainer: (org: string, namespace: string, name: string, userId: string) =>
     request<void>(`/packages/${org}/${namespace}/${name}/maintainers/${userId}`, {
       method: 'DELETE',
+    }),
+
+  updatePackageVisibility: (org: string, namespace: string, name: string, visibility: string) =>
+    request<PackageDetail>(`/packages/${org}/${namespace}/${name}/visibility`, {
+      method: 'PATCH',
+      body: JSON.stringify({ visibility }),
     }),
 }

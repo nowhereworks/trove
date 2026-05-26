@@ -38,6 +38,7 @@ type WriteStore interface {
 	PublishVersion(ctx context.Context, req PublishVersionRequest) (VersionResource, error)
 	DeprecateVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
 	YankVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
+	UpdatePackageVisibility(ctx context.Context, org, namespace, pkg, visibility string) (PackageResource, error)
 	EnsureOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error)
 	CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error)
 	CreateNamespace(ctx context.Context, req CreateNamespaceRequest) (NamespaceResource, error)
@@ -154,11 +155,10 @@ type PackageResource struct {
 }
 
 type CreateDraftVersionRequest struct {
-	Org        string
-	Namespace  string
-	Package    string
-	Version    string
-	Visibility string
+	Org       string
+	Namespace string
+	Package   string
+	Version   string
 }
 
 type UploadArtifactRequest struct {
@@ -198,7 +198,6 @@ type VersionResource struct {
 	Package     string `json:"package"`
 	Version     string `json:"version"`
 	Lifecycle   string `json:"lifecycle"`
-	Visibility  string `json:"visibility"`
 	Digest      string `json:"digest,omitempty"`
 	PublishedAt string `json:"publishedAt,omitempty"`
 	CreatedAt   string `json:"createdAt,omitempty"`

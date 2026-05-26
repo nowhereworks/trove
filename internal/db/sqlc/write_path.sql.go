@@ -885,22 +885,76 @@ func (q *Queries) ResetUnpublishedVersionToDraft(ctx context.Context, arg ResetU
 	return i, err
 }
 
+const updatePackageVisibility = `-- name: UpdatePackageVisibility :one
+update packages
+set visibility = $1,
+    updated_at = now()
+where id = (
+  select p.id from packages p
+  join namespaces n on n.id = p.namespace_id
+  join organizations o on o.id = n.org_id
+  where o.slug = $2
+    and n.slug = $3
+    and p.name = $4
+)
+returning id, namespace_id, name, display_name, description, visibility, lifecycle, created_at, updated_at
+`
+
+type UpdatePackageVisibilityParams struct {
+	Visibility  string `json:"visibility"`
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+}
+
+type UpdatePackageVisibilityRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	NamespaceID pgtype.UUID        `json:"namespace_id"`
+	Name        string             `json:"name"`
+	DisplayName string             `json:"display_name"`
+	Description pgtype.Text        `json:"description"`
+	Visibility  string             `json:"visibility"`
+	Lifecycle   string             `json:"lifecycle"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpdatePackageVisibility(ctx context.Context, arg UpdatePackageVisibilityParams) (UpdatePackageVisibilityRow, error) {
+	row := q.db.QueryRow(ctx, updatePackageVisibility,
+		arg.Visibility,
+		arg.Org,
+		arg.Namespace,
+		arg.PackageName,
+	)
+	var i UpdatePackageVisibilityRow
+	err := row.Scan(
+		&i.ID,
+		&i.NamespaceID,
+		&i.Name,
+		&i.DisplayName,
+		&i.Description,
+		&i.Visibility,
+		&i.Lifecycle,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const updateVersionManifest = `-- name: UpdateVersionManifest :exec
 update package_versions
 set manifest_json = $1,
-    visibility = $2,
     updated_at = now()
-where id = $3
+where id = $2
 `
 
 type UpdateVersionManifestParams struct {
 	ManifestJson []byte      `json:"manifest_json"`
-	Visibility   string      `json:"visibility"`
 	ID           pgtype.UUID `json:"id"`
 }
 
 func (q *Queries) UpdateVersionManifest(ctx context.Context, arg UpdateVersionManifestParams) error {
-	_, err := q.db.Exec(ctx, updateVersionManifest, arg.ManifestJson, arg.Visibility, arg.ID)
+	_, err := q.db.Exec(ctx, updateVersionManifest, arg.ManifestJson, arg.ID)
 	return err
 }
 

@@ -12,8 +12,9 @@
 ## Current State
 
 - Slices 1-5 (Thin Read Path, Draft Upload/Publish, Auth/Visibility/Review, Updates/CLI, Search And Adoption) are substantially implemented.
-- `go test ./...` passes (191 tests across 19 packages).
+- `go test ./...` passes (192 tests across 19 packages).
 - `go build ./...` succeeds.
+- Visibility is managed via `PATCH /api/v1/packages/{org}/{namespace}/{package}/visibility` API endpoint, not via the manifest.
 - Runtime package storage is PostgreSQL-only; do not add an in-memory database/store fallback.
 - Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects.
 - `sqlc` generated code is committed and covers read, write, and auth query paths.
@@ -51,7 +52,7 @@
 - Package names are unique within a namespace; manifests and lockfiles must use full `org/namespace/package` references.
 - Org, namespace, and package slugs use `^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`; slug renames are deferred for MVP.
 - Raw artifact URLs require auth by default, but namespaces/packages can be explicitly public like public GitHub repos.
-- Visibility values are `private`, `internal`, and `public`; effective visibility is the most restrictive value across org, namespace, package, and version.
+- Visibility values are `private`, `internal`, and `public`; set at the package level via management API.
 - Public anonymous reads include package metadata, manifests, archives, raw artifacts, and resolve responses only.
 - Use OIDC for production human auth, scoped opaque bearer tokens for agents/CI, and gated dev auth only for local development/tests.
 - Keep OIDC standards-based and provider-neutral; configure provider details rather than baking in one provider.

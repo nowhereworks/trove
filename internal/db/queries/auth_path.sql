@@ -151,30 +151,8 @@ select exists (
   where package_version_id = sqlc.arg(package_version_id) and reviewer_id = sqlc.arg(reviewer_id)
 ) as has_approval;
 
--- name: GetEffectiveVisibility :one
-select case
-  when o.visibility = 'private' then 'private'
-  when n.visibility = 'private' then 'private'
-  when p.visibility = 'private' then 'private'
-  when v.visibility = 'private' then 'private'
-  when o.visibility = 'internal' then 'internal'
-  when n.visibility = 'internal' then 'internal'
-  when p.visibility = 'internal' then 'internal'
-  when v.visibility = 'internal' then 'internal'
-  else 'public'
-end as effective_visibility
-from package_versions v
-join packages p on p.id = v.package_id
-join namespaces n on n.id = p.namespace_id
-join organizations o on o.id = n.org_id
-where o.slug = sqlc.arg(org)
-  and n.slug = sqlc.arg(namespace)
-  and p.name = sqlc.arg(package_name)
-  and v.version = sqlc.arg(version);
-
--- name: GetPackageVisibilityChain :one
-select o.visibility as org_visibility, n.visibility as namespace_visibility,
-       p.visibility as package_visibility
+-- name: GetPackageVisibility :one
+select p.visibility
 from packages p
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id

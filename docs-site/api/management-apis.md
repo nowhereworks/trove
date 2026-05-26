@@ -29,6 +29,7 @@ All management endpoints require authentication via session or API token. Specif
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish` | `version:publish` | Publish immutable version |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/deprecate` | `package:write` | Deprecate version |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/yank` | `package:write` | Yank version |
+| `PATCH` | `/api/v1/packages/{org}/{namespace}/{package}/visibility` | `package:write` | Update package visibility |
 | `POST` | `/api/v1/projects` | token/session | Register a project |
 
 ### Response Codes
@@ -136,12 +137,27 @@ Authorization: Bearer <token>
 Content-Type: application/json
 
 {
-  "version": "1.0.0",
-  "visibility": "private"
+  "version": "1.0.0"
 }
 ```
 
 Response: `201 Created`
+
+### Update Package Visibility
+
+```bash
+PATCH /api/v1/packages/nwks/platform/agent-backend/visibility
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "visibility": "public"
+}
+```
+
+Response: `200 OK`
+
+Returns the updated package resource. Visibility must be `private`, `internal`, or `public`.
 
 ### Upload Artifact
 
@@ -184,8 +200,7 @@ Response: `200 OK`
   "namespace": "platform",
   "package": "agent-backend",
   "version": "1.0.0",
-  "lifecycle": "draft",
-  "visibility": "private"
+  "lifecycle": "draft"
 }
 ```
 

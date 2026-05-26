@@ -32,25 +32,21 @@ func (s *PostgresStore) Queries() *sqlc.Queries {
 }
 
 func (s *PostgresStore) CheckVisibility(ctx context.Context, org, namespace, name, version string) (string, error) {
-	eff, err := s.queries.GetEffectiveVisibility(ctx, sqlc.GetEffectiveVisibilityParams{
+	vis, err := s.queries.GetPackageVisibility(ctx, sqlc.GetPackageVisibilityParams{
 		Org:         org,
 		Namespace:   namespace,
 		PackageName: name,
-		Version:     strings.TrimPrefix(version, "v"),
 	})
 	if err != nil {
 		return "", mapReadError(err)
 	}
-	return eff, nil
+	return vis, nil
 }
 
 func (s *PostgresStore) CreateDraftVersion(ctx context.Context, req CreateDraftVersionRequest) (VersionResource, error) {
 	major, minor, patch, err := ParseStrictSemver(req.Version)
 	if err != nil {
 		return VersionResource{}, err
-	}
-	if req.Visibility == "" {
-		req.Visibility = "private"
 	}
 
 	packageID, err := s.queries.GetPackageID(ctx, sqlc.GetPackageIDParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package})
@@ -62,6 +58,15 @@ func (s *PostgresStore) CreateDraftVersion(ctx context.Context, req CreateDraftV
 		return VersionResource{}, err
 	}
 
+	pkgVis, err := s.queries.GetPackageVisibility(ctx, sqlc.GetPackageVisibilityParams{
+		Org:         req.Org,
+		Namespace:   req.Namespace,
+		PackageName: req.Package,
+	})
+	if err != nil {
+		return VersionResource{}, mapReadError(err)
+	}
+
 	row, err := s.queries.CreateDraftVersion(ctx, sqlc.CreateDraftVersionParams{
 		ID:          id,
 		PackageID:   packageID,
@@ -69,21 +74,20 @@ func (s *PostgresStore) CreateDraftVersion(ctx context.Context, req CreateDraftV
 		SemverMajor: int4(major),
 		SemverMinor: int4(minor),
 		SemverPatch: int4(patch),
-		Visibility:  req.Visibility,
+		Visibility:  pkgVis,
 	})
 	if err != nil {
 		return VersionResource{}, mapWriteError(err)
 	}
 
 	return VersionResource{
-		Org:        req.Org,
-		Namespace:  req.Namespace,
-		Package:    req.Package,
-		Version:    row.Version,
-		Lifecycle:  row.Lifecycle,
-		Visibility: row.Visibility,
-		CreatedAt:  timestamptzString(row.CreatedAt),
-		UpdatedAt:  timestamptzString(row.UpdatedAt),
+		Org:       req.Org,
+		Namespace: req.Namespace,
+		Package:   req.Package,
+		Version:   row.Version,
+		Lifecycle: row.Lifecycle,
+		CreatedAt: timestamptzString(row.CreatedAt),
+		UpdatedAt: timestamptzString(row.UpdatedAt),
 	}, nil
 }
 
@@ -92,7 +96,7 @@ func (s *PostgresStore) GetPackageVersion(ctx context.Context, req LifecycleChan
 	if err != nil {
 		return VersionResource{}, mapVersionReadError(err)
 	}
-	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: row.Version, Lifecycle: row.Lifecycle, Visibility: row.Visibility, Digest: row.Digest, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, PublishedAt: row.PublishedAt}, nil
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: row.Version, Lifecycle: row.Lifecycle, Digest: row.Digest, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, PublishedAt: row.PublishedAt}, nil
 }
 
 func (s *PostgresStore) ResetUnpublishedVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
@@ -107,7 +111,7 @@ func (s *PostgresStore) ResetUnpublishedVersion(ctx context.Context, req Lifecyc
 	if err != nil {
 		return VersionResource{}, mapVersionReadError(err)
 	}
-	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: row.Version, Lifecycle: row.Lifecycle, Visibility: row.Visibility, Digest: row.Digest, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, PublishedAt: row.PublishedAt}, nil
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: row.Version, Lifecycle: row.Lifecycle, Digest: row.Digest, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, PublishedAt: row.PublishedAt}, nil
 }
 
 func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRequest) (ArtifactResource, error) {
@@ -152,7 +156,7 @@ func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRe
 		if err != nil {
 			return ArtifactResource{}, err
 		}
-		if err := q.UpdateVersionManifest(ctx, sqlc.UpdateVersionManifestParams{ManifestJson: manifestJSON, Visibility: parsed.Spec.Visibility, ID: version.ID}); err != nil {
+		if err := q.UpdateVersionManifest(ctx, sqlc.UpdateVersionManifestParams{ManifestJson: manifestJSON, ID: version.ID}); err != nil {
 			return ArtifactResource{}, err
 		}
 		artifactType = "manifest"
@@ -269,6 +273,15 @@ func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRe
 		return VersionResource{}, err
 	}
 
+	pkgVis, err := s.queries.GetPackageVisibility(ctx, sqlc.GetPackageVisibilityParams{
+		Org:         req.Org,
+		Namespace:   req.Namespace,
+		PackageName: req.Package,
+	})
+	if err != nil {
+		return VersionResource{}, mapReadError(err)
+	}
+
 	searchText := buildSearchText(parsed, req.Org, req.Namespace, req.Package, rows)
 	labelsJSON, _ := json.Marshal(parsed.Metadata.Labels)
 	artifactTypes := extractArtifactTypes(parsed)
@@ -281,7 +294,7 @@ func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRe
 		ArtifactTypes:            artifactTypes,
 		ToolNames:                toolNames,
 		Lifecycle:                "active",
-		Visibility:               parsed.Spec.Visibility,
+		Visibility:               pkgVis,
 	}); err != nil {
 		return VersionResource{}, err
 	}
@@ -290,7 +303,7 @@ func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRe
 		return VersionResource{}, err
 	}
 
-	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: published.Version, Lifecycle: published.Lifecycle, Visibility: parsed.Spec.Visibility, Digest: textValue(published.Digest), PublishedAt: timestamptzString(published.PublishedAt)}, nil
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: published.Version, Lifecycle: published.Lifecycle, Digest: textValue(published.Digest), PublishedAt: timestamptzString(published.PublishedAt)}, nil
 }
 
 func (s *PostgresStore) DeprecateVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
@@ -363,6 +376,49 @@ func (s *PostgresStore) YankVersion(ctx context.Context, req LifecycleChangeRequ
 	}
 
 	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: result.Version, Lifecycle: result.Lifecycle, UpdatedAt: timestamptzString(result.UpdatedAt)}, nil
+}
+
+func (s *PostgresStore) UpdatePackageVisibility(ctx context.Context, org, namespace, pkg, visibility string) (PackageResource, error) {
+	switch visibility {
+	case "private", "internal", "public":
+	default:
+		return PackageResource{}, fmt.Errorf("visibility must be private, internal, or public")
+	}
+
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return PackageResource{}, err
+	}
+	defer tx.Rollback(ctx)
+	q := s.queries.WithTx(tx)
+
+	row, err := q.UpdatePackageVisibility(ctx, sqlc.UpdatePackageVisibilityParams{
+		Org:         org,
+		Namespace:   namespace,
+		PackageName: pkg,
+		Visibility:  visibility,
+	})
+	if err != nil {
+		return PackageResource{}, mapWriteError(err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return PackageResource{}, err
+	}
+
+	return PackageResource{
+		ID:          uuid.UUID(row.ID.Bytes).String(),
+		NamespaceID: uuid.UUID(row.NamespaceID.Bytes).String(),
+		Org:         org,
+		Namespace:   namespace,
+		Name:        row.Name,
+		DisplayName: row.DisplayName,
+		Description: textValue(row.Description),
+		Visibility:  row.Visibility,
+		Lifecycle:   row.Lifecycle,
+		CreatedAt:   timestamptzString(row.CreatedAt),
+		UpdatedAt:   timestamptzString(row.UpdatedAt),
+	}, nil
 }
 
 func (s *PostgresStore) CreateOrg(ctx context.Context, req CreateOrgRequest) (OrgResource, error) {

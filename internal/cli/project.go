@@ -35,16 +35,11 @@ type ProjectConfig struct {
 	DefaultRemote string                   `yaml:"defaultRemote,omitempty" json:"defaultRemote,omitempty"`
 	ArtifactKind  string                   `yaml:"artifactKind" json:"artifactKind"`
 	Remotes       map[string]ProjectRemote `yaml:"remotes,omitempty" json:"remotes,omitempty"`
-	Publish       PublishConfig            `yaml:"publish" json:"publish"`
 }
 
 type ProjectRemote struct {
 	ServerURL string `yaml:"serverUrl" json:"serverUrl"`
 	Package   string `yaml:"package" json:"package"`
-}
-
-type PublishConfig struct {
-	Visibility string `yaml:"visibility" json:"visibility"`
 }
 
 type ProjectState struct {
@@ -101,9 +96,6 @@ func writeProjectConfig(path string, cfg ProjectConfig) error {
 	}
 	if cfg.ArtifactKind == "" {
 		cfg.ArtifactKind = agentsMDKind
-	}
-	if cfg.Publish.Visibility == "" {
-		cfg.Publish.Visibility = "private"
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
@@ -372,15 +364,12 @@ func packageVersionsForRemote(remote ProjectRemote) ([]PackageVersion, *PackageD
 	return detail.Versions, detail, nil
 }
 
-func generatedAgentsManifest(ref PackageRef, displayName, description, visibility string) manifest.Manifest {
+func generatedAgentsManifest(ref PackageRef, displayName, description string) manifest.Manifest {
 	if displayName == "" {
 		displayName = titleFromSlug(ref.Name)
 	}
 	if description == "" {
 		description = "Shared AGENTS.md instructions."
-	}
-	if visibility == "" {
-		visibility = "private"
 	}
 	return manifest.Manifest{
 		APIVersion: manifest.APIVersion,
@@ -393,9 +382,8 @@ func generatedAgentsManifest(ref PackageRef, displayName, description, visibilit
 			Description: description,
 		},
 		Spec: manifest.Spec{
-			Visibility: visibility,
-			Lifecycle:  "draft",
-			Artifacts:  agentsArtifacts(),
+			Lifecycle: "draft",
+			Artifacts: agentsArtifacts(),
 		},
 	}
 }
@@ -503,7 +491,6 @@ func configWithRemote(spec RemoteSpec) ProjectConfig {
 		Remotes: map[string]ProjectRemote{
 			"origin": {ServerURL: spec.ServerURL, Package: spec.Package},
 		},
-		Publish: PublishConfig{Visibility: "private"},
 	}
 }
 

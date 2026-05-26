@@ -33,7 +33,6 @@ type Metadata struct {
 
 type Spec struct {
 	License       string            `yaml:"license" json:"license,omitempty"`
-	Visibility    string            `yaml:"visibility" json:"visibility"`
 	Lifecycle     string            `yaml:"lifecycle" json:"lifecycle"`
 	Compatibility Compatibility     `yaml:"compatibility" json:"compatibility,omitempty"`
 	Artifacts     []Artifact        `yaml:"artifacts" json:"artifacts"`
@@ -123,7 +122,6 @@ func Validate(m Manifest, opts ValidateOptions) error {
 	requireSlug(&problems, "metadata.name", m.Metadata.Name)
 	requireNonEmpty(&problems, "metadata.displayName", m.Metadata.DisplayName)
 	requireNonEmpty(&problems, "metadata.description", m.Metadata.Description)
-	requireVisibility(&problems, "spec.visibility", m.Spec.Visibility)
 	requireNonEmpty(&problems, "spec.lifecycle", m.Spec.Lifecycle)
 
 	if opts.Org != "" && m.Metadata.Org != opts.Org {
@@ -161,16 +159,6 @@ func requireNonEmpty(problems *[]Problem, field string, value string) {
 func requireSlug(problems *[]Problem, field string, value string) {
 	if !slugRE.MatchString(value) {
 		*problems = append(*problems, Problem{Field: field, Message: "must match ^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$"})
-	}
-}
-
-
-func requireVisibility(problems *[]Problem, field string, value string) {
-	switch value {
-	case "private", "internal", "public":
-		return
-	default:
-		*problems = append(*problems, Problem{Field: field, Message: "must be private, internal, or public"})
 	}
 }
 

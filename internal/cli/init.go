@@ -9,7 +9,7 @@ import (
 func RunInit(args []string, jsonOutput bool) error {
 	targetAgentsMD := hasFlag(args, "--agents-md")
 	skipNext := false
-	valueFlags := map[string]bool{"--remote": true, "--package": true, "--display-name": true, "--description": true, "--visibility": true}
+	valueFlags := map[string]bool{"--remote": true, "--package": true, "--display-name": true, "--description": true}
 	for _, arg := range args {
 		if skipNext {
 			skipNext = false
@@ -33,7 +33,7 @@ func RunInit(args []string, jsonOutput bool) error {
 		if matchedValueFlag {
 			continue
 		}
-		if arg != "--json" && arg != "--yes" && arg != "--force" && arg != "--agents-md" && arg != "--remote" && arg != "--package" && arg != "--display-name" && arg != "--description" && arg != "--visibility" && !strings.HasPrefix(arg, "--") {
+		if arg != "--json" && arg != "--yes" && arg != "--force" && arg != "--agents-md" && arg != "--remote" && arg != "--package" && arg != "--display-name" && arg != "--description" && !strings.HasPrefix(arg, "--") {
 			return fmt.Errorf("unsupported init target %q; expected agents-md", arg)
 		}
 	}
@@ -46,10 +46,6 @@ func RunInit(args []string, jsonOutput bool) error {
 	packageValue := flagValue(args, "--package")
 	displayName := flagValue(args, "--display-name")
 	description := flagValue(args, "--description")
-	visibility := flagValue(args, "--visibility")
-	if visibility == "" {
-		visibility = "private"
-	}
 
 	// Check for existing trove.yaml before any work to avoid accidental overwrites.
 	if _, err := os.Stat(manifestPath); err == nil && !force {
@@ -99,17 +95,16 @@ func RunInit(args []string, jsonOutput bool) error {
 	}
 
 	if hasPackage && shouldWriteGenerated(manifestPath, force) {
-		m := generatedAgentsManifest(ref, displayName, description, visibility)
+		m := generatedAgentsManifest(ref, displayName, description)
 		if err := writeManifestYAML(manifestPath, m); err != nil {
 			return fmt.Errorf("write %s: %w", manifestPath, err)
 		}
 	}
 
 	if shouldWriteGenerated(projectConfigPath, force) {
-		cfg := ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind, Publish: PublishConfig{Visibility: visibility}}
+		cfg := ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind}
 		if hasRemote {
 			cfg = configWithRemote(remoteSpec)
-			cfg.Publish.Visibility = visibility
 		} else if packageValue != "" {
 			if serverURL := serverURLForPackageInit(); serverURL != "" {
 				cfg.DefaultRemote = "origin"

@@ -108,7 +108,7 @@ select af.path as path,
        af.size_bytes as size_bytes,
        ab.content as content,
        case
-         when o.visibility = 'public' and n.visibility = 'public' and p.visibility = 'public' and v.visibility = 'public'
+         when p.visibility = 'public'
          then 'public, max-age=31536000, immutable'
          else 'private, max-age=31536000, immutable'
        end as cache_control

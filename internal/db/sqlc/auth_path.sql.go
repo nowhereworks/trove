@@ -298,50 +298,8 @@ func (q *Queries) GetAPITokenByHash(ctx context.Context, tokenHash string) (ApiT
 	return i, err
 }
 
-const getEffectiveVisibility = `-- name: GetEffectiveVisibility :one
-select case
-  when o.visibility = 'private' then 'private'
-  when n.visibility = 'private' then 'private'
-  when p.visibility = 'private' then 'private'
-  when v.visibility = 'private' then 'private'
-  when o.visibility = 'internal' then 'internal'
-  when n.visibility = 'internal' then 'internal'
-  when p.visibility = 'internal' then 'internal'
-  when v.visibility = 'internal' then 'internal'
-  else 'public'
-end as effective_visibility
-from package_versions v
-join packages p on p.id = v.package_id
-join namespaces n on n.id = p.namespace_id
-join organizations o on o.id = n.org_id
-where o.slug = $1
-  and n.slug = $2
-  and p.name = $3
-  and v.version = $4
-`
-
-type GetEffectiveVisibilityParams struct {
-	Org         string `json:"org"`
-	Namespace   string `json:"namespace"`
-	PackageName string `json:"package_name"`
-	Version     string `json:"version"`
-}
-
-func (q *Queries) GetEffectiveVisibility(ctx context.Context, arg GetEffectiveVisibilityParams) (string, error) {
-	row := q.db.QueryRow(ctx, getEffectiveVisibility,
-		arg.Org,
-		arg.Namespace,
-		arg.PackageName,
-		arg.Version,
-	)
-	var effective_visibility string
-	err := row.Scan(&effective_visibility)
-	return effective_visibility, err
-}
-
-const getPackageVisibilityChain = `-- name: GetPackageVisibilityChain :one
-select o.visibility as org_visibility, n.visibility as namespace_visibility,
-       p.visibility as package_visibility
+const getPackageVisibility = `-- name: GetPackageVisibility :one
+select p.visibility
 from packages p
 join namespaces n on n.id = p.namespace_id
 join organizations o on o.id = n.org_id
@@ -350,23 +308,17 @@ where o.slug = $1
   and p.name = $3
 `
 
-type GetPackageVisibilityChainParams struct {
+type GetPackageVisibilityParams struct {
 	Org         string `json:"org"`
 	Namespace   string `json:"namespace"`
 	PackageName string `json:"package_name"`
 }
 
-type GetPackageVisibilityChainRow struct {
-	OrgVisibility       string `json:"org_visibility"`
-	NamespaceVisibility string `json:"namespace_visibility"`
-	PackageVisibility   string `json:"package_visibility"`
-}
-
-func (q *Queries) GetPackageVisibilityChain(ctx context.Context, arg GetPackageVisibilityChainParams) (GetPackageVisibilityChainRow, error) {
-	row := q.db.QueryRow(ctx, getPackageVisibilityChain, arg.Org, arg.Namespace, arg.PackageName)
-	var i GetPackageVisibilityChainRow
-	err := row.Scan(&i.OrgVisibility, &i.NamespaceVisibility, &i.PackageVisibility)
-	return i, err
+func (q *Queries) GetPackageVisibility(ctx context.Context, arg GetPackageVisibilityParams) (string, error) {
+	row := q.db.QueryRow(ctx, getPackageVisibility, arg.Org, arg.Namespace, arg.PackageName)
+	var visibility string
+	err := row.Scan(&visibility)
+	return visibility, err
 }
 
 const getReview = `-- name: GetReview :one

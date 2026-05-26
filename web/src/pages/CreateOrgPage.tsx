@@ -7,18 +7,16 @@ import { api } from '../lib/api'
 export default function CreateOrgPage() {
   const [slug, setSlug] = useState('')
   const [displayName, setDisplayName] = useState('')
-  const [visibility, setVisibility] = useState('private')
   const [createdSlug, setCreatedSlug] = useState('')
 
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: api.getConfig })
 
   const createOrg = useMutation({
-    mutationFn: () => api.createOrg({ slug, displayName: displayName || slug, visibility }),
+    mutationFn: () => api.createOrg({ slug, displayName: displayName || slug, visibility: 'private' }),
     onSuccess: (org) => {
       setCreatedSlug(org.slug)
       setSlug('')
       setDisplayName('')
-      setVisibility('private')
     },
   })
 
@@ -78,20 +76,6 @@ export default function CreateOrgPage() {
             placeholder="Sample Org"
             disabled={!allowCreateOrg || createOrg.isPending}
           />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-medium">Visibility</label>
-          <select
-            value={visibility}
-            onChange={(e) => setVisibility(e.target.value)}
-            className="w-full rounded-lg border px-3 py-2 text-sm"
-            disabled={!allowCreateOrg || createOrg.isPending}
-          >
-            <option value="private">Private</option>
-            <option value="internal">Internal</option>
-            <option value="public">Public</option>
-          </select>
         </div>
 
         <div className="flex items-center gap-3">

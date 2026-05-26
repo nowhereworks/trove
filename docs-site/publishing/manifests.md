@@ -25,7 +25,6 @@ metadata:
     owner: platform-engineering
 spec:
   license: internal
-  visibility: private
   lifecycle: draft
   compatibility:
     tools:
@@ -63,7 +62,6 @@ spec:
 | `metadata.name` | string | Package slug (e.g., `agent-backend`) |
 | `metadata.displayName` | string | Human-readable name |
 | `metadata.description` | string | Non-empty description (required at publish) |
-| `spec.visibility` | string | `private`, `internal`, or `public` |
 | `spec.lifecycle` | string | Current lifecycle state |
 | `spec.artifacts` | array | List of artifact declarations |
 | `spec.maintainers` | array | At least one maintainer (required at publish) |

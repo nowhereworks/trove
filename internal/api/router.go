@@ -94,6 +94,7 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Post("/api/v1/orgs/{org}/namespaces", auth.RequireAuth(auth.RequireScope("namespace:write")(handleCreateNamespace(writeStore))))
 	r.Post("/api/v1/packages", auth.RequireAuth(auth.RequireScope("package:write")(handleCreatePackage(writeStore))))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
+	r.Patch("/api/v1/packages/{org}/{namespace}/{package}/visibility", auth.RequireAuth(auth.RequireScope("package:write")(handleUpdatePackageVisibility(writeStore))))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}", handleGetPackageVersion(store, writeStore))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz", handleGetArchive(store, packages.ArchiveTarGz))
@@ -171,8 +172,7 @@ func handleCreateDraft(writeStore packages.WriteStore, cfg config.Config) http.H
 		}
 
 		var body struct {
-			Version    string `json:"version"`
-			Visibility string `json:"visibility"`
+			Version string `json:"version"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
@@ -180,26 +180,21 @@ func handleCreateDraft(writeStore packages.WriteStore, cfg config.Config) http.H
 		}
 
 		request := packages.CreateDraftVersionRequest{
-			Org:        chi.URLParam(r, "org"),
-			Namespace:  chi.URLParam(r, "namespace"),
-			Package:    chi.URLParam(r, "package"),
-			Version:    body.Version,
-			Visibility: body.Visibility,
+			Org:       chi.URLParam(r, "org"),
+			Namespace: chi.URLParam(r, "namespace"),
+			Package:   chi.URLParam(r, "package"),
+			Version:   body.Version,
 		}
 		result, err := writeStore.CreateDraftVersion(r.Context(), request)
 		if errors.Is(err, packages.ErrPackageNotFound) && cfg.Packages.CreatePackageOnPush {
-			visibility := body.Visibility
-			if visibility == "" {
-				visibility = "private"
-			}
 			if cfg.Packages.CreateNamespaceOnPush {
-				_, err = writeStore.EnsureNamespace(r.Context(), packages.CreateNamespaceRequest{Org: request.Org, Slug: request.Namespace, DisplayName: request.Namespace, Visibility: visibility})
+				_, err = writeStore.EnsureNamespace(r.Context(), packages.CreateNamespaceRequest{Org: request.Org, Slug: request.Namespace, DisplayName: request.Namespace, Visibility: "private"})
 				if err != nil {
 					writeStoreError(w, r, err)
 					return
 				}
 			}
-			_, err = writeStore.EnsurePackage(r.Context(), packages.CreatePackageRequest{Org: request.Org, Namespace: request.Namespace, Name: request.Package, DisplayName: request.Package, Visibility: visibility})
+			_, err = writeStore.EnsurePackage(r.Context(), packages.CreatePackageRequest{Org: request.Org, Namespace: request.Namespace, Name: request.Package, DisplayName: request.Package, Visibility: "private"})
 			if err != nil {
 				writeStoreError(w, r, err)
 				return
@@ -536,6 +531,35 @@ func handleCreatePackage(writeStore packages.WriteStore) http.HandlerFunc {
 
 		w.Header().Set("Location", "/api/v1/packages/"+result.Org+"/"+result.Namespace+"/"+result.Name)
 		writeJSON(w, http.StatusCreated, result)
+	}
+}
+
+func handleUpdatePackageVisibility(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if writeStore == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Write APIs are not configured.")
+			return
+		}
+
+		var body struct {
+			Visibility string `json:"visibility"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+		if body.Visibility == "" {
+			writeError(w, r, http.StatusBadRequest, "INVALID_VISIBILITY", "visibility is required.")
+			return
+		}
+
+		result, err := writeStore.UpdatePackageVisibility(r.Context(), chi.URLParam(r, "org"), chi.URLParam(r, "namespace"), chi.URLParam(r, "package"), body.Visibility)
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+
+		writeJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -951,7 +975,7 @@ func handleGetPackageVersion(store packages.Store, writeStore packages.WriteStor
 		}
 		for _, candidate := range detail.Versions {
 			if candidate.Version == version {
-				writeJSON(w, http.StatusOK, packages.VersionResource{Org: org, Namespace: namespace, Package: pkg, Version: candidate.Version, Lifecycle: candidate.Lifecycle, Visibility: detail.Visibility, Digest: candidate.Digest, PublishedAt: candidate.PublishedAt})
+				writeJSON(w, http.StatusOK, packages.VersionResource{Org: org, Namespace: namespace, Package: pkg, Version: candidate.Version, Lifecycle: candidate.Lifecycle, Digest: candidate.Digest, PublishedAt: candidate.PublishedAt})
 				return
 			}
 		}
