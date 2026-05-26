@@ -10,6 +10,21 @@ import (
 	"testing"
 )
 
+func TestInitRequiresForceWhenManifestExists(t *testing.T) {
+	chdirTemp(t)
+	t.Setenv("TROVE_SERVER_URL", "")
+	if err := os.WriteFile(manifestPath, []byte("apiVersion: trove.io/v1\n"), 0644); err != nil {
+		t.Fatalf("write manifest: %v", err)
+	}
+	err := RunInit([]string{"agents-md", "--package", "nwks/platform/test"}, false)
+	if err == nil {
+		t.Fatalf("expected error when trove.yaml exists without --force")
+	}
+	if !strings.Contains(err.Error(), "already exists") {
+		t.Fatalf("error = %q, want 'already exists'", err)
+	}
+}
+
 func TestInitPackageOnlyCreatesManifestWithoutRemote(t *testing.T) {
 	chdirTemp(t)
 	t.Setenv("TROVE_SERVER_URL", "")

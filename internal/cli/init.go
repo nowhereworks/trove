@@ -51,6 +51,11 @@ func RunInit(args []string, jsonOutput bool) error {
 		visibility = "private"
 	}
 
+	// Check for existing trove.yaml before any work to avoid accidental overwrites.
+	if _, err := os.Stat(manifestPath); err == nil && !force {
+		return fmt.Errorf("%s already exists; use --force to overwrite", manifestPath)
+	}
+
 	existingConfig := readOptionalProjectConfig()
 	var remoteSpec RemoteSpec
 	hasRemote := false
