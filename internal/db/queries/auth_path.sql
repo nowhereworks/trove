@@ -63,10 +63,26 @@ delete from package_maintainers
 where id = sqlc.arg(id) and package_id = sqlc.arg(package_id);
 
 -- name: CreateReview :one
-insert into reviews (id, package_version_id, reviewer_id, status, comment, created_at, updated_at)
-values (sqlc.arg(id), sqlc.arg(package_version_id), sqlc.arg(reviewer_id), sqlc.arg(status),
-        sqlc.arg(comment), now(), now())
-returning id, package_version_id, reviewer_id, status, comment, created_at, updated_at;
+with created_review as (
+  insert into reviews (id, package_version_id, reviewer_id, status, comment, created_at, updated_at)
+  select sqlc.arg(id), sqlc.arg(package_version_id), sqlc.arg(reviewer_id), sqlc.arg(status),
+         sqlc.arg(comment), now(), now()
+  where exists (
+    select 1 from package_versions
+    where id = sqlc.arg(package_version_id)
+      and lifecycle in ('draft', 'review')
+  )
+  returning id, package_version_id, reviewer_id, status, comment, created_at, updated_at
+), updated_version as (
+  update package_versions
+  set lifecycle = 'review', updated_at = now()
+  where id = sqlc.arg(package_version_id)
+    and lifecycle = 'draft'
+    and exists (select 1 from created_review)
+  returning id
+)
+select id, package_version_id, reviewer_id, status, comment, created_at, updated_at
+from created_review;
 
 -- name: GetReview :one
 select id, package_version_id, reviewer_id, status, comment, created_at, updated_at

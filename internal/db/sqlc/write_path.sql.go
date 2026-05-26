@@ -540,6 +540,61 @@ func (q *Queries) GetPackageIDForProjectInstall(ctx context.Context, arg GetPack
 	return id, err
 }
 
+const getPackageVersionAny = `-- name: GetPackageVersionAny :one
+select v.version,
+       v.lifecycle,
+       v.visibility,
+       coalesce(v.digest, '') as digest,
+       coalesce(to_char(v.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as created_at,
+       coalesce(to_char(v.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as updated_at,
+       coalesce(to_char(v.published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as published_at
+from package_versions v
+join packages p on p.id = v.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = $1
+  and n.slug = $2
+  and p.name = $3
+  and v.version = $4
+`
+
+type GetPackageVersionAnyParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+	Version     string `json:"version"`
+}
+
+type GetPackageVersionAnyRow struct {
+	Version     string `json:"version"`
+	Lifecycle   string `json:"lifecycle"`
+	Visibility  string `json:"visibility"`
+	Digest      string `json:"digest"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	PublishedAt string `json:"published_at"`
+}
+
+func (q *Queries) GetPackageVersionAny(ctx context.Context, arg GetPackageVersionAnyParams) (GetPackageVersionAnyRow, error) {
+	row := q.db.QueryRow(ctx, getPackageVersionAny,
+		arg.Org,
+		arg.Namespace,
+		arg.PackageName,
+		arg.Version,
+	)
+	var i GetPackageVersionAnyRow
+	err := row.Scan(
+		&i.Version,
+		&i.Lifecycle,
+		&i.Visibility,
+		&i.Digest,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
 const getPackageVersionIDForProjectInstall = `-- name: GetPackageVersionIDForProjectInstall :one
 select v.id
 from package_versions v
@@ -754,6 +809,77 @@ func (q *Queries) PublishVersion(ctx context.Context, arg PublishVersionParams) 
 		&i.Version,
 		&i.Lifecycle,
 		&i.Digest,
+		&i.PublishedAt,
+	)
+	return i, err
+}
+
+const resetUnpublishedVersionToDraft = `-- name: ResetUnpublishedVersionToDraft :one
+with version_row as (
+  select v.id
+  from package_versions v
+  join packages p on p.id = v.package_id
+  join namespaces n on n.id = p.namespace_id
+  join organizations o on o.id = n.org_id
+  where o.slug = $1
+    and n.slug = $2
+    and p.name = $3
+    and v.version = $4
+    and v.lifecycle in ('draft', 'review')
+), deleted_approvals as (
+  delete from approvals
+  where package_version_id in (select id from version_row)
+), deleted_comments as (
+  delete from review_comments
+  where review_id in (select id from reviews where package_version_id in (select id from version_row))
+), deleted_reviews as (
+  delete from reviews
+  where package_version_id in (select id from version_row)
+)
+update package_versions
+set lifecycle = 'draft',
+    digest = null,
+    published_at = null,
+    updated_at = now()
+where id in (select id from version_row)
+returning version, lifecycle, visibility, coalesce(digest, '') as digest,
+          coalesce(to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as created_at,
+          coalesce(to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as updated_at,
+          coalesce(to_char(published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as published_at
+`
+
+type ResetUnpublishedVersionToDraftParams struct {
+	Org         string `json:"org"`
+	Namespace   string `json:"namespace"`
+	PackageName string `json:"package_name"`
+	Version     string `json:"version"`
+}
+
+type ResetUnpublishedVersionToDraftRow struct {
+	Version     string `json:"version"`
+	Lifecycle   string `json:"lifecycle"`
+	Visibility  string `json:"visibility"`
+	Digest      string `json:"digest"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+	PublishedAt string `json:"published_at"`
+}
+
+func (q *Queries) ResetUnpublishedVersionToDraft(ctx context.Context, arg ResetUnpublishedVersionToDraftParams) (ResetUnpublishedVersionToDraftRow, error) {
+	row := q.db.QueryRow(ctx, resetUnpublishedVersionToDraft,
+		arg.Org,
+		arg.Namespace,
+		arg.PackageName,
+		arg.Version,
+	)
+	var i ResetUnpublishedVersionToDraftRow
+	err := row.Scan(
+		&i.Version,
+		&i.Lifecycle,
+		&i.Visibility,
+		&i.Digest,
+		&i.CreatedAt,
+		&i.UpdatedAt,
 		&i.PublishedAt,
 	)
 	return i, err

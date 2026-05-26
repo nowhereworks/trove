@@ -12,6 +12,7 @@ func RunPush(args []string, jsonOutput bool) error {
 	visibilityOverride := flagValue(args, "--visibility")
 	channelOverride := flagValue(args, "--channel")
 	explicitVersion := flagValue(args, "--version")
+	force := hasFlag(args, "--force")
 	bump := "patch"
 	selected := 0
 	for _, pair := range []struct{ flag, bump string }{{"--patch", "patch"}, {"--minor", "minor"}, {"--major", "major"}} {
@@ -83,6 +84,9 @@ func RunPush(args []string, jsonOutput bool) error {
 	for _, existing := range versions {
 		if existing.Version == version && existing.Lifecycle != "draft" {
 			suggested, _ := nextVersion(versions, "patch", "")
+			if force {
+				return fmt.Errorf("version %s already exists with immutable lifecycle %s; try --version %s", version, existing.Lifecycle, suggested)
+			}
 			return fmt.Errorf("version %s already exists with lifecycle %s; try --version %s", version, existing.Lifecycle, suggested)
 		}
 	}
@@ -108,7 +112,20 @@ func RunPush(args []string, jsonOutput bool) error {
 		if lookupErr != nil {
 			return fmt.Errorf("lookup existing version %s@%s: %w", ref.PackagePath(), version, lookupErr)
 		}
-		if versionResp.Lifecycle != "draft" {
+		switch versionResp.Lifecycle {
+		case "draft":
+			// Continue below; artifact uploads overwrite draft content.
+		case "review":
+			if !force {
+				return fmt.Errorf("version %s is already in review; use --force to reset it to draft or choose a new version", version)
+			}
+			if _, resetErr := client.ResetDraft(ref.Org, ref.Namespace, ref.Name, version); resetErr != nil {
+				return fmt.Errorf("reset review version %s@%s: %w", ref.PackagePath(), version, resetErr)
+			}
+		case "published", "deprecated", "yanked":
+			suggested, _ := nextVersion(versions, "patch", "")
+			return fmt.Errorf("version %s already exists with immutable lifecycle %s; try --version %s", version, versionResp.Lifecycle, suggested)
+		default:
 			return fmt.Errorf("version %s already exists with lifecycle %s", version, versionResp.Lifecycle)
 		}
 	}

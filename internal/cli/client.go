@@ -272,6 +272,13 @@ func (c *Client) PublishVersion(org, namespace, name, version string) (*VersionR
 	return &result, err
 }
 
+func (c *Client) ResetDraft(org, namespace, name, version string) (*VersionResponse, error) {
+	requestURL := c.ServerURL + "/api/v1/packages/" + org + "/" + namespace + "/" + name + "/versions/" + version + "/reset-draft"
+	var result VersionResponse
+	err := c.doJSON("POST", requestURL, map[string]string{}, http.StatusOK, &result)
+	return &result, err
+}
+
 func (c *Client) SubmitReview(org, namespace, name, version string) error {
 	requestURL := c.ServerURL + "/api/v1/reviews/" + org + "/" + namespace + "/" + name + "/versions/" + version + "/submit"
 	return c.doJSON("POST", requestURL, map[string]string{}, http.StatusOK, nil)

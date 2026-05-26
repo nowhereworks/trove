@@ -96,8 +96,8 @@ func TestAuthenticatorDevMode(t *testing.T) {
 	if !user.IsDev {
 		t.Fatal("dev mode user should have IsDev=true")
 	}
-	if user.ID != "dev-user" {
-		t.Fatalf("dev user ID = %q, want dev-user", user.ID)
+	if user.ID != DevUserID {
+		t.Fatalf("dev user ID = %q, want %s", user.ID, DevUserID)
 	}
 }
 

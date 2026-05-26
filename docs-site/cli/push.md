@@ -50,6 +50,16 @@ trove push --publish
 
 `--publish` fails if review approval blocks publication. Default mode catches only the structured `APPROVAL_REQUIRED` error and submits for review.
 
+### Overwrite An Unpublished Version
+
+```bash
+trove push --force --version 1.0.0
+```
+
+`--force` resets an existing `review` version back to `draft`, clears prior review state, and reuploads `trove.yaml` and `AGENTS.md`. Existing `draft` versions are already mutable and are reused by default.
+
+`--force` never overwrites `published`, `deprecated`, or `yanked` versions. Use a new SemVer version for immutable versions.
+
 ### JSON Output
 
 ```bash
@@ -82,6 +92,7 @@ When review is required, JSON output reports the submitted review state:
 | `--draft` | No | Upload draft only |
 | `--submit-only` | No | Upload and submit for review |
 | `--publish` | No | Require publish to succeed |
+| `--force` | No | Reset an unpublished review version to draft before upload |
 | `--json` | No | Emit machine-readable output |
 
 `trove push` never rewrites `AGENTS.md`. It may rewrite generated fields in `trove.yaml` so the uploaded manifest matches the selected remote and version.

@@ -21,7 +21,8 @@ All management endpoints require authentication via session or API token. Specif
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions` | `package:write` | Create draft version |
 | `PUT` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/{path...}` | `package:write` | Upload draft artifact |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive` | `package:write` | Upload archive (.tar.gz/.zip) |
-| `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/submit` | `review:write` | Submit for review |
+| `POST` | `/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit` | `review:write` | Submit for review |
+| `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/reset-draft` | `package:write` | Reset an unpublished review version to draft |
 | `POST` | `/api/v1/reviews/{reviewId}/approve` | `review:write` | Approve version |
 | `POST` | `/api/v1/reviews/{reviewId}/request-changes` | `review:write` | Request changes |
 | `POST` | `/api/v1/reviews/{reviewId}/comments` | `review:write` | Add review comment |
@@ -33,7 +34,7 @@ All management endpoints require authentication via session or API token. Specif
 ### Response Codes
 
 - **201 Created** — for create endpoints (org, namespace, package, draft version, project)
-- **200 OK** — for state transition endpoints (submit, approve, publish, deprecate, yank)
+- **200 OK** — for state transition endpoints (submit, reset, approve, publish, deprecate, yank)
 
 Create endpoints return the created resource JSON and a `Location` header.
 
@@ -167,6 +168,28 @@ Content-Type: application/gzip
 ```
 
 Response: `200 OK`
+
+### Reset Unpublished Version
+
+```bash
+POST /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/reset-draft
+Authorization: Bearer <token>
+```
+
+Response: `200 OK`
+
+```json
+{
+  "org": "nwks",
+  "namespace": "platform",
+  "package": "agent-backend",
+  "version": "1.0.0",
+  "lifecycle": "draft",
+  "visibility": "private"
+}
+```
+
+Reset is only valid for unpublished `draft` or `review` versions. It clears review state and approvals. Published, deprecated, and yanked versions remain immutable and must be replaced with a new SemVer version.
 
 ### Publish Version
 

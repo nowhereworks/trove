@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"trove/internal/config"
@@ -19,6 +20,8 @@ var (
 	ErrSelfApproval          = errors.New("self-approval is not allowed")
 	ErrInsufficientApprovals = errors.New("insufficient approvals")
 	ErrNotMaintainer         = errors.New("not a package maintainer")
+	ErrInvalidReviewer       = errors.New("reviewer must be a user")
+	ErrVersionNotSubmittable = errors.New("version is not submittable")
 )
 
 type Service struct {
@@ -72,15 +75,24 @@ func (s *Service) PackageVersionIDForReview(ctx context.Context, reviewID string
 
 func (s *Service) SubmitForReview(ctx context.Context, packageVersionID, userID string) error {
 	id, _ := uuid.NewV7()
-	pvID, _ := uuid.Parse(packageVersionID)
-	rID, _ := uuid.Parse(userID)
+	pvID, err := uuid.Parse(packageVersionID)
+	if err != nil {
+		return packages.ErrVersionNotFound
+	}
+	rID, err := uuid.Parse(userID)
+	if err != nil || userID == "" {
+		return ErrInvalidReviewer
+	}
 
-	_, err := s.queries.CreateReview(ctx, sqlc.CreateReviewParams{
+	_, err = s.queries.CreateReview(ctx, sqlc.CreateReviewParams{
 		ID:               pgtype.UUID{Bytes: id, Valid: true},
 		PackageVersionID: pgtype.UUID{Bytes: pvID, Valid: true},
 		ReviewerID:       pgtype.UUID{Bytes: rID, Valid: true},
 		Status:           "submitted",
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrVersionNotSubmittable
+	}
 	return err
 }
 

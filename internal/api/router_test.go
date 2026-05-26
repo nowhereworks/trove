@@ -187,6 +187,87 @@ func TestCreateDraftDoesNotAutoCreateOrg(t *testing.T) {
 	}
 }
 
+func TestAuthenticatedSubmitReviewTransitionsLifecycle(t *testing.T) {
+	store := testutil.NewPostgresPackageStore(t)
+	router := NewRouter(config.Defaults(), store, nil)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.5","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/reviews/companyx/platform/agent-backend/versions/1.0.5/submit", nil)
+	submitReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	submitRes := httptest.NewRecorder()
+	router.ServeHTTP(submitRes, submitReq)
+	if submitRes.Code != http.StatusOK {
+		t.Fatalf("submit status = %d, want %d; body=%s", submitRes.Code, http.StatusOK, submitRes.Body.String())
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.5", nil)
+	getReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	getRes := httptest.NewRecorder()
+	router.ServeHTTP(getRes, getReq)
+	if getRes.Code != http.StatusOK {
+		t.Fatalf("get status = %d, want %d; body=%s", getRes.Code, http.StatusOK, getRes.Body.String())
+	}
+	var version packages.VersionResource
+	if err := json.NewDecoder(getRes.Body).Decode(&version); err != nil {
+		t.Fatalf("decode version: %v", err)
+	}
+	if version.Lifecycle != "review" {
+		t.Fatalf("version lifecycle = %q, want review", version.Lifecycle)
+	}
+}
+
+func TestResetUnpublishedVersionReturnsDraftAndKeepsAnonymousHidden(t *testing.T) {
+	store := testutil.NewPostgresPackageStore(t)
+	router := NewRouter(config.Defaults(), store, nil)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.6","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/reviews/companyx/platform/agent-backend/versions/1.0.6/submit", nil)
+	submitReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	submitRes := httptest.NewRecorder()
+	router.ServeHTTP(submitRes, submitReq)
+	if submitRes.Code != http.StatusOK {
+		t.Fatalf("submit status = %d, want %d; body=%s", submitRes.Code, http.StatusOK, submitRes.Body.String())
+	}
+
+	resetReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.6/reset-draft", nil)
+	resetReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	resetRes := httptest.NewRecorder()
+	router.ServeHTTP(resetRes, resetReq)
+	if resetRes.Code != http.StatusOK {
+		t.Fatalf("reset status = %d, want %d; body=%s", resetRes.Code, http.StatusOK, resetRes.Body.String())
+	}
+	var reset packages.VersionResource
+	if err := json.NewDecoder(resetRes.Body).Decode(&reset); err != nil {
+		t.Fatalf("decode reset: %v", err)
+	}
+	if reset.Lifecycle != "draft" {
+		t.Fatalf("reset lifecycle = %q, want draft", reset.Lifecycle)
+	}
+
+	anonymousReq := httptest.NewRequest(http.MethodGet, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.6", nil)
+	anonymousRes := httptest.NewRecorder()
+	router.ServeHTTP(anonymousRes, anonymousReq)
+	if anonymousRes.Code != http.StatusNotFound {
+		t.Fatalf("anonymous status = %d, want %d; body=%s", anonymousRes.Code, http.StatusNotFound, anonymousRes.Body.String())
+	}
+}
+
 func TestArchiveUploadRejectsUnsafePath(t *testing.T) {
 	router := testRouter(t)
 	archive := makeUploadZip(t, map[string]string{"../escape.md": "nope"})

@@ -54,6 +54,56 @@ where o.slug = sqlc.arg(org)
   and v.version = sqlc.arg(version)
 for update;
 
+-- name: GetPackageVersionAny :one
+select v.version,
+       v.lifecycle,
+       v.visibility,
+       coalesce(v.digest, '') as digest,
+       coalesce(to_char(v.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as created_at,
+       coalesce(to_char(v.updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as updated_at,
+       coalesce(to_char(v.published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as published_at
+from package_versions v
+join packages p on p.id = v.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+where o.slug = sqlc.arg(org)
+  and n.slug = sqlc.arg(namespace)
+  and p.name = sqlc.arg(package_name)
+  and v.version = sqlc.arg(version);
+
+-- name: ResetUnpublishedVersionToDraft :one
+with version_row as (
+  select v.id
+  from package_versions v
+  join packages p on p.id = v.package_id
+  join namespaces n on n.id = p.namespace_id
+  join organizations o on o.id = n.org_id
+  where o.slug = sqlc.arg(org)
+    and n.slug = sqlc.arg(namespace)
+    and p.name = sqlc.arg(package_name)
+    and v.version = sqlc.arg(version)
+    and v.lifecycle in ('draft', 'review')
+), deleted_approvals as (
+  delete from approvals
+  where package_version_id in (select id from version_row)
+), deleted_comments as (
+  delete from review_comments
+  where review_id in (select id from reviews where package_version_id in (select id from version_row))
+), deleted_reviews as (
+  delete from reviews
+  where package_version_id in (select id from version_row)
+)
+update package_versions
+set lifecycle = 'draft',
+    digest = null,
+    published_at = null,
+    updated_at = now()
+where id in (select id from version_row)
+returning version, lifecycle, visibility, coalesce(digest, '') as digest,
+          coalesce(to_char(created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as created_at,
+          coalesce(to_char(updated_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as updated_at,
+          coalesce(to_char(published_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'), '')::text as published_at;
+
 -- name: UpsertArtifactBlob :exec
 insert into artifact_blobs (digest, content, size_bytes, created_at)
 values (sqlc.arg(digest), sqlc.arg(content), sqlc.arg(size_bytes), now())

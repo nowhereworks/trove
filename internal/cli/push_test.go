@@ -97,9 +97,66 @@ func TestPushPublishModeDoesNotSubmitWhenApprovalRequired(t *testing.T) {
 	}
 }
 
+func TestPushReusesExistingHiddenDraft(t *testing.T) {
+	server, calls := newPushServer(t, pushServerOptions{versions: []PackageVersion{}, createConflictLifecycle: "draft"})
+	setupPushWorktree(t, server.URL)
+	t.Setenv("TROVE_SERVER_URL", server.URL)
+	t.Setenv("TROVE_TOKEN", "test-token")
+
+	if err := RunPush(nil, false); err != nil {
+		t.Fatalf("RunPush() error = %v", err)
+	}
+
+	want := []string{"GET package", "POST draft 1.0.0", "GET version 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
+	if strings.Join(*calls, ",") != strings.Join(want, ",") {
+		t.Fatalf("calls = %#v, want %#v", *calls, want)
+	}
+}
+
+func TestPushExistingReviewRequiresForce(t *testing.T) {
+	server, _ := newPushServer(t, pushServerOptions{versions: []PackageVersion{}, createConflictLifecycle: "review"})
+	setupPushWorktree(t, server.URL)
+	t.Setenv("TROVE_SERVER_URL", server.URL)
+	t.Setenv("TROVE_TOKEN", "test-token")
+
+	err := RunPush(nil, false)
+	if err == nil || !strings.Contains(err.Error(), "use --force") {
+		t.Fatalf("RunPush() error = %v, want --force guidance", err)
+	}
+}
+
+func TestPushForceResetsExistingReview(t *testing.T) {
+	server, calls := newPushServer(t, pushServerOptions{versions: []PackageVersion{}, createConflictLifecycle: "review"})
+	setupPushWorktree(t, server.URL)
+	t.Setenv("TROVE_SERVER_URL", server.URL)
+	t.Setenv("TROVE_TOKEN", "test-token")
+
+	if err := RunPush([]string{"--force"}, false); err != nil {
+		t.Fatalf("RunPush(--force) error = %v", err)
+	}
+
+	want := []string{"GET package", "POST draft 1.0.0", "GET version 1.0.0", "POST reset", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
+	if strings.Join(*calls, ",") != strings.Join(want, ",") {
+		t.Fatalf("calls = %#v, want %#v", *calls, want)
+	}
+}
+
+func TestPushForceDoesNotOverwritePublishedVersion(t *testing.T) {
+	server, _ := newPushServer(t, pushServerOptions{versions: []PackageVersion{{Version: "1.0.0", Lifecycle: "published"}}})
+	setupPushWorktree(t, server.URL)
+	t.Setenv("TROVE_SERVER_URL", server.URL)
+	t.Setenv("TROVE_TOKEN", "test-token")
+
+	err := RunPush([]string{"--force", "--version", "1.0.0"}, false)
+	if err == nil || !strings.Contains(err.Error(), "immutable lifecycle published") {
+		t.Fatalf("RunPush(--force --version 1.0.0) error = %v, want immutable lifecycle", err)
+	}
+}
+
 type pushServerOptions struct {
-	versions         []PackageVersion
-	approvalRequired bool
+	versions                []PackageVersion
+	approvalRequired        bool
+	createConflictLifecycle string
 }
 
 func setupPushWorktree(t *testing.T, serverURL string) {
@@ -144,8 +201,16 @@ func newPushServer(t *testing.T, opts pushServerOptions) (*httptest.Server, *[]s
 				t.Fatalf("decode draft request: %v", err)
 			}
 			calls = append(calls, "POST draft "+req.Version)
+			if opts.createConflictLifecycle != "" {
+				w.WriteHeader(http.StatusConflict)
+				_, _ = w.Write([]byte(`{"error":{"code":"VERSION_ALREADY_EXISTS","message":"Package version already exists.","requestId":"req_draft"}}`))
+				return
+			}
 			w.WriteHeader(http.StatusCreated)
 			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: req.Version, Lifecycle: "draft", Visibility: req.Visibility})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0":
+			calls = append(calls, "GET version 1.0.0")
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: opts.createConflictLifecycle, Visibility: "private"})
 		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/artifacts/trove.yaml":
 			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "version: 1.0.0")
 		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/artifacts/trove.yaml":
@@ -164,6 +229,9 @@ func newPushServer(t *testing.T, opts pushServerOptions) (*httptest.Server, *[]s
 		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/reviews/nwks/platform/agent-defaults/versions/1.0.0/submit":
 			calls = append(calls, "POST submit")
 			_ = json.NewEncoder(w).Encode(map[string]string{"status": "submitted"})
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/reset-draft":
+			calls = append(calls, "POST reset")
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: "draft", Visibility: "private"})
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}

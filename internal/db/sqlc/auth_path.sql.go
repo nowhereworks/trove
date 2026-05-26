@@ -142,10 +142,26 @@ func (q *Queries) CreateAPIToken(ctx context.Context, arg CreateAPITokenParams) 
 }
 
 const createReview = `-- name: CreateReview :one
-insert into reviews (id, package_version_id, reviewer_id, status, comment, created_at, updated_at)
-values ($1, $2, $3, $4,
-        $5, now(), now())
-returning id, package_version_id, reviewer_id, status, comment, created_at, updated_at
+with created_review as (
+  insert into reviews (id, package_version_id, reviewer_id, status, comment, created_at, updated_at)
+  select $1, $2, $3, $4,
+         $5, now(), now()
+  where exists (
+    select 1 from package_versions
+    where id = $2
+      and lifecycle in ('draft', 'review')
+  )
+  returning id, package_version_id, reviewer_id, status, comment, created_at, updated_at
+), updated_version as (
+  update package_versions
+  set lifecycle = 'review', updated_at = now()
+  where id = $2
+    and lifecycle = 'draft'
+    and exists (select 1 from created_review)
+  returning id
+)
+select id, package_version_id, reviewer_id, status, comment, created_at, updated_at
+from created_review
 `
 
 type CreateReviewParams struct {
@@ -156,7 +172,17 @@ type CreateReviewParams struct {
 	Comment          pgtype.Text `json:"comment"`
 }
 
-func (q *Queries) CreateReview(ctx context.Context, arg CreateReviewParams) (Review, error) {
+type CreateReviewRow struct {
+	ID               pgtype.UUID        `json:"id"`
+	PackageVersionID pgtype.UUID        `json:"package_version_id"`
+	ReviewerID       pgtype.UUID        `json:"reviewer_id"`
+	Status           string             `json:"status"`
+	Comment          pgtype.Text        `json:"comment"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) CreateReview(ctx context.Context, arg CreateReviewParams) (CreateReviewRow, error) {
 	row := q.db.QueryRow(ctx, createReview,
 		arg.ID,
 		arg.PackageVersionID,
@@ -164,7 +190,7 @@ func (q *Queries) CreateReview(ctx context.Context, arg CreateReviewParams) (Rev
 		arg.Status,
 		arg.Comment,
 	)
-	var i Review
+	var i CreateReviewRow
 	err := row.Scan(
 		&i.ID,
 		&i.PackageVersionID,

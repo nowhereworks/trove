@@ -87,6 +87,29 @@ func (s *PostgresStore) CreateDraftVersion(ctx context.Context, req CreateDraftV
 	}, nil
 }
 
+func (s *PostgresStore) GetPackageVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
+	row, err := s.queries.GetPackageVersionAny(ctx, sqlc.GetPackageVersionAnyParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package, Version: strings.TrimPrefix(req.Version, "v")})
+	if err != nil {
+		return VersionResource{}, mapVersionReadError(err)
+	}
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: row.Version, Lifecycle: row.Lifecycle, Visibility: row.Visibility, Digest: row.Digest, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, PublishedAt: row.PublishedAt}, nil
+}
+
+func (s *PostgresStore) ResetUnpublishedVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error) {
+	existing, err := s.GetPackageVersion(ctx, req)
+	if err != nil {
+		return VersionResource{}, err
+	}
+	if existing.Lifecycle != "draft" && existing.Lifecycle != "review" {
+		return VersionResource{}, ErrVersionImmutable
+	}
+	row, err := s.queries.ResetUnpublishedVersionToDraft(ctx, sqlc.ResetUnpublishedVersionToDraftParams{Org: req.Org, Namespace: req.Namespace, PackageName: req.Package, Version: strings.TrimPrefix(req.Version, "v")})
+	if err != nil {
+		return VersionResource{}, mapVersionReadError(err)
+	}
+	return VersionResource{Org: req.Org, Namespace: req.Namespace, Package: req.Package, Version: row.Version, Lifecycle: row.Lifecycle, Visibility: row.Visibility, Digest: row.Digest, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt, PublishedAt: row.PublishedAt}, nil
+}
+
 func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRequest) (ArtifactResource, error) {
 	if req.Path == "" || strings.HasPrefix(req.Path, "/") || strings.Contains(req.Path, "..") {
 		return ArtifactResource{}, ErrArtifactNotFound
@@ -960,6 +983,13 @@ func decodeStoredManifest(data []byte) (manifest.Manifest, bool) {
 func mapReadError(err error) error {
 	if errors.Is(err, pgx.ErrNoRows) {
 		return ErrPackageNotFound
+	}
+	return err
+}
+
+func mapVersionReadError(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrVersionNotFound
 	}
 	return err
 }

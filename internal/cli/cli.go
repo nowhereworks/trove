@@ -193,7 +193,7 @@ Subcommands:
 	status [--json]
 	  Show local AGENTS.md publishing status
 
-	push [--patch|--minor|--major|--version x.y.z] [--json]
+	push [--patch|--minor|--major|--version x.y.z] [--force] [--json]
 	  Upload and publish or submit an AGENTS.md package
 
 	clone <org/namespace/package[@selector]> [dir]
@@ -225,8 +225,9 @@ Flags:
   --json        Output in JSON format for agents/CI
   --output path Output path for install/download
   --optional    Include optional artifacts during install
-  --overwrite   Overwrite existing files during install
-  --apply       Apply updates and write lockfile
+	--overwrite   Overwrite existing files during install
+	--apply       Apply updates and write lockfile
+	--force       Reset unpublished review versions during push
 
 Environment:
   TROVE_SERVER_URL  Server URL (default: http://localhost:8080)

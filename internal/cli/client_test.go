@@ -61,6 +61,8 @@ func TestClientWriteMethods(t *testing.T) {
 			_ = json.NewEncoder(w).Encode(ApprovalStatusResponse{HasEnoughApprovals: true, CurrentCount: 1, RequiredCount: 1})
 		case "POST /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/publish":
 			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "published", Visibility: "private", Digest: "sha256:version"})
+		case "POST /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/reset-draft":
+			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.1", Lifecycle: "draft", Visibility: "private"})
 		default:
 			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
@@ -92,6 +94,9 @@ func TestClientWriteMethods(t *testing.T) {
 	if published, err := client.PublishVersion("nwks", "platform", "agent-defaults", "1.0.1"); err != nil || published.Lifecycle != "published" {
 		t.Fatalf("PublishVersion() = %+v, %v", published, err)
 	}
+	if reset, err := client.ResetDraft("nwks", "platform", "agent-defaults", "1.0.1"); err != nil || reset.Lifecycle != "draft" {
+		t.Fatalf("ResetDraft() = %+v, %v", reset, err)
+	}
 
 	wantCalls := []string{
 		"GET /api/v1/packages/nwks/platform/agent-defaults",
@@ -102,6 +107,7 @@ func TestClientWriteMethods(t *testing.T) {
 		"POST /api/v1/reviews/nwks/platform/agent-defaults/versions/1.0.1/submit",
 		"GET /api/v1/reviews/nwks/platform/agent-defaults/versions/1.0.1/approval-status",
 		"POST /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/publish",
+		"POST /api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/reset-draft",
 	}
 	if !reflect.DeepEqual(calls, wantCalls) {
 		t.Fatalf("calls = %#v, want %#v", calls, wantCalls)

@@ -82,6 +82,15 @@ POST /api/v1/reviews/{reviewId}/request-changes
 
 Requesting changes returns the version to `draft`. The maintainer must fix the issues and resubmit.
 
+Maintainers can also explicitly reset an unpublished review version back to `draft` before reuploading content:
+
+```bash
+POST /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/reset-draft
+Authorization: Bearer <token-with-package:write>
+```
+
+This clears existing review state and approvals. It cannot be used on `published`, `deprecated`, or `yanked` versions.
+
 ### Step 4: Publish
 
 After at least one approval, the maintainer publishes:

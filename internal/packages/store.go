@@ -48,6 +48,11 @@ type WriteStore interface {
 	ReportProjectAdoption(ctx context.Context, req ReportProjectAdoptionRequest) error
 }
 
+type ManagementStore interface {
+	GetPackageVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
+	ResetUnpublishedVersion(ctx context.Context, req LifecycleChangeRequest) (VersionResource, error)
+}
+
 type LifecycleChangeRequest struct {
 	Org       string
 	Namespace string

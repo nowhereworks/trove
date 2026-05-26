@@ -87,13 +87,14 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive", auth.RequireAuth(auth.RequireScope("package:write")(handleUploadArchive(writeStore, scanner, cfg))))
 	r.Put("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/*", auth.RequireAuth(auth.RequireScope("package:write")(handleUploadArtifact(writeStore, scanner, cfg))))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/publish", auth.RequireAuth(auth.RequireScope("version:publish")(handlePublishVersion(writeStore, reviewService, cfg))))
+	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/reset-draft", auth.RequireAuth(auth.RequireScope("package:write")(handleResetUnpublishedVersion(writeStore))))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/deprecate", auth.RequireAuth(auth.RequireScope("package:write")(handleDeprecateVersion(writeStore))))
 	r.Post("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/yank", auth.RequireAuth(auth.RequireScope("package:write")(handleYankVersion(writeStore))))
 	r.Post("/api/v1/orgs", auth.RequireAuth(auth.RequireScope("org:write")(handleCreateOrg(writeStore, cfg))))
 	r.Post("/api/v1/orgs/{org}/namespaces", auth.RequireAuth(auth.RequireScope("namespace:write")(handleCreateNamespace(writeStore))))
 	r.Post("/api/v1/packages", auth.RequireAuth(auth.RequireScope("package:write")(handleCreatePackage(writeStore))))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}", handleGetPackage(store))
-	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}", handleGetPackageVersion(store))
+	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}", handleGetPackageVersion(store, writeStore))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/manifest", handleGetManifest(store))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.tar.gz", handleGetArchive(store, packages.ArchiveTarGz))
 	r.Get("/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive.zip", handleGetArchive(store, packages.ArchiveZip))
@@ -836,13 +837,24 @@ func handleGetPackage(store packages.Store) http.HandlerFunc {
 	}
 }
 
-func handleGetPackageVersion(store packages.Store) http.HandlerFunc {
+func handleGetPackageVersion(store packages.Store, writeStore packages.WriteStore) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user, _ := auth.UserFromContext(r.Context())
 		org := chi.URLParam(r, "org")
 		namespace := chi.URLParam(r, "namespace")
 		pkg := chi.URLParam(r, "package")
 		version := chi.URLParam(r, "version")
+		if canReadUnpublishedVersion(user) {
+			if managementStore, ok := writeStore.(packages.ManagementStore); ok {
+				result, err := managementStore.GetPackageVersion(r.Context(), packages.LifecycleChangeRequest{Org: org, Namespace: namespace, Package: pkg, Version: version})
+				if err != nil {
+					writeStoreError(w, r, err)
+					return
+				}
+				writeJSON(w, http.StatusOK, result)
+				return
+			}
+		}
 		if !user.IsAuthenticated && !user.IsDev {
 			visibility, verr := store.CheckVisibility(r.Context(), org, namespace, pkg, version)
 			if verr != nil || !auth.CheckVisibility(visibility, user, true) {
@@ -863,6 +875,41 @@ func handleGetPackageVersion(store packages.Store) http.HandlerFunc {
 			}
 		}
 		writeStoreError(w, r, packages.ErrVersionNotFound)
+	}
+}
+
+func canReadUnpublishedVersion(user auth.User) bool {
+	if user.IsDev {
+		return true
+	}
+	for _, scope := range user.TokenScopes {
+		switch scope {
+		case "*:*", "package:write", "version:publish", "review:write":
+			return true
+		}
+	}
+	return false
+}
+
+func handleResetUnpublishedVersion(writeStore packages.WriteStore) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		managementStore, ok := writeStore.(packages.ManagementStore)
+		if !ok {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Version reset is not configured.")
+			return
+		}
+
+		result, err := managementStore.ResetUnpublishedVersion(r.Context(), packages.LifecycleChangeRequest{
+			Org:       chi.URLParam(r, "org"),
+			Namespace: chi.URLParam(r, "namespace"),
+			Package:   chi.URLParam(r, "package"),
+			Version:   chi.URLParam(r, "version"),
+		})
+		if err != nil {
+			writeStoreError(w, r, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, result)
 	}
 }
 
@@ -893,7 +940,14 @@ func handleSubmitReview(reviewService *reviews.Service) http.HandlerFunc {
 
 		err = reviewService.SubmitForReview(r.Context(), packageVersionID, user.ID)
 		if err != nil {
-			writeError(w, r, http.StatusInternalServerError, "REVIEW_SUBMIT_FAILED", "Failed to submit for review.")
+			switch {
+			case errors.Is(err, reviews.ErrInvalidReviewer):
+				writeError(w, r, http.StatusForbidden, "REVIEWER_USER_REQUIRED", "Review submission requires a user-backed token.")
+			case errors.Is(err, reviews.ErrVersionNotSubmittable):
+				writeError(w, r, http.StatusConflict, "VERSION_NOT_SUBMITTABLE", "Only draft or review versions can be submitted for review.")
+			default:
+				writeError(w, r, http.StatusInternalServerError, "REVIEW_SUBMIT_FAILED", "Failed to submit for review.")
+			}
 			return
 		}
 

@@ -39,7 +39,7 @@ All errors use a consistent JSON format:
 | `VERSION_NOT_FOUND` | 404 | Version doesn't exist |
 | `ARTIFACT_NOT_FOUND` | 404 | Artifact path doesn't exist in version |
 | `INVALID_MANIFEST` | 400 | Manifest validation failed |
-| `VERSION_ALREADY_EXISTS` | 409 | Version already published |
+| `VERSION_ALREADY_EXISTS` | 409 | Version already exists |
 | `VERSION_IMMUTABLE` | 409 | Published version cannot be modified |
 | `REVIEW_REQUIRED` | 403 | Version needs review before publishing |
 | `APPROVAL_REQUIRED` | 403 | Version needs approval before publishing |

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -11,6 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"trove/internal/config"
@@ -18,6 +20,8 @@ import (
 )
 
 type contextKey struct{}
+
+const DevUserID = "0198f006-0000-7000-8000-00000000de00"
 
 type User struct {
 	ID                string
@@ -150,14 +154,7 @@ func (a *Authenticator) authenticateRequest(r *http.Request) User {
 
 	if a.cfg.Auth.Mode == "dev" && a.devToken != "" {
 		if token == a.devToken {
-			return User{
-				ID:              "dev-user",
-				Email:           "dev@local.trove",
-				DisplayName:     "Dev User",
-				IsAuthenticated: true,
-				IsDev:           true,
-				TokenScopes:     []string{"*:*"},
-			}
+			return a.devUser(r.Context())
 		}
 		return User{IsAuthenticated: false}
 	}
@@ -167,6 +164,30 @@ func (a *Authenticator) authenticateRequest(r *http.Request) User {
 	}
 
 	return User{IsAuthenticated: false}
+}
+
+func (a *Authenticator) devUser(ctx context.Context) User {
+	if a.queries != nil {
+		id := mustParsePgUUID(DevUserID)
+		if _, err := a.queries.GetUserByID(ctx, id); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				_, _ = a.queries.CreateUser(ctx, sqlc.CreateUserParams{
+					ID:          id,
+					Email:       "dev@local.trove",
+					DisplayName: "Dev User",
+				})
+			}
+		}
+	}
+
+	return User{
+		ID:              DevUserID,
+		Email:           "dev@local.trove",
+		DisplayName:     "Dev User",
+		IsAuthenticated: true,
+		IsDev:           true,
+		TokenScopes:     []string{"*:*"},
+	}
 }
 
 func (a *Authenticator) authenticateToken(ctx context.Context, token string) User {
@@ -204,10 +225,10 @@ func (a *Authenticator) authenticateToken(ctx context.Context, token string) Use
 	}
 
 	return User{
-		ID:              userID,
-		IsAuthenticated: true,
-		TokenScopes:     apiToken.Scopes,
-		TokenResourceID: resourceID,
+		ID:                userID,
+		IsAuthenticated:   true,
+		TokenScopes:       apiToken.Scopes,
+		TokenResourceID:   resourceID,
 		TokenResourceType: resourceType,
 	}
 }
@@ -416,4 +437,9 @@ type CreateTokenRequest struct {
 func mustParseUUID(s string) [16]byte {
 	uid, _ := uuid.Parse(s)
 	return uid
+}
+
+func mustParsePgUUID(s string) pgtype.UUID {
+	uid, _ := uuid.Parse(s)
+	return pgtype.UUID{Bytes: uid, Valid: true}
 }
