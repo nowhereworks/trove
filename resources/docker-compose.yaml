@@ -26,6 +26,7 @@ services:
       TROVE_DATABASE_MIGRATE_ON_STARTUP: "true"
       TROVE_AUTH_MODE: dev
       TROVE_AUTH_DEV_MODE_ENABLED: "true"
+      TROVE_ORG: nwks
     ports:
       - "8080:8080"
     networks:
