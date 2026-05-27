@@ -82,7 +82,7 @@ trove download nwks/platform/agent-backend AGENTS.md --metadata-only --json
 | `trove download <org/namespace/package[@selector]> <artifact-path>` | Download a package artifact |
 | `trove download core/skills/<name>/SKILL.md` | Download a bundled core skill |
 
-`trove download` does not write `.trove.lock.yaml`, `trove.yaml`, or `.trove/config.yaml`.
+`trove download` does not write `.trove.lock.yaml` or `Trovefile`.
 
 ## Next
 

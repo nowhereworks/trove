@@ -35,7 +35,7 @@ This feature covers publishing exactly one repo-root instruction file as a Trove
 AGENTS.md
 ```
 
-`trove.yaml` is required package manifest transport. It is uploaded before `AGENTS.md` through the artifact upload endpoint so the server can validate and type later uploads, but it is not a manifest-listed installable artifact in the `agents-md` workflow.
+`Trovefile` is required package manifest transport. It is uploaded before `AGENTS.md` through the artifact upload endpoint so the server can validate and type later uploads, but it is not a manifest-listed installable artifact in the `agents-md` workflow.
 
 The generated package manifest must declare that file as:
 
@@ -47,7 +47,7 @@ artifacts:
     targetPath: AGENTS.md
 ```
 
-The generated package manifest must not list `trove.yaml` under `spec.artifacts` for this workflow.
+The generated package manifest must not list `Trovefile` under `spec.artifacts` for this workflow.
 
 The `agents-md` specialization may later coexist with package types that include skills, subagents, commands, prompts, templates, and context packs. This spec does not implement those package authoring flows.
 
@@ -58,7 +58,7 @@ The `agents-md` specialization may later coexist with package types that include
 - Do not add `trove login`; continue using `TROVE_SERVER_URL` and `TROVE_TOKEN` for initial CLI auth.
 - Do not implement future `trove agent` or `trove agents` command families.
 - Do not support prerelease versions or arbitrary version strings.
-- Do not preserve comments or hand formatting in generated `trove.yaml` or `.trove/config.yaml` when the CLI rewrites them.
+- Do not preserve comments or hand formatting in generated `Trovefile` or `Trovefile local section` when the CLI rewrites them.
 - Do not support `trove fetch`. `trove download` is the only single-artifact retrieval command.
 
 ## Retrieval Contract
@@ -70,7 +70,7 @@ A published `AGENTS.md` can be retrieved in four ways:
 | Raw HTTP read | `/raw/{org}/{namespace}/{package}/AGENTS.md[@selector]` | No |
 | One-file download | `trove download <package-ref> AGENTS.md` | No |
 | Consumer install | `trove install <package-ref> --target .` | Yes, `.trove.lock.yaml` |
-| Maintainer checkout | `trove clone <package-ref>` | Yes, `trove.yaml`, `.trove/config.yaml`, and `.trove/state.yaml` |
+| Maintainer checkout | `trove clone <package-ref>` | Yes, `Trovefile`, `Trovefile local section`, and `.trove/state.yaml` |
 
 ### Raw URL
 
@@ -132,7 +132,7 @@ Behavior:
 - Omitted selector resolves to `latest`.
 - Exactly one artifact path is fetched.
 - The artifact path is the manifest `path`, not `targetPath`.
-- No `.trove.lock.yaml`, `trove.yaml`, or `.trove/config.yaml` is written.
+- No `.trove.lock.yaml`, `Trovefile`, or `Trovefile local section` is written.
 - No archive is downloaded or extracted.
 - No progress or status text is printed to stdout when streaming bytes.
 - Existing files are not overwritten unless `--overwrite` is provided.
@@ -155,7 +155,7 @@ Behavior:
 - Use `targetPath`, defaulting to `path` when omitted.
 - Refuse to overwrite different existing files unless overwrite is explicit.
 - Write or update `.trove.lock.yaml` with exact version and digest pins.
-- Do not write `trove.yaml` or `.trove/config.yaml`.
+- Do not write `Trovefile` or `Trovefile local section`.
 
 ### Clone For Maintainer Edits
 
@@ -171,8 +171,8 @@ trove push --patch
 Behavior:
 
 - Resolve the selected published version.
-- Retrieve the version manifest as `trove.yaml` and download all manifest-listed artifacts needed for the editable checkout.
-- Write local `.trove/config.yaml` with the remote and default publishing settings.
+- Retrieve the version manifest as `Trovefile` and download all manifest-listed artifacts needed for the editable checkout.
+- Write local `Trovefile local section` with the remote and default publishing settings.
 - Prepare future `trove status`, `trove pull`, and `trove push` commands.
 - Treat edits as changes for a new draft version.
 - Never mutate the cloned published version.
@@ -215,8 +215,8 @@ Filesystem behavior:
 
 - If `AGENTS.md` exists, reuse it unchanged.
 - If `AGENTS.md` is missing, create a starter file.
-- If `trove.yaml` is missing, create it.
-- If `.trove/config.yaml` is missing, create it.
+- If `Trovefile` is missing, create it.
+- If `Trovefile local section` is missing, create it.
 - If run again, be idempotent and non-destructive.
 - If `--force` is used, generated metadata files may be rewritten.
 - `--force` must never overwrite `AGENTS.md`.
@@ -224,9 +224,9 @@ Filesystem behavior:
 Remote behavior:
 
 - If `--remote` is a full URL, parse and store both server URL and package coordinate.
-- If `--remote` is a package ref, resolve the server from `TROVE_SERVER_URL` or existing `.trove/config.yaml`.
-- If `--package` is provided and a server is known from `TROVE_SERVER_URL` or existing `.trove/config.yaml`, create or update the default remote.
-- If `--package` is provided and no server is known, write the package coordinate to `trove.yaml` only; do not create a remote with a missing `serverUrl`.
+- If `--remote` is a package ref, resolve the server from `TROVE_SERVER_URL` or existing `Trovefile local section`.
+- If `--package` is provided and a server is known from `TROVE_SERVER_URL` or existing `Trovefile local section`, create or update the default remote.
+- If `--package` is provided and no server is known, write the package coordinate to `Trovefile` only; do not create a remote with a missing `serverUrl`.
 - `init` does not require a network call.
 
 Default generated values:
@@ -243,8 +243,8 @@ Human output example:
 ```text
 Initialized AGENTS.md package worktree
 Artifact: AGENTS.md
-Manifest: trove.yaml
-Config: .trove/config.yaml
+Manifest: Trovefile
+Config: Trovefile local section
 Remote: origin -> https://trove.company.com/nwks/platform/agent-defaults
 ```
 
@@ -254,8 +254,8 @@ JSON output shape:
 {
   "artifactKind": "agents-md",
   "artifactPath": "AGENTS.md",
-  "manifestPath": "trove.yaml",
-  "configPath": ".trove/config.yaml",
+  "manifestPath": "Trovefile",
+  "configPath": "Trovefile local section",
   "remote": "origin",
   "serverUrl": "https://trove.company.com",
   "package": "nwks/platform/agent-defaults"
@@ -286,12 +286,12 @@ https://trove.company.com/{org}/{namespace}/{package}
 If only a package ref is provided, resolve the server from:
 
 1. `TROVE_SERVER_URL`
-2. Existing `.trove/config.yaml`
+2. Existing `Trovefile local section`
 3. Otherwise return a clear error asking for a full URL
 
 Behavior:
 
-- Read and write `.trove/config.yaml`.
+- Read and write `Trovefile local section`.
 - Create `.trove/` if needed.
 - `remote add` does not require a network call.
 - `remote add` fails if the remote name already exists unless `--force` is provided.
@@ -311,8 +311,8 @@ If `--force` replaces the current `defaultRemote`, the default still points at t
 
 `trove init agents-md --package nwks/platform/agent-defaults` can create a valid local manifest before the user knows the server URL. In that state:
 
-- `trove.yaml` contains `metadata.org`, `metadata.namespace`, and `metadata.name` from `--package`.
-- `.trove/config.yaml` may omit `defaultRemote` and `remotes`.
+- `Trovefile` contains `metadata.org`, `metadata.namespace`, and `metadata.name` from `--package`.
+- `Trovefile local section` may omit `defaultRemote` and `remotes`.
 - `trove status` returns non-zero with a clear missing-remote problem.
 - `trove push` returns non-zero and asks the user to run `trove remote add origin <url-or-package-ref>` or rerun init with `--remote`.
 
@@ -326,7 +326,7 @@ publish:
   visibility: private
 ```
 
-Validation rules for `.trove/config.yaml` are in [Local Files](#local-files).
+Validation rules for `Trovefile local section` are in [Local Files](#local-files).
 
 ### `trove status`
 
@@ -344,8 +344,8 @@ Local state: ready to push
 
 Behavior:
 
-- Load `.trove/config.yaml`.
-- Load and validate `trove.yaml`.
+- Load `Trovefile local section`.
+- Load and validate `Trovefile`.
 - Verify `AGENTS.md` exists.
 - Query remote package metadata when auth and remote configuration are available.
 - Compute default next patch version.
@@ -378,13 +378,13 @@ Runs the full publishing workflow for the local editable `AGENTS.md` worktree.
 
 Default behavior:
 
-- Load `.trove/config.yaml` and `trove.yaml`.
+- Load `Trovefile local section` and `Trovefile`.
 - Resolve the selected configured remote.
 - Create the package if it does not exist and the caller is authorized.
 - Pick the next patch version automatically.
 - Generate or update allowed manifest fields for that version.
 - Create or reuse a draft version.
-- Upload `trove.yaml` first.
+- Upload `Trovefile` first.
 - Upload `AGENTS.md` second.
 - Try to publish.
 - If publishing returns `APPROVAL_REQUIRED`, submit for review and print the review URL instead of failing.
@@ -426,9 +426,9 @@ Required scopes:
 
 Manifest rewrite rules:
 
-- The CLI may rewrite generated fields in `trove.yaml`.
+- The CLI may rewrite generated fields in `Trovefile`.
 - The CLI must not rewrite `AGENTS.md`.
-- The CLI must upload `trove.yaml` before `AGENTS.md` so artifact metadata can be typed from the manifest.
+- The CLI must upload `Trovefile` before `AGENTS.md` so artifact metadata can be typed from the manifest.
 
 Allowed generated manifest fields:
 
@@ -516,9 +516,9 @@ Behavior:
 - Resolve omitted selector as `latest`.
 - Default directory is the package name.
 - Fail if target directory exists and is not empty.
-- Retrieve the package version manifest and write it as local `trove.yaml`.
+- Retrieve the package version manifest and write it as local `Trovefile`.
 - Download manifest-listed artifact files such as `AGENTS.md`.
-- Generate local `.trove/config.yaml` pointing at the package remote.
+- Generate local `Trovefile local section` pointing at the package remote.
 - Write `.trove/state.yaml` with the source selector, resolved version, package digest, manifest digest when known, and per-file digests for clean-change detection.
 - Set `artifactKind: agents-md` when the manifest has exactly the required repo-root `AGENTS.md` artifact.
 - Do not write `.trove.lock.yaml`.
@@ -529,7 +529,7 @@ Refreshes an editable package worktree from the configured remote.
 
 Behavior:
 
-- Load `.trove/config.yaml` and selected remote.
+- Load `Trovefile local section` and selected remote.
 - Load `.trove/state.yaml` when present.
 - Resolve configured selector or `latest` by default.
 - Download remote manifest and artifacts.
@@ -541,34 +541,58 @@ If `.trove/state.yaml` is missing or incomplete, `trove pull` must refuse to ove
 
 ## Local Files
 
-Editable publishing worktrees use `trove.yaml`, `.trove/config.yaml`, and optional `.trove/state.yaml`. Consumer installs use `.trove.lock.yaml`. Do not use `.trove.lock.yaml` as publishing source of truth.
+Editable publishing worktrees use `Trovefile` and optional `.trove/state.yaml`. Consumer installs use `.trove.lock.yaml`. Do not use `.trove.lock.yaml` as publishing source of truth.
 
-### `.trove/config.yaml`
+### `Trovefile`
 
-This is local CLI state, not the registry package manifest.
+The `Trovefile` is both the package manifest (uploaded to Trove) and local CLI configuration. The `local:` section is stripped before upload and never stored on the server.
 
 ```yaml
 apiVersion: trove.io/v1
-kind: TroveProject
-defaultRemote: origin
-artifactKind: agents-md
-remotes:
-  origin:
-    serverUrl: https://trove.company.com
-    package: nwks/platform/agent-defaults
-publish:
-  visibility: private
+kind: TrovePackage
+metadata:
+  org: nwks
+  namespace: platform
+  name: agent-defaults
+  displayName: Agent Defaults
+  description: Shared AGENTS.md instructions.
+spec:
+  artifacts:
+    - path: AGENTS.md
+      type: agent-instructions
+      required: true
+      targetPath: AGENTS.md
+  maintainers:
+    - team: platform-engineering
+
+# Local-only section — stripped before upload
+local:
+  defaultRemote: origin
+  remotes:
+    origin:
+      serverUrl: https://trove.company.com
+      package: nwks/platform/agent-defaults
+  publish:
+    visibility: private
 ```
 
 Validation rules:
 
 - `apiVersion` must be `trove.io/v1`.
-- `kind` must be `TroveProject`.
-- `artifactKind` must be `agents-md` for this workflow.
-- `defaultRemote` must exist in `remotes` when set.
-- `defaultRemote` and `remotes` may be omitted only for package-only initialization that cannot yet publish.
+- `kind` must be `TrovePackage`.
+- Manifest fields must pass the validation rules in [`02-manifest-and-lockfile.md`](02-manifest-and-lockfile.md).
+- `local.defaultRemote` must exist in `local.remotes` when set.
+- `local.defaultRemote` and `local.remotes` may be omitted only for package-only initialization that cannot yet publish.
 - Remote package refs must be full `org/namespace/package` refs without selectors.
 - Remote server URLs must be absolute `http` or `https` URLs.
+
+For the `agents-md` workflow, `trove status` and `trove push` must additionally verify:
+
+- `AGENTS.md` is present in the repo root.
+- The manifest contains an artifact with `path: AGENTS.md`.
+- That artifact has `type: agent-instructions`.
+- That artifact has `required: true`.
+- If `targetPath` is set, it is `AGENTS.md`.
 
 ### `.trove/state.yaml`
 
@@ -583,7 +607,7 @@ source:
   resolvedVersion: 1.0.0
   packageDigest: sha256:abc123
 files:
-  trove.yaml:
+  Trovefile:
     digest: sha256:def456
   AGENTS.md:
     digest: sha256:789abc
@@ -595,40 +619,6 @@ Rules:
 - `trove pull` uses file digests from `.trove/state.yaml` to detect local changes before overwriting files.
 - `trove push` may update `.trove/state.yaml` after a successful publish or draft upload, but server state remains authoritative.
 - Missing or incomplete state is treated as unsafe for automatic overwrite.
-
-### `trove.yaml`
-
-This remains the package manifest uploaded to Trove.
-
-```yaml
-apiVersion: trove.io/v1
-kind: AgentArtifactPackage
-metadata:
-  org: nwks
-  namespace: platform
-  name: agent-defaults
-  displayName: Agent Defaults
-  description: Shared AGENTS.md instructions.
-spec:
-  visibility: private
-  artifacts:
-    - path: AGENTS.md
-      type: agent-instructions
-      required: true
-      targetPath: AGENTS.md
-  maintainers:
-    - team: platform-engineering
-```
-
-The manifest must pass the validation rules in [`02-manifest-and-lockfile.md`](02-manifest-and-lockfile.md).
-
-For the `agents-md` workflow, `trove status` and `trove push` must additionally verify:
-
-- `AGENTS.md` is present in the repo root.
-- The manifest contains an artifact with `path: AGENTS.md`.
-- That artifact has `type: agent-instructions`.
-- That artifact has `required: true`.
-- If `targetPath` is set, it is `AGENTS.md`.
 
 ## Version Selection
 
@@ -661,7 +651,7 @@ The CLI needs client methods for these APIs:
 | `POST` | `/api/v1/packages` | Create package | `package:write` |
 | `GET` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}` | Get one version, including draft lifecycle when authorized | visibility-dependent for published versions; maintainer for drafts |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions` | Create draft version | `package:write` |
-| `PUT` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/trove.yaml` | Upload manifest | `package:write` |
+| `PUT` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/Trovefile` | Upload manifest | `package:write` |
 | `PUT` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/AGENTS.md` | Upload `AGENTS.md` | `package:write` |
 | `POST` | `/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit` | Submit for review | `review:write` |
 | `GET` | `/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/approval-status` | Check approval status | authenticated reviewer or maintainer |
@@ -826,7 +816,7 @@ Tests:
 
 Implement:
 
-- Read and write `.trove/config.yaml`.
+- Read and write `Trovefile local section`.
 - Full remote URL parser.
 - Package ref parser with optional selector.
 - Package ref parser without selector for remotes.
@@ -836,7 +826,7 @@ Implement:
 
 Tests:
 
-- Round-trip `.trove/config.yaml`.
+- Round-trip `Trovefile local section`.
 - Full URL remote parsing.
 - Short package ref remote parsing with `TROVE_SERVER_URL`.
 - Invalid remote errors.
@@ -867,7 +857,7 @@ Tests:
 - JSON mode emits metadata and no bytes.
 - `--json --output` writes bytes to file and metadata to stdout.
 - `--json` without `--output` or `--metadata-only` fails.
-- No `.trove.lock.yaml`, `trove.yaml`, or `.trove/config.yaml` is written.
+- No `.trove.lock.yaml`, `Trovefile`, or `Trovefile local section` is written.
 - `trove fetch` fails as unknown subcommand.
 
 ### Slice 5: Clone And Pull
@@ -876,7 +866,7 @@ Implement:
 
 - `trove clone <package-ref> [dir]`.
 - `trove pull` from a cloned worktree.
-- Retrieve the remote manifest as local `trove.yaml`, download `AGENTS.md`, and generate `.trove/config.yaml` plus `.trove/state.yaml`.
+- Retrieve the remote manifest as local `Trovefile`, download `AGENTS.md`, and generate `Trovefile local section` plus `.trove/state.yaml`.
 - Detect local changes before overwriting files.
 - Prepare checkout for `trove status` and `trove push`.
 
@@ -894,8 +884,8 @@ Tests:
 Implement:
 
 - Create or adopt `AGENTS.md`.
-- Create or update `trove.yaml`.
-- Create `.trove/config.yaml`.
+- Create or update `Trovefile`.
+- Create `Trovefile local section`.
 - Support `trove init agents-md`.
 - Support `trove init --agents-md`.
 - Add CLI routing and tests.
@@ -1020,8 +1010,8 @@ Result:
 
 - `AGENTS.md` is written.
 - No `.trove.lock.yaml` is written.
-- No `trove.yaml` is written.
-- No `.trove/config.yaml` is written.
+- No `Trovefile` is written.
+- No `Trovefile local section` is written.
 
 The equivalent private raw URL works with curl and a bearer token:
 
@@ -1074,4 +1064,4 @@ Expected result:
 unknown subcommand: fetch
 ```
 
-No user should need to know about draft APIs, artifact upload endpoints, review internals, or manual `trove.yaml` construction for the standard `AGENTS.md` case.
+No user should need to know about draft APIs, artifact upload endpoints, review internals, or manual `Trovefile` construction for the standard `AGENTS.md` case.

@@ -50,7 +50,7 @@ export default function UploadPage() {
 
   const uploadManifest = useMutation({
     mutationFn: () =>
-      fetch(`/api/v1/packages/${org}/${namespace}/${name}/versions/${version}/artifacts/trove.yaml`, {
+      fetch(`/api/v1/packages/${org}/${namespace}/${name}/versions/${version}/artifacts/Trovefile`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/yaml' },
         body: manifestContent,
@@ -218,7 +218,7 @@ export default function UploadPage() {
             <div className="border-2 border-dashed rounded-lg p-8 text-center">
               <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
               <p className="text-sm text-muted-foreground mb-2">
-                Upload a package archive containing trove.yaml and artifacts
+                Upload a package archive containing Trovefile and artifacts
               </p>
               <input
                 type="file"
@@ -246,7 +246,7 @@ export default function UploadPage() {
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-1 block">trove.yaml Content</label>
+            <label className="text-sm font-medium mb-1 block">Trovefile Content</label>
             <textarea
               value={manifestContent}
               onChange={(e) => setManifestContent(e.target.value)}

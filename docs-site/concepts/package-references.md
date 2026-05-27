@@ -52,7 +52,7 @@ Slugs are the immutable identity. Display names are human-readable labels that c
 
 The following must always use the full `org/namespace/package` form:
 
-- Package manifests (`trove.yaml`)
+- Package manifests (`Trovefile`)
 - Lockfiles (`.trove.lock.yaml`)
 - CLI commands (`trove resolve`, `trove install`, etc.)
 - API paths (`/api/v1/packages/{org}/{namespace}/{package}`)

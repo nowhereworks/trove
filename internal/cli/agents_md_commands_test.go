@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"trove/internal/manifest"
 )
 
 func TestInitRequiresForceWhenManifestExists(t *testing.T) {
@@ -18,7 +20,7 @@ func TestInitRequiresForceWhenManifestExists(t *testing.T) {
 	}
 	err := RunInit([]string{"agents-md", "--package", "nwks/platform/test"}, false)
 	if err == nil {
-		t.Fatalf("expected error when trove.yaml exists without --force")
+		t.Fatalf("expected error when Trovefile exists without --force")
 	}
 	if !strings.Contains(err.Error(), "already exists") {
 		t.Fatalf("error = %q, want 'already exists'", err)
@@ -40,7 +42,7 @@ func TestInitPackageOnlyCreatesManifestWithoutRemote(t *testing.T) {
 	if !strings.Contains(string(agents), "Shared agent instructions") {
 		t.Fatalf("starter AGENTS.md = %q", agents)
 	}
-	m, err := loadManifestYAML(manifestPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
 		t.Fatalf("load manifest: %v", err)
 	}
@@ -50,33 +52,29 @@ func TestInitPackageOnlyCreatesManifestWithoutRemote(t *testing.T) {
 	if len(m.Spec.Artifacts) != 1 || m.Spec.Artifacts[0].Path != agentsMDPath {
 		t.Fatalf("manifest artifacts = %+v", m.Spec.Artifacts)
 	}
-	cfg, err := loadProjectConfig(projectConfigPath)
-	if err != nil {
-		t.Fatalf("load config: %v", err)
-	}
-	if cfg.DefaultRemote != "" || len(cfg.Remotes) != 0 {
-		t.Fatalf("config remote = %q/%+v, want none", cfg.DefaultRemote, cfg.Remotes)
+	if m.Local != nil && (m.Local.DefaultRemote != "" || len(m.Local.Remotes) != 0) {
+		t.Fatalf("local config = %+v, want none", m.Local)
 	}
 }
 
 func TestInitPackageOnlyUsesExistingConfigServer(t *testing.T) {
 	chdirTemp(t)
 	t.Setenv("TROVE_SERVER_URL", "")
-	if err := writeProjectConfig(projectConfigPath, configWithRemote(RemoteSpec{ServerURL: "https://trove.company.com", Package: "nwks/platform/old-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "old-defaults"}})); err != nil {
-		t.Fatalf("write existing config: %v", err)
+	existing := trovefileWithRemote(RemoteSpec{ServerURL: "https://trove.company.com", Package: "nwks/platform/old-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "old-defaults"}})
+	if err := writeTrovefile(manifestPath, existing); err != nil {
+		t.Fatalf("write existing trovefile: %v", err)
 	}
 
 	if err := RunInit([]string{"agents-md", "--package", "nwks/platform/agent-defaults", "--force", "--yes"}, false); err != nil {
 		t.Fatalf("RunInit() error = %v", err)
 	}
 
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		t.Fatalf("load config: %v", err)
+		t.Fatalf("load trovefile: %v", err)
 	}
-	remote := cfg.Remotes["origin"]
-	if cfg.DefaultRemote != "origin" || remote.ServerURL != "https://trove.company.com" || remote.Package != "nwks/platform/agent-defaults" {
-		t.Fatalf("config = %+v", cfg)
+	if m.Local == nil || m.Local.DefaultRemote != "origin" || m.Local.Remotes["origin"].ServerURL != "https://trove.company.com" || m.Local.Remotes["origin"].Package != "nwks/platform/agent-defaults" {
+		t.Fatalf("local config = %+v", m.Local)
 	}
 }
 
@@ -88,13 +86,12 @@ func TestRemoteAddShortRefUsesEnvServer(t *testing.T) {
 		t.Fatalf("RunRemote(add) error = %v", err)
 	}
 
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		t.Fatalf("load config: %v", err)
+		t.Fatalf("load trovefile: %v", err)
 	}
-	remote := cfg.Remotes["origin"]
-	if cfg.DefaultRemote != "origin" || remote.ServerURL != "https://trove.company.com" || remote.Package != "nwks/platform/agent-defaults" {
-		t.Fatalf("config = %+v", cfg)
+	if m.Local == nil || m.Local.DefaultRemote != "origin" || m.Local.Remotes["origin"].ServerURL != "https://trove.company.com" || m.Local.Remotes["origin"].Package != "nwks/platform/agent-defaults" {
+		t.Fatalf("local config = %+v", m.Local)
 	}
 }
 
@@ -103,11 +100,11 @@ func TestStatusReadyComputesNextPatchVersion(t *testing.T) {
 	server := newPackageDetailServer(t, []PackageVersion{{Version: "1.0.0", Lifecycle: "published"}})
 	t.Setenv("TROVE_TOKEN", "test-token")
 
-	if err := writeProjectConfig(projectConfigPath, configWithRemote(RemoteSpec{ServerURL: server.URL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})); err != nil {
-		t.Fatalf("write config: %v", err)
-	}
-	if err := os.WriteFile(manifestPath, agentsManifestBytes(t, "1.0.0"), 0644); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	m := trovefileWithRemote(RemoteSpec{ServerURL: server.URL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})
+	m.Metadata = manifest.Metadata{Org: "nwks", Namespace: "platform", Name: "agent-defaults", DisplayName: "Test", Description: "Test"}
+	m.Spec.Artifacts = agentsArtifacts()
+	if err := writeTrovefile(manifestPath, m); err != nil {
+		t.Fatalf("write trovefile: %v", err)
 	}
 	if err := os.WriteFile(agentsMDPath, []byte("# Local instructions\n"), 0644); err != nil {
 		t.Fatalf("write AGENTS.md: %v", err)
@@ -147,7 +144,7 @@ func TestDownloadWritesOutputAndNoProjectMetadata(t *testing.T) {
 	if string(content) != "# Downloaded defaults\n" {
 		t.Fatalf("downloaded content = %q", content)
 	}
-	for _, unexpected := range []string{manifestPath, projectConfigPath, ".trove.lock.yaml"} {
+	for _, unexpected := range []string{manifestPath, ".trove/state.yaml", ".trove.lock.yaml"} {
 		if _, err := os.Stat(unexpected); !os.IsNotExist(err) {
 			t.Fatalf("%s exists after download; err=%v", unexpected, err)
 		}

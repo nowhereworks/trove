@@ -31,9 +31,6 @@ func TestCloneCreatesAgentsMDWorktree(t *testing.T) {
 	if _, err := os.Stat(filepath.Join("agent-defaults", manifestPath)); err != nil {
 		t.Fatalf("missing manifest: %v", err)
 	}
-	if _, err := os.Stat(filepath.Join("agent-defaults", projectConfigPath)); err != nil {
-		t.Fatalf("missing project config: %v", err)
-	}
 	state, err := loadProjectState(filepath.Join("agent-defaults", projectStatePath))
 	if err != nil {
 		t.Fatalf("load state: %v", err)
@@ -54,25 +51,29 @@ func TestPullUsesStateSourceRemote(t *testing.T) {
 	}))
 	t.Cleanup(backup.Close)
 
-	oldManifest := agentsManifestBytes(t, "1.0.0")
 	oldAgents := []byte("# Old defaults\n")
-	if err := os.WriteFile(manifestPath, oldManifest, 0644); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	m := manifest.Manifest{
+		APIVersion: manifest.APIVersion,
+		Kind:       manifest.Kind,
+		Metadata:   manifest.Metadata{Org: "nwks", Namespace: "platform", Name: "agent-defaults", DisplayName: "Test", Description: "Test"},
+		Spec:       manifest.Spec{Artifacts: agentsArtifacts()},
+		Local: &manifest.Local{
+			DefaultRemote: "backup",
+			Remotes: map[string]manifest.ProjectRemote{
+				"origin": {ServerURL: origin.URL, Package: "nwks/platform/agent-defaults"},
+				"backup": {ServerURL: backup.URL, Package: "nwks/platform/agent-defaults"},
+			},
+		},
+	}
+	if err := writeTrovefile(manifestPath, m); err != nil {
+		t.Fatalf("write trovefile: %v", err)
+	}
+	trovefileData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read trovefile: %v", err)
 	}
 	if err := os.WriteFile(agentsMDPath, oldAgents, 0644); err != nil {
 		t.Fatalf("write AGENTS.md: %v", err)
-	}
-	if err := writeProjectConfig(projectConfigPath, ProjectConfig{
-		APIVersion:    projectAPIVersion,
-		Kind:          projectKind,
-		DefaultRemote: "backup",
-		ArtifactKind:  agentsMDKind,
-		Remotes: map[string]ProjectRemote{
-			"origin": {ServerURL: origin.URL, Package: "nwks/platform/agent-defaults"},
-			"backup": {ServerURL: backup.URL, Package: "nwks/platform/agent-defaults"},
-		},
-	}); err != nil {
-		t.Fatalf("write config: %v", err)
 	}
 	if err := writeProjectState(projectStatePath, ProjectState{
 		APIVersion: projectAPIVersion,
@@ -84,7 +85,7 @@ func TestPullUsesStateSourceRemote(t *testing.T) {
 			PackageDigest:     "sha256:old",
 		},
 		Files: map[string]StateFile{
-			manifestPath: {Digest: computeDigest(oldManifest)},
+			manifestPath: {Digest: computeDigest(trovefileData)},
 			agentsMDPath: {Digest: computeDigest(oldAgents)},
 		},
 	}); err != nil {
@@ -118,8 +119,9 @@ func TestPullRefusesIncompleteState(t *testing.T) {
 	}))
 	t.Cleanup(server.Close)
 
-	if err := writeProjectConfig(projectConfigPath, configWithRemote(RemoteSpec{ServerURL: server.URL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})); err != nil {
-		t.Fatalf("write config: %v", err)
+	m := trovefileWithRemote(RemoteSpec{ServerURL: server.URL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})
+	if err := writeTrovefile(manifestPath, m); err != nil {
+		t.Fatalf("write trovefile: %v", err)
 	}
 	if err := writeProjectState(projectStatePath, ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind}); err != nil {
 		t.Fatalf("write state: %v", err)
@@ -135,17 +137,18 @@ func TestPullReportsConflictsWithoutPartialWrites(t *testing.T) {
 	chdirTemp(t)
 	server := newAgentsMDServer(t, "1.0.1", "# Remote defaults\n")
 
-	oldManifest := agentsManifestBytes(t, "1.0.0")
 	oldAgents := []byte("# Old defaults\n")
 	localAgents := []byte("# Local edits\n")
-	if err := os.WriteFile(manifestPath, oldManifest, 0644); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	m := trovefileWithRemote(RemoteSpec{ServerURL: server.URL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})
+	if err := writeTrovefile(manifestPath, m); err != nil {
+		t.Fatalf("write trovefile: %v", err)
+	}
+	trovefileData, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatalf("read trovefile: %v", err)
 	}
 	if err := os.WriteFile(agentsMDPath, localAgents, 0644); err != nil {
 		t.Fatalf("write AGENTS.md: %v", err)
-	}
-	if err := writeProjectConfig(projectConfigPath, configWithRemote(RemoteSpec{ServerURL: server.URL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})); err != nil {
-		t.Fatalf("write config: %v", err)
 	}
 	if err := writeProjectState(projectStatePath, ProjectState{
 		APIVersion: projectAPIVersion,
@@ -157,14 +160,14 @@ func TestPullReportsConflictsWithoutPartialWrites(t *testing.T) {
 			PackageDigest:     "sha256:old",
 		},
 		Files: map[string]StateFile{
-			manifestPath: {Digest: computeDigest(oldManifest)},
+			manifestPath: {Digest: computeDigest(trovefileData)},
 			agentsMDPath: {Digest: computeDigest(oldAgents)},
 		},
 	}); err != nil {
 		t.Fatalf("write state: %v", err)
 	}
 
-	err := RunPull(nil, false)
+	err = RunPull(nil, false)
 	if err == nil || !strings.Contains(err.Error(), "local changes conflict for AGENTS.md") {
 		t.Fatalf("RunPull() error = %v, want AGENTS.md conflict", err)
 	}
@@ -172,7 +175,7 @@ func TestPullReportsConflictsWithoutPartialWrites(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read manifest: %v", err)
 	}
-	if string(manifestAfter) != string(oldManifest) {
+	if string(manifestAfter) != string(trovefileData) {
 		t.Fatalf("manifest was partially updated before conflict")
 	}
 	agentsAfter, err := os.ReadFile(agentsMDPath)
@@ -232,7 +235,7 @@ func agentsManifestJSON(t *testing.T, version string) json.RawMessage {
 
 func agentsManifestBytes(t *testing.T, version string) []byte {
 	t.Helper()
-	data, err := manifestYAMLBytes(agentsManifest(version))
+	data, err := yamlMarshal(agentsManifest(version))
 	if err != nil {
 		t.Fatalf("marshal manifest YAML: %v", err)
 	}

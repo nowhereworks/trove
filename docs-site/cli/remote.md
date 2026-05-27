@@ -2,7 +2,7 @@
 
 ## Why
 
-Use `trove remote` to store where an editable worktree publishes. Remotes live in `.trove/config.yaml` and are local to the checkout.
+Use `trove remote` to store where an editable worktree publishes. Remotes live in the `local:` section of `Trovefile` and are local to the checkout.
 
 ## How
 

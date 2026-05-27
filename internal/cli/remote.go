@@ -1,6 +1,10 @@
 package cli
 
-import "fmt"
+import (
+	"fmt"
+
+	"trove/internal/manifest"
+)
 
 func RunRemote(args []string, jsonOutput bool, force bool) error {
 	if len(args) == 0 {
@@ -25,35 +29,36 @@ func RunRemote(args []string, jsonOutput bool, force bool) error {
 }
 
 func remoteAdd(name string, value string, force bool) error {
-	cfg := readOptionalProjectConfig()
-	if cfg.APIVersion == "" {
-		cfg = ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind}
+	m := readOptionalTrovefile()
+	if m.APIVersion == "" {
+		m = manifest.Manifest{APIVersion: manifest.APIVersion, Kind: manifest.Kind}
 	}
-	spec, err := parseRemoteSpec(value, cfg)
+	spec, err := parseRemoteSpec(value, m)
 	if err != nil {
 		return err
 	}
-	if cfg.Remotes == nil {
-		cfg.Remotes = map[string]ProjectRemote{}
+	if m.Local == nil {
+		m.Local = &manifest.Local{}
 	}
-	if _, exists := cfg.Remotes[name]; exists && !force {
+	if m.Local.Remotes == nil {
+		m.Local.Remotes = map[string]manifest.ProjectRemote{}
+	}
+	if _, exists := m.Local.Remotes[name]; exists && !force {
 		return fmt.Errorf("remote %q already exists; use --force to replace", name)
 	}
-	cfg.Remotes[name] = ProjectRemote{ServerURL: spec.ServerURL, Package: spec.Package}
-	if cfg.DefaultRemote == "" {
-		cfg.DefaultRemote = name
+	m.Local.Remotes[name] = manifest.ProjectRemote{ServerURL: spec.ServerURL, Package: spec.Package}
+	if m.Local.DefaultRemote == "" {
+		m.Local.DefaultRemote = name
 	}
-	if err := writeProjectConfig(projectConfigPath, cfg); err != nil {
+	if err := writeTrovefile(manifestPath, m); err != nil {
 		return err
 	}
-	if m, ok := readManifestIfExists(); ok {
-		if m.Metadata.Org == "" || m.Metadata.Org == "nwks" {
-			m.Metadata.Org = spec.Ref.Org
-			m.Metadata.Namespace = spec.Ref.Namespace
-			m.Metadata.Name = spec.Ref.Name
-			if err := writeManifestYAML(manifestPath, m); err != nil {
-				return err
-			}
+	if m.Metadata.Org == "" || m.Metadata.Org == "nwks" {
+		m.Metadata.Org = spec.Ref.Org
+		m.Metadata.Namespace = spec.Ref.Namespace
+		m.Metadata.Name = spec.Ref.Name
+		if err := writeTrovefile(manifestPath, m); err != nil {
+			return err
 		}
 	}
 	fmt.Printf("Added remote %s -> %s/%s\n", name, spec.ServerURL, spec.Package)
@@ -61,23 +66,29 @@ func remoteAdd(name string, value string, force bool) error {
 }
 
 func remoteList(jsonOutput bool) error {
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		return fmt.Errorf("load %s: %w", projectConfigPath, err)
+		return fmt.Errorf("load %s: %w", manifestPath, err)
 	}
-	names := sortedRemoteNames(cfg.Remotes)
+	if m.Local == nil || m.Local.Remotes == nil {
+		if jsonOutput {
+			return outputJSON(map[string]any{"items": []map[string]string{}})
+		}
+		return nil
+	}
+	names := sortedRemoteNames(m.Local.Remotes)
 	if jsonOutput {
 		items := make([]map[string]string, 0, len(names))
 		for _, name := range names {
-			remote := cfg.Remotes[name]
+			remote := m.Local.Remotes[name]
 			items = append(items, map[string]string{"name": name, "serverUrl": remote.ServerURL, "package": remote.Package})
 		}
 		return outputJSON(map[string]any{"items": items})
 	}
 	for _, name := range names {
-		remote := cfg.Remotes[name]
+		remote := m.Local.Remotes[name]
 		marker := ""
-		if name == cfg.DefaultRemote {
+		if name == m.Local.DefaultRemote {
 			marker = " (default)"
 		}
 		fmt.Printf("%s -> %s/%s%s\n", name, remote.ServerURL, remote.Package, marker)
@@ -86,19 +97,22 @@ func remoteList(jsonOutput bool) error {
 }
 
 func remoteRemove(name string) error {
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		return fmt.Errorf("load %s: %w", projectConfigPath, err)
+		return fmt.Errorf("load %s: %w", manifestPath, err)
 	}
-	if _, ok := cfg.Remotes[name]; !ok {
+	if m.Local == nil || m.Local.Remotes == nil {
 		return fmt.Errorf("remote %q does not exist", name)
 	}
-	delete(cfg.Remotes, name)
-	if cfg.DefaultRemote == name {
-		cfg.DefaultRemote = ""
+	if _, ok := m.Local.Remotes[name]; !ok {
+		return fmt.Errorf("remote %q does not exist", name)
 	}
-	if len(cfg.Remotes) == 0 {
-		cfg.Remotes = nil
+	delete(m.Local.Remotes, name)
+	if m.Local.DefaultRemote == name {
+		m.Local.DefaultRemote = ""
 	}
-	return writeProjectConfig(projectConfigPath, cfg)
+	if len(m.Local.Remotes) == 0 {
+		m.Local.Remotes = nil
+	}
+	return writeTrovefile(manifestPath, m)
 }

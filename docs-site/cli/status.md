@@ -30,7 +30,7 @@ trove status --json
 
 ## Reference
 
-`trove status` checks for `AGENTS.md`, `trove.yaml`, `.trove/config.yaml`, a configured remote, manifest shape, package mismatch, and `TROVE_TOKEN` for publishing.
+`trove status` checks for `AGENTS.md`, `Trovefile`, a configured remote in the `local:` section, manifest shape, package mismatch, and `TROVE_TOKEN` for publishing.
 
 It exits non-zero when local state is blocked.
 

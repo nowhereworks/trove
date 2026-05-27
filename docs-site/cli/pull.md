@@ -12,11 +12,11 @@ cd agent-defaults
 trove pull
 ```
 
-The command reads `.trove/config.yaml` and `.trove/state.yaml`, resolves the original selector, downloads `trove.yaml` and manifest-listed artifacts such as `AGENTS.md`, and updates `.trove/state.yaml`.
+The command reads `Trovefile` and `.trove/state.yaml`, resolves the original selector, downloads the remote manifest, merges it with local config, and updates `.trove/state.yaml`.
 
 ### Conflict Protection
 
-`trove pull` only overwrites files that still match the baseline recorded in `.trove/state.yaml`. If `AGENTS.md` or `trove.yaml` has local changes, the command stops and reports the conflicting path.
+`trove pull` only overwrites files that still match the baseline recorded in `.trove/state.yaml`. If `AGENTS.md` or `Trovefile` has local changes, the command stops and reports the conflicting path.
 
 ### JSON Output
 

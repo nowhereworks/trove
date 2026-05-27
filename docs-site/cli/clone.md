@@ -16,9 +16,8 @@ trove push --patch
 
 The clone writes:
 
-- `trove.yaml`
+- `Trovefile` (manifest + local config)
 - `AGENTS.md`
-- `.trove/config.yaml`
 - `.trove/state.yaml`
 
 It does not write `.trove.lock.yaml` because this is a publishing worktree, not a consuming repo install.

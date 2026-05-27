@@ -45,7 +45,7 @@ The archive contains all artifacts from the package version, with entry paths ma
 
 ```
 package.tar.gz
-├── trove.yaml
+├── Trovefile
 ├── AGENTS.md
 ├── skills/backend-api/SKILL.md
 ├── commands/lint.md

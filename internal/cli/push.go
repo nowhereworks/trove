@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+
+	"trove/internal/manifest"
 )
 
 func RunPush(args []string, jsonOutput bool) error {
@@ -38,24 +40,20 @@ func RunPush(args []string, jsonOutput bool) error {
 		return fmt.Errorf("--draft, --submit-only, and --publish are mutually exclusive")
 	}
 
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		return fmt.Errorf("load %s: %w", projectConfigPath, err)
+		return fmt.Errorf("load %s: %w", manifestPath, err)
 	}
-	if problems := validateProjectConfig(cfg); len(problems) > 0 {
-		return fmt.Errorf("invalid %s: %s", projectConfigPath, problems[0])
+	if problems := validateTrovefile(m); len(problems) > 0 {
+		return fmt.Errorf("invalid %s: %s", manifestPath, problems[0])
 	}
-	remoteName, remote, err := remoteForConfig(cfg, remoteNameFlag)
+	remoteName, remote, err := remoteForManifest(m, remoteNameFlag)
 	if err != nil {
 		return err
 	}
 	ref, err := ParsePackageRefNoSelector(remote.Package)
 	if err != nil {
 		return err
-	}
-	m, err := loadManifestYAML(manifestPath)
-	if err != nil {
-		return fmt.Errorf("load %s: %w", manifestPath, err)
 	}
 	if _, err := os.Stat(agentsMDPath); err != nil {
 		return fmt.Errorf("AGENTS.md is required: %w", err)
@@ -88,11 +86,12 @@ func RunPush(args []string, jsonOutput bool) error {
 			return fmt.Errorf("version %s already exists with lifecycle %s; try --version %s", version, existing.Lifecycle, suggested)
 		}
 	}
-	m = applyGeneratedManifestFields(m, ref, cfg)
+	m = applyGeneratedManifestFields(m, ref)
 	if problems := validateAgentsManifest(m); len(problems) > 0 {
 		return fmt.Errorf("manifest is invalid: %s", problems[0])
 	}
-	manifestBytes, err := manifestYAMLBytes(m)
+	uploadManifest := m.StripLocal()
+	manifestBytes, err := manifestYAMLForUpload(uploadManifest)
 	if err != nil {
 		return err
 	}
@@ -112,7 +111,6 @@ func RunPush(args []string, jsonOutput bool) error {
 		}
 		switch versionResp.Lifecycle {
 		case "draft":
-			// Continue below; artifact uploads overwrite draft content.
 		case "review":
 			if !force {
 				return fmt.Errorf("version %s is already in review; use --force to reset it to draft or choose a new version", version)
@@ -139,7 +137,6 @@ func RunPush(args []string, jsonOutput bool) error {
 	reviewURL := ""
 	switch mode {
 	case "draft":
-		// Upload only.
 	case "submit":
 		if err := client.SubmitReview(ref.Org, ref.Namespace, ref.Name, version); err != nil {
 			return fmt.Errorf("submit review: %w", err)
@@ -163,7 +160,7 @@ func RunPush(args []string, jsonOutput bool) error {
 		result = *published
 	}
 
-	if err := writeManifestYAML(manifestPath, m); err != nil {
+	if err := writeTrovefile(manifestPath, m); err != nil {
 		return err
 	}
 	_ = updateStateAfterPush(remoteName, ref.Selector, result, manifestBytes, agentsBytes)
@@ -194,6 +191,10 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+func manifestYAMLForUpload(m manifest.Manifest) ([]byte, error) {
+	return yamlMarshal(m)
 }
 
 func updateStateAfterPush(remoteName, requestedSelector string, result VersionResponse, manifestBytes []byte, agentsBytes []byte) error {

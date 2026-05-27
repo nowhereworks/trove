@@ -15,7 +15,7 @@ trove init agents-md \
   --yes
 ```
 
-The command creates or adopts `AGENTS.md`, writes `trove.yaml`, and writes `.trove/config.yaml`.
+The command creates or adopts `AGENTS.md` and writes a single `Trovefile` that contains both the package manifest and local CLI configuration (publishing remotes, default visibility).
 
 ### Convenience Form
 

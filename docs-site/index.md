@@ -32,7 +32,7 @@ const categories = ref([
   {
     title: 'Publishing',
     items: [
-      { title: 'Manifests', desc: 'trove.yaml structure, required fields, and validation rules.', link: withBase('/publishing/manifests') },
+      { title: 'Manifests', desc: 'Trovefile structure, required fields, and validation rules.', link: withBase('/publishing/manifests') },
       { title: 'Upload & Publish Flow', desc: 'Step-by-step from draft creation to published version.', link: withBase('/publishing/upload-publish-flow') },
       { title: 'Review Workflow', desc: 'Submit, automated checks, human review, and approval.', link: withBase('/publishing/review-workflow') },
       { title: 'Security Scanning', desc: 'Secret detection and unsafe instruction scanning.', link: withBase('/publishing/security-scanning') },

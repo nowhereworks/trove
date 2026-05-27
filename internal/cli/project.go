@@ -19,28 +19,13 @@ import (
 )
 
 const (
-	projectConfigPath = ".trove/config.yaml"
-	projectStatePath  = ".trove/state.yaml"
-	projectAPIVersion = "trove.io/v1"
-	projectKind       = "TroveProject"
-	projectStateKind  = "TroveProjectState"
-	agentsMDKind      = "agents-md"
-	agentsMDPath      = "AGENTS.md"
-	manifestPath      = "trove.yaml"
+	manifestPath       = "Trovefile"
+	projectStatePath   = ".trove/state.yaml"
+	projectAPIVersion  = "trove.io/v1"
+	projectStateKind   = "TroveProjectState"
+	agentsMDKind       = "agents-md"
+	agentsMDPath       = "AGENTS.md"
 )
-
-type ProjectConfig struct {
-	APIVersion    string                   `yaml:"apiVersion" json:"apiVersion"`
-	Kind          string                   `yaml:"kind" json:"kind"`
-	DefaultRemote string                   `yaml:"defaultRemote,omitempty" json:"defaultRemote,omitempty"`
-	ArtifactKind  string                   `yaml:"artifactKind" json:"artifactKind"`
-	Remotes       map[string]ProjectRemote `yaml:"remotes,omitempty" json:"remotes,omitempty"`
-}
-
-type ProjectRemote struct {
-	ServerURL string `yaml:"serverUrl" json:"serverUrl"`
-	Package   string `yaml:"package" json:"package"`
-}
 
 type ProjectState struct {
 	APIVersion string               `yaml:"apiVersion" json:"apiVersion"`
@@ -75,65 +60,65 @@ type SemVer struct {
 
 var strictSemverRE = regexp.MustCompile(`^v?([0-9]+)\.([0-9]+)\.([0-9]+)$`)
 
-func loadProjectConfig(path string) (ProjectConfig, error) {
+func loadTrovefile(path string) (manifest.Manifest, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return ProjectConfig{}, err
+		return manifest.Manifest{}, err
 	}
-	var cfg ProjectConfig
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return ProjectConfig{}, fmt.Errorf("parse %s: %w", path, err)
+	m, err := manifest.Parse(data)
+	if err != nil {
+		return manifest.Manifest{}, fmt.Errorf("parse %s: %w", path, err)
 	}
-	return cfg, nil
+	return m, nil
 }
 
-func writeProjectConfig(path string, cfg ProjectConfig) error {
-	if cfg.APIVersion == "" {
-		cfg.APIVersion = projectAPIVersion
+func writeTrovefile(path string, m manifest.Manifest) error {
+	if m.APIVersion == "" {
+		m.APIVersion = manifest.APIVersion
 	}
-	if cfg.Kind == "" {
-		cfg.Kind = projectKind
-	}
-	if cfg.ArtifactKind == "" {
-		cfg.ArtifactKind = agentsMDKind
+	if m.Kind == "" {
+		m.Kind = manifest.Kind
 	}
 	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
 		return err
 	}
-	data, err := yaml.Marshal(cfg)
+	data, err := yaml.Marshal(m)
 	if err != nil {
 		return err
 	}
 	return os.WriteFile(path, data, 0644)
 }
 
-func validateProjectConfig(cfg ProjectConfig) []string {
+func validateTrovefile(m manifest.Manifest) []string {
 	var problems []string
-	if cfg.APIVersion != projectAPIVersion {
-		problems = append(problems, "apiVersion must be trove.io/v1")
-	}
-	if cfg.Kind != projectKind {
-		problems = append(problems, "kind must be TroveProject")
-	}
-	if cfg.ArtifactKind != agentsMDKind {
-		problems = append(problems, "artifactKind must be agents-md")
-	}
-	if cfg.DefaultRemote != "" {
-		if cfg.Remotes == nil {
-			problems = append(problems, "defaultRemote is set but remotes is empty")
-		} else if _, ok := cfg.Remotes[cfg.DefaultRemote]; !ok {
-			problems = append(problems, "defaultRemote must exist in remotes")
+	if err := manifest.Validate(m, manifest.ValidateOptions{}); err != nil {
+		var manifestErr *manifest.Error
+		if errors.As(err, &manifestErr) {
+			for _, p := range manifestErr.Problems {
+				problems = append(problems, p.Field+" "+p.Message)
+			}
+		} else {
+			problems = append(problems, err.Error())
 		}
 	}
-	for name, remote := range cfg.Remotes {
-		if strings.TrimSpace(name) == "" {
-			problems = append(problems, "remote name is required")
+	if m.Local != nil {
+		if m.Local.DefaultRemote != "" {
+			if m.Local.Remotes == nil || len(m.Local.Remotes) == 0 {
+				problems = append(problems, "local.defaultRemote is set but local.remotes is empty")
+			} else if _, ok := m.Local.Remotes[m.Local.DefaultRemote]; !ok {
+				problems = append(problems, "local.defaultRemote must exist in local.remotes")
+			}
 		}
-		if _, err := ParsePackageRefNoSelector(remote.Package); err != nil {
-			problems = append(problems, fmt.Sprintf("remote %s package is invalid: %v", name, err))
-		}
-		if err := validateServerURL(remote.ServerURL); err != nil {
-			problems = append(problems, fmt.Sprintf("remote %s serverUrl is invalid: %v", name, err))
+		for name, remote := range m.Local.Remotes {
+			if strings.TrimSpace(name) == "" {
+				problems = append(problems, "remote name is required")
+			}
+			if _, err := ParsePackageRefNoSelector(remote.Package); err != nil {
+				problems = append(problems, fmt.Sprintf("remote %s package is invalid: %v", name, err))
+			}
+			if err := validateServerURL(remote.ServerURL); err != nil {
+				problems = append(problems, fmt.Sprintf("remote %s serverUrl is invalid: %v", name, err))
+			}
 		}
 	}
 	return problems
@@ -196,7 +181,7 @@ func validateProjectState(state ProjectState) []string {
 	return problems
 }
 
-func parseRemoteSpec(raw string, existing ProjectConfig) (RemoteSpec, error) {
+func parseRemoteSpec(raw string, existing manifest.Manifest) (RemoteSpec, error) {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return RemoteSpec{}, fmt.Errorf("remote value is required")
@@ -210,8 +195,8 @@ func parseRemoteSpec(raw string, existing ProjectConfig) (RemoteSpec, error) {
 		return RemoteSpec{}, err
 	}
 	serverURL := os.Getenv("TROVE_SERVER_URL")
-	if serverURL == "" && existing.DefaultRemote != "" {
-		if remote, ok := existing.Remotes[existing.DefaultRemote]; ok {
+	if serverURL == "" && existing.Local != nil && existing.Local.DefaultRemote != "" {
+		if remote, ok := existing.Local.Remotes[existing.Local.DefaultRemote]; ok {
 			serverURL = remote.ServerURL
 		}
 	}
@@ -261,17 +246,20 @@ func validateServerURL(raw string) error {
 	return nil
 }
 
-func remoteForConfig(cfg ProjectConfig, selected string) (string, ProjectRemote, error) {
+func remoteForManifest(m manifest.Manifest, selected string) (string, manifest.ProjectRemote, error) {
 	name := selected
-	if name == "" {
-		name = cfg.DefaultRemote
+	if name == "" && m.Local != nil {
+		name = m.Local.DefaultRemote
 	}
 	if name == "" {
-		return "", ProjectRemote{}, fmt.Errorf("missing remote; run 'trove remote add origin <url-or-package-ref>' or rerun init with --remote")
+		return "", manifest.ProjectRemote{}, fmt.Errorf("missing remote; run 'trove remote add origin <url-or-package-ref>' or rerun init with --remote")
 	}
-	remote, ok := cfg.Remotes[name]
+	if m.Local == nil || m.Local.Remotes == nil {
+		return "", manifest.ProjectRemote{}, fmt.Errorf("remote %q is not configured", name)
+	}
+	remote, ok := m.Local.Remotes[name]
 	if !ok {
-		return "", ProjectRemote{}, fmt.Errorf("remote %q is not configured", name)
+		return "", manifest.ProjectRemote{}, fmt.Errorf("remote %q is not configured", name)
 	}
 	return name, remote, nil
 }
@@ -351,7 +339,7 @@ func semverLess(a, b SemVer) bool {
 	return a.Patch < b.Patch
 }
 
-func packageVersionsForRemote(remote ProjectRemote) ([]PackageVersion, *PackageDetailResponse, error) {
+func packageVersionsForRemote(remote manifest.ProjectRemote) ([]PackageVersion, *PackageDetailResponse, error) {
 	ref, err := ParsePackageRefNoSelector(remote.Package)
 	if err != nil {
 		return nil, nil, err
@@ -425,23 +413,7 @@ func validateAgentsManifest(m manifest.Manifest) []string {
 	return problems
 }
 
-func writeManifestYAML(path string, m manifest.Manifest) error {
-	data, err := yaml.Marshal(m)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, data, 0644)
-}
-
-func loadManifestYAML(path string) (manifest.Manifest, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return manifest.Manifest{}, err
-	}
-	return manifest.Parse(data)
-}
-
-func manifestYAMLBytes(m manifest.Manifest) ([]byte, error) {
+func yamlMarshal(m manifest.Manifest) ([]byte, error) {
 	return yaml.Marshal(m)
 }
 
@@ -481,19 +453,20 @@ func slugFromDir(dir string) string {
 	return slug
 }
 
-func configWithRemote(spec RemoteSpec) ProjectConfig {
-	return ProjectConfig{
-		APIVersion:    projectAPIVersion,
-		Kind:          projectKind,
-		DefaultRemote: "origin",
-		ArtifactKind:  agentsMDKind,
-		Remotes: map[string]ProjectRemote{
-			"origin": {ServerURL: spec.ServerURL, Package: spec.Package},
+func trovefileWithRemote(spec RemoteSpec) manifest.Manifest {
+	return manifest.Manifest{
+		APIVersion: manifest.APIVersion,
+		Kind:       manifest.Kind,
+		Local: &manifest.Local{
+			DefaultRemote: "origin",
+			Remotes: map[string]manifest.ProjectRemote{
+				"origin": {ServerURL: spec.ServerURL, Package: spec.Package},
+			},
 		},
 	}
 }
 
-func sortedRemoteNames(remotes map[string]ProjectRemote) []string {
+func sortedRemoteNames(remotes map[string]manifest.ProjectRemote) []string {
 	names := make([]string, 0, len(remotes))
 	for name := range remotes {
 		names = append(names, name)
@@ -571,16 +544,16 @@ func outputJSON(v any) error {
 	return enc.Encode(v)
 }
 
-func readOptionalProjectConfig() ProjectConfig {
-	cfg, err := loadProjectConfig(projectConfigPath)
+func readOptionalTrovefile() manifest.Manifest {
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		return ProjectConfig{}
+		return manifest.Manifest{}
 	}
-	return cfg
+	return m
 }
 
-func readManifestIfExists() (manifest.Manifest, bool) {
-	m, err := loadManifestYAML(manifestPath)
+func readTrovefileIfExists() (manifest.Manifest, bool) {
+	m, err := loadTrovefile(manifestPath)
 	return m, err == nil
 }
 

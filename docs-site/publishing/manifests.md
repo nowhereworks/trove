@@ -2,7 +2,7 @@
 
 ## Why
 
-Every package needs a manifest that declares what it contains, who maintains it, what tools it works with, and how its artifacts should be installed. The manifest (`trove.yaml`) is the package's identity — it is included in the version digest and validated before publishing.
+Every package needs a manifest that declares what it contains, who maintains it, what tools it works with, and how its artifacts should be installed. The manifest (`Trovefile`) is the package's identity — it is included in the version digest and validated before publishing.
 
 ## How
 
@@ -10,7 +10,7 @@ Every package needs a manifest that declares what it contains, who maintains it,
 
 ```yaml
 apiVersion: trove.io/v1
-kind: AgentArtifactPackage
+kind: TrovePackage
 metadata:
   org: nwks
   namespace: platform
@@ -36,6 +36,14 @@ spec:
   dependencies: []
   maintainers:
     - team: platform-engineering
+
+# Local-only section — stripped before upload
+local:
+  defaultRemote: origin
+  remotes:
+    origin:
+      serverUrl: https://trove.company.com
+      package: nwks/platform/agent-backend
 ```
 
 ### Required Fields
@@ -43,7 +51,7 @@ spec:
 | Field | Type | Description |
 |---|---|---|
 | `apiVersion` | string | Must be `trove.io/v1` |
-| `kind` | string | Must be `AgentArtifactPackage` |
+| `kind` | string | Must be `TrovePackage` |
 | `metadata.org` | string | Organization slug (e.g., `nwks`) |
 | `metadata.namespace` | string | Namespace slug (e.g., `platform`) |
 | `metadata.name` | string | Package slug (e.g., `agent-backend`) |
@@ -59,6 +67,7 @@ spec:
 | `metadata.labels` | object | Key-value labels for search and filtering |
 | `metadata.annotations` | object | Key-value metadata for tooling |
 | `spec.dependencies` | array | Declare-only dependency references |
+| `local` | object | Local CLI config (remotes, publish defaults) — stripped before upload, not part of version digest |
 
 ### Artifact Declaration
 

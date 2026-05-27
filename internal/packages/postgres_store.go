@@ -144,15 +144,16 @@ func (s *PostgresStore) UploadArtifact(ctx context.Context, req UploadArtifactRe
 
 	artifactType := "artifact"
 	targetPath := req.Path
-	if req.Path == "trove.yaml" {
+	if req.Path == "Trovefile" {
 		parsed, err := manifest.Parse(req.Content)
 		if err != nil {
 			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
 		}
-		if err := manifest.Validate(parsed, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package}); err != nil {
+		stored := parsed.StripLocal()
+		if err := manifest.Validate(stored, manifest.ValidateOptions{Org: req.Org, Namespace: req.Namespace, Package: req.Package}); err != nil {
 			return ArtifactResource{}, fmt.Errorf("%w: %v", ErrInvalidManifest, err)
 		}
-		manifestJSON, err := json.Marshal(parsed)
+		manifestJSON, err := json.Marshal(stored)
 		if err != nil {
 			return ArtifactResource{}, err
 		}

@@ -125,7 +125,7 @@ func assertProblem(t *testing.T, problems []Problem, field string) {
 }
 
 const validManifestYAML = `apiVersion: trove.io/v1
-kind: AgentArtifactPackage
+kind: TrovePackage
 metadata:
   org: companyx
   namespace: platform

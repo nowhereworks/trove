@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"trove/internal/manifest"
 )
 
 func RunInit(args []string, jsonOutput bool) error {
@@ -47,16 +49,15 @@ func RunInit(args []string, jsonOutput bool) error {
 	displayName := flagValue(args, "--display-name")
 	description := flagValue(args, "--description")
 
-	// Check for existing trove.yaml before any work to avoid accidental overwrites.
 	if _, err := os.Stat(manifestPath); err == nil && !force {
 		return fmt.Errorf("%s already exists; use --force to overwrite", manifestPath)
 	}
 
-	existingConfig := readOptionalProjectConfig()
+	existing := readOptionalTrovefile()
 	var remoteSpec RemoteSpec
 	hasRemote := false
 	if remoteValue != "" {
-		parsed, err := parseRemoteSpec(remoteValue, existingConfig)
+		parsed, err := parseRemoteSpec(remoteValue, existing)
 		if err != nil {
 			return err
 		}
@@ -76,7 +77,7 @@ func RunInit(args []string, jsonOutput bool) error {
 		}
 		ref = parsed
 		hasPackage = true
-	} else if existingManifest, ok := readManifestIfExists(); ok && existingManifest.Metadata.Org != "" {
+	} else if existingManifest, ok := readTrovefileIfExists(); ok && existingManifest.Metadata.Org != "" {
 		ref = PackageRef{Org: existingManifest.Metadata.Org, Namespace: existingManifest.Metadata.Namespace, Name: existingManifest.Metadata.Name}
 		hasPackage = true
 	} else {
@@ -96,28 +97,30 @@ func RunInit(args []string, jsonOutput bool) error {
 
 	if hasPackage && shouldWriteGenerated(manifestPath, force) {
 		m := generatedAgentsManifest(ref, displayName, description)
-		if err := writeManifestYAML(manifestPath, m); err != nil {
+		if hasRemote {
+			m.Local = &manifest.Local{
+				DefaultRemote: "origin",
+				Remotes: map[string]manifest.ProjectRemote{
+					"origin": {ServerURL: remoteSpec.ServerURL, Package: remoteSpec.Package},
+				},
+			}
+		} else if packageValue != "" {
+			if serverURL := serverURLForPackageInit(); serverURL != "" {
+				m.Local = &manifest.Local{
+					DefaultRemote: "origin",
+					Remotes: map[string]manifest.ProjectRemote{
+						"origin": {ServerURL: serverURL, Package: ref.PackagePath()},
+					},
+				}
+			}
+		}
+		if err := writeTrovefile(manifestPath, m); err != nil {
 			return fmt.Errorf("write %s: %w", manifestPath, err)
 		}
 	}
 
-	if shouldWriteGenerated(projectConfigPath, force) {
-		cfg := ProjectConfig{APIVersion: projectAPIVersion, Kind: projectKind, ArtifactKind: agentsMDKind}
-		if hasRemote {
-			cfg = configWithRemote(remoteSpec)
-		} else if packageValue != "" {
-			if serverURL := serverURLForPackageInit(); serverURL != "" {
-				cfg.DefaultRemote = "origin"
-				cfg.Remotes = map[string]ProjectRemote{"origin": {ServerURL: serverURL, Package: ref.PackagePath()}}
-			}
-		}
-		if err := writeProjectConfig(projectConfigPath, cfg); err != nil {
-			return fmt.Errorf("write %s: %w", projectConfigPath, err)
-		}
-	}
-
 	if jsonOutput {
-		out := map[string]string{"artifactKind": agentsMDKind, "artifactPath": agentsMDPath, "manifestPath": manifestPath, "configPath": projectConfigPath}
+		out := map[string]string{"artifactKind": agentsMDKind, "artifactPath": agentsMDPath, "manifestPath": manifestPath}
 		if hasRemote {
 			out["remote"] = "origin"
 			out["serverUrl"] = remoteSpec.ServerURL
@@ -130,8 +133,7 @@ func RunInit(args []string, jsonOutput bool) error {
 
 	fmt.Println("Initialized AGENTS.md package worktree")
 	fmt.Println("Artifact: AGENTS.md")
-	fmt.Println("Manifest: trove.yaml")
-	fmt.Println("Config: .trove/config.yaml")
+	fmt.Printf("Manifest: %s\n", manifestPath)
 	if hasRemote {
 		fmt.Printf("Remote: origin -> %s/%s\n", remoteSpec.ServerURL, remoteSpec.Package)
 	}
@@ -142,18 +144,20 @@ func serverURLForPackageInit() string {
 	if serverURL := os.Getenv("TROVE_SERVER_URL"); serverURL != "" {
 		return serverURL
 	}
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
 		return ""
 	}
-	if cfg.DefaultRemote != "" {
-		if remote, ok := cfg.Remotes[cfg.DefaultRemote]; ok {
+	if m.Local != nil && m.Local.DefaultRemote != "" {
+		if remote, ok := m.Local.Remotes[m.Local.DefaultRemote]; ok {
 			return remote.ServerURL
 		}
 	}
-	for _, remote := range cfg.Remotes {
-		if remote.ServerURL != "" {
-			return remote.ServerURL
+	if m.Local != nil {
+		for _, remote := range m.Local.Remotes {
+			if remote.ServerURL != "" {
+				return remote.ServerURL
+			}
 		}
 	}
 	return ""

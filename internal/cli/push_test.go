@@ -9,6 +9,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"trove/internal/manifest"
 )
 
 func TestPushNewPackagePublishesAndUploadsManifestFirst(t *testing.T) {
@@ -21,7 +23,7 @@ func TestPushNewPackagePublishesAndUploadsManifestFirst(t *testing.T) {
 		t.Fatalf("RunPush() error = %v", err)
 	}
 
-	want := []string{"GET package", "POST draft 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
+	want := []string{"GET package", "POST draft 1.0.0", "PUT Trovefile", "PUT AGENTS.md", "POST publish"}
 	if strings.Join(*calls, ",") != strings.Join(want, ",") {
 		t.Fatalf("calls = %#v, want %#v", *calls, want)
 	}
@@ -32,7 +34,7 @@ func TestPushNewPackagePublishesAndUploadsManifestFirst(t *testing.T) {
 	if string(agents) != "# Local instructions\n" {
 		t.Fatalf("AGENTS.md was rewritten: %q", agents)
 	}
-	m, err := loadManifestYAML(manifestPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
 		t.Fatalf("load manifest: %v", err)
 	}
@@ -49,7 +51,7 @@ func TestPushExistingPackageUsesNextPatchVersion(t *testing.T) {
 		t.Fatalf("RunPush() error = %v", err)
 	}
 
-	want := []string{"GET package", "POST draft 1.0.1", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
+	want := []string{"GET package", "POST draft 1.0.1", "PUT Trovefile", "PUT AGENTS.md", "POST publish"}
 	if strings.Join(*calls, ",") != strings.Join(want, ",") {
 		t.Fatalf("calls = %#v, want %#v", *calls, want)
 	}
@@ -72,7 +74,7 @@ func TestPushApprovalRequiredSubmitsForReviewInDefaultMode(t *testing.T) {
 		t.Fatalf("push JSON = %+v", out)
 	}
 
-	want := []string{"GET package", "POST draft 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish", "POST submit"}
+	want := []string{"GET package", "POST draft 1.0.0", "PUT Trovefile", "PUT AGENTS.md", "POST publish", "POST submit"}
 	if strings.Join(*calls, ",") != strings.Join(want, ",") {
 		t.Fatalf("calls = %#v, want %#v", *calls, want)
 	}
@@ -105,7 +107,7 @@ func TestPushReusesExistingHiddenDraft(t *testing.T) {
 		t.Fatalf("RunPush() error = %v", err)
 	}
 
-	want := []string{"GET package", "POST draft 1.0.0", "GET version 1.0.0", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
+	want := []string{"GET package", "POST draft 1.0.0", "GET version 1.0.0", "PUT Trovefile", "PUT AGENTS.md", "POST publish"}
 	if strings.Join(*calls, ",") != strings.Join(want, ",") {
 		t.Fatalf("calls = %#v, want %#v", *calls, want)
 	}
@@ -133,7 +135,7 @@ func TestPushForceResetsExistingReview(t *testing.T) {
 		t.Fatalf("RunPush(--force) error = %v", err)
 	}
 
-	want := []string{"GET package", "POST draft 1.0.0", "GET version 1.0.0", "POST reset", "PUT trove.yaml", "PUT AGENTS.md", "POST publish"}
+	want := []string{"GET package", "POST draft 1.0.0", "GET version 1.0.0", "POST reset", "PUT Trovefile", "PUT AGENTS.md", "POST publish"}
 	if strings.Join(*calls, ",") != strings.Join(want, ",") {
 		t.Fatalf("calls = %#v, want %#v", *calls, want)
 	}
@@ -160,11 +162,11 @@ type pushServerOptions struct {
 func setupPushWorktree(t *testing.T, serverURL string) {
 	t.Helper()
 	chdirTemp(t)
-	if err := writeProjectConfig(projectConfigPath, configWithRemote(RemoteSpec{ServerURL: serverURL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})); err != nil {
-		t.Fatalf("write project config: %v", err)
-	}
-	if err := os.WriteFile(manifestPath, agentsManifestBytes(t, "1.0.0"), 0644); err != nil {
-		t.Fatalf("write manifest: %v", err)
+	m := trovefileWithRemote(RemoteSpec{ServerURL: serverURL, Package: "nwks/platform/agent-defaults", Ref: PackageRef{Org: "nwks", Namespace: "platform", Name: "agent-defaults"}})
+	m.Metadata = manifest.Metadata{Org: "nwks", Namespace: "platform", Name: "agent-defaults", DisplayName: "Test", Description: "Test"}
+	m.Spec.Artifacts = agentsArtifacts()
+	if err := writeTrovefile(manifestPath, m); err != nil {
+		t.Fatalf("write trovefile: %v", err)
 	}
 	if err := os.WriteFile(agentsMDPath, []byte("# Local instructions\n"), 0644); err != nil {
 		t.Fatalf("write AGENTS.md: %v", err)
@@ -209,10 +211,10 @@ func newPushServer(t *testing.T, opts pushServerOptions) (*httptest.Server, *[]s
 		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0":
 			calls = append(calls, "GET version 1.0.0")
 			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: opts.createConflictLifecycle})
-		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/artifacts/trove.yaml":
-			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "apiVersion: trove.io/v1")
-		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/artifacts/trove.yaml":
-			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "apiVersion: trove.io/v1")
+		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/artifacts/Trovefile":
+			handlePushUpload(t, w, r, &calls, "PUT Trovefile", "apiVersion: trove.io/v1")
+		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/artifacts/Trovefile":
+			handlePushUpload(t, w, r, &calls, "PUT Trovefile", "apiVersion: trove.io/v1")
 		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/artifacts/AGENTS.md"):
 			handlePushUpload(t, w, r, &calls, "PUT AGENTS.md", "# Local instructions\n")
 		case r.Method == http.MethodPost && (r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/publish" || r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/publish"):

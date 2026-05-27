@@ -23,7 +23,7 @@ Trove manages many kinds of agent-consumable files. Categorizing them by type en
 
 ### Declaring Artifact Types
 
-Artifact types are declared in `trove.yaml`:
+Artifact types are declared in `Trovefile`:
 
 ```yaml
 spec:

@@ -8,7 +8,7 @@ The monolithic product spec has been split into focused implementation documents
 
 1. [`spec/00-overview.md`](spec/00-overview.md) defines the product, goals, non-goals, personas, MVP success criteria, and deferred scope.
 2. [`spec/01-domain-model.md`](spec/01-domain-model.md) defines organizations, namespaces, packages, versions, artifact types, selectors, lifecycle, visibility, and immutability.
-3. [`spec/02-manifest-and-lockfile.md`](spec/02-manifest-and-lockfile.md) defines `trove.yaml`, `.trove.lock.yaml`, validation rules, and path rules.
+3. [`spec/02-manifest-and-lockfile.md`](spec/02-manifest-and-lockfile.md) defines `Trovefile`, `.trove.lock.yaml`, validation rules, and path rules.
 4. [`spec/03-api-contract.md`](spec/03-api-contract.md) defines agent APIs, management APIs, raw file behavior, update checks, auth expectations, and error responses.
 5. [`spec/04-data-model.md`](spec/04-data-model.md) defines the PostgreSQL MVP schema, constraints, and indexes.
 6. [`spec/05-security-governance.md`](spec/05-security-governance.md) defines authentication, RBAC, visibility, review workflow, scanning, and audit events.

@@ -11,7 +11,7 @@ import (
 
 const (
 	APIVersion = "trove.io/v1"
-	Kind       = "AgentArtifactPackage"
+	Kind       = "TrovePackage"
 )
 
 type Manifest struct {
@@ -19,6 +19,22 @@ type Manifest struct {
 	Kind       string   `yaml:"kind" json:"kind"`
 	Metadata   Metadata `yaml:"metadata" json:"metadata"`
 	Spec       Spec     `yaml:"spec" json:"spec"`
+	Local      *Local   `yaml:"local,omitempty" json:"local,omitempty"`
+}
+
+type Local struct {
+	DefaultRemote string                   `yaml:"defaultRemote,omitempty" json:"defaultRemote,omitempty"`
+	Remotes       map[string]ProjectRemote `yaml:"remotes,omitempty" json:"remotes,omitempty"`
+	Publish       LocalPublish             `yaml:"publish,omitempty" json:"publish,omitempty"`
+}
+
+type ProjectRemote struct {
+	ServerURL string `yaml:"serverUrl" json:"serverUrl"`
+	Package   string `yaml:"package" json:"package"`
+}
+
+type LocalPublish struct {
+	Visibility string `yaml:"visibility,omitempty" json:"visibility,omitempty"`
 }
 
 type Metadata struct {
@@ -185,4 +201,10 @@ func validateDependencies(problems *[]Problem, dependencies []string) {
 			*problems = append(*problems, Problem{Field: fmt.Sprintf("spec.dependencies[%d]", i), Message: "must use full org/namespace/package reference"})
 		}
 	}
+}
+
+func (m Manifest) StripLocal() Manifest {
+	c := m
+	c.Local = nil
+	return c
 }

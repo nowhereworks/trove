@@ -30,7 +30,7 @@ Requires `package:write` scope.
 When a package is `public`, anonymous users can read:
 
 - Package metadata (name, description, versions list)
-- Manifests (`trove.yaml`)
+- Manifests (`Trovefile`)
 - Archives (`.tar.gz`, `.zip`)
 - Raw artifact files
 - Resolve responses

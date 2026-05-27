@@ -93,7 +93,7 @@ func TestArchiveUploadPublishFlow(t *testing.T) {
 	}
 
 	manifest := strings.ReplaceAll(sliceTwoManifestYAML, "1.0.1", "1.0.4")
-	archive := makeUploadZip(t, map[string]string{"AGENTS.md": "# Archive Upload\n", "trove.yaml": manifest})
+	archive := makeUploadZip(t, map[string]string{"AGENTS.md": "# Archive Upload\n", "Trovefile": manifest})
 	uploadReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.4/archive", bytes.NewReader(archive))
 	uploadReq.Header.Set("Content-Type", "application/zip")
 	uploadRes := httptest.NewRecorder()
@@ -111,7 +111,7 @@ func TestArchiveUploadPublishFlow(t *testing.T) {
 	if err := json.NewDecoder(uploadRes.Body).Decode(&uploadBody); err != nil {
 		t.Fatalf("decode upload body: %v", err)
 	}
-	if len(uploadBody.Items) != 2 || uploadBody.Items[0].Path != "trove.yaml" || uploadBody.Items[1].Type != "agent-instructions" {
+	if len(uploadBody.Items) != 2 || uploadBody.Items[0].Path != "Trovefile" || uploadBody.Items[1].Type != "agent-instructions" {
 		t.Fatalf("upload body = %+v", uploadBody)
 	}
 
@@ -300,7 +300,7 @@ func TestDraftUploadPublishFlow(t *testing.T) {
 		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
 	}
 
-	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.1/artifacts/trove.yaml", strings.NewReader(sliceTwoManifestYAML))
+	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.1/artifacts/Trovefile", strings.NewReader(sliceTwoManifestYAML))
 	manifestReq.Header.Set("Content-Type", "application/yaml")
 	manifestRes := httptest.NewRecorder()
 	router.ServeHTTP(manifestRes, manifestReq)
@@ -364,7 +364,7 @@ func TestPublishFailsWhenRequiredArtifactMissing(t *testing.T) {
 	}
 
 	manifest := strings.ReplaceAll(sliceTwoManifestYAML, "1.0.1", "1.0.2")
-	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.2/artifacts/trove.yaml", strings.NewReader(manifest))
+	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.2/artifacts/Trovefile", strings.NewReader(manifest))
 	manifestReq.Header.Set("Content-Type", "application/yaml")
 	manifestRes := httptest.NewRecorder()
 	router.ServeHTTP(manifestRes, manifestReq)
@@ -392,7 +392,7 @@ func TestUploadRejectsInvalidManifest(t *testing.T) {
 	}
 
 	invalidManifest := strings.ReplaceAll(sliceTwoManifestYAML, "companyx", "wrongorg")
-	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.3/artifacts/trove.yaml", strings.NewReader(invalidManifest))
+	manifestReq := httptest.NewRequest(http.MethodPut, "/api/v1/packages/companyx/platform/agent-backend/versions/1.0.3/artifacts/Trovefile", strings.NewReader(invalidManifest))
 	manifestReq.Header.Set("Content-Type", "application/yaml")
 	manifestRes := httptest.NewRecorder()
 	router.ServeHTTP(manifestRes, manifestReq)

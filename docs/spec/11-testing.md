@@ -61,7 +61,7 @@ Use repo-local fixtures once implementation packages exist:
 ```text
 internal/testfixtures/
   manifests/
-    valid-trove.yaml
+    valid-Trovefile
     invalid-missing-description.yaml
     invalid-path-traversal.yaml
     invalid-compatibility.yaml
@@ -71,11 +71,11 @@ internal/testfixtures/
   packages/
     minimal/
       AGENTS.md
-      trove.yaml
+      Trovefile
     optional-artifacts/
       AGENTS.md
       commands/review.md
-      trove.yaml
+      Trovefile
 ```
 
 Fixtures should be small, deterministic, and safe to publish in a public repository.

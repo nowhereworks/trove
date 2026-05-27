@@ -54,7 +54,7 @@ POST /api/v1/packages/nwks/platform/agent-backend/versions
 { "version": "1.1.0", "visibility": "private" }
 
 # 2. Upload artifacts (tar.gz or individual files)
-PUT /api/v1/packages/nwks/platform/agent-backend/versions/1.1.0/artifacts/trove.yaml
+PUT /api/v1/packages/nwks/platform/agent-backend/versions/1.1.0/artifacts/Trovefile
 
 # 3. Submit for review
 POST /api/v1/reviews/nwks/platform/agent-backend/versions/1.1.0/submit

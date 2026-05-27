@@ -29,12 +29,12 @@ func RunStatus(args []string, jsonOutput bool) error {
 	_ = args
 	out := statusOutput{ArtifactKind: agentsMDKind, ArtifactPath: agentsMDPath, ReviewPolicy: "unknown", LocalState: "ready", Problems: []string{}}
 
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		out.Problems = append(out.Problems, "missing .trove/config.yaml; run 'trove init agents-md'")
+		out.Problems = append(out.Problems, "missing Trovefile; run 'trove init agents-md'")
 	} else {
-		out.Problems = append(out.Problems, validateProjectConfig(cfg)...)
-		if name, remote, err := remoteForConfig(cfg, ""); err == nil {
+		out.Problems = append(out.Problems, validateTrovefile(m)...)
+		if name, remote, err := remoteForManifest(m, ""); err == nil {
 			out.Remote = &statusRemote{Name: name, ServerURL: remote.ServerURL, Package: remote.Package}
 			versions, _, err := packageVersionsForRemote(remote)
 			if err == nil {
@@ -51,14 +51,11 @@ func RunStatus(args []string, jsonOutput bool) error {
 		}
 	}
 
-	m, err := loadManifestYAML(manifestPath)
-	if err != nil {
-		out.Problems = append(out.Problems, "missing or invalid trove.yaml: "+err.Error())
-	} else {
-		out.Problems = append(out.Problems, validateAgentsManifest(m)...)
-		if out.Remote != nil && m.Metadata.Org+"/"+m.Metadata.Namespace+"/"+m.Metadata.Name != out.Remote.Package {
-			out.Problems = append(out.Problems, "manifest package does not match configured remote")
-		}
+	if problems := validateAgentsManifest(m); len(problems) > 0 {
+		out.Problems = append(out.Problems, problems...)
+	}
+	if out.Remote != nil && m.Metadata.Org+"/"+m.Metadata.Namespace+"/"+m.Metadata.Name != out.Remote.Package {
+		out.Problems = append(out.Problems, "manifest package does not match configured remote")
 	}
 
 	if _, err := os.Stat(agentsMDPath); err != nil {
@@ -94,7 +91,7 @@ func RunStatus(args []string, jsonOutput bool) error {
 	return nil
 }
 
-func refreshReviewPolicy(out *statusOutput, remote ProjectRemote, version string) {
+func refreshReviewPolicy(out *statusOutput, remote manifest.ProjectRemote, version string) {
 	if version == "" || os.Getenv("TROVE_TOKEN") == "" {
 		return
 	}
@@ -157,7 +154,7 @@ func printStatus(out statusOutput) {
 	}
 }
 
-func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, cfg ProjectConfig) manifest.Manifest {
+func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef) manifest.Manifest {
 	m.Metadata.Org = ref.Org
 	m.Metadata.Namespace = ref.Namespace
 	m.Metadata.Name = ref.Name

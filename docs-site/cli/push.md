@@ -2,7 +2,7 @@
 
 ## Why
 
-Use `trove push` to run the complete `AGENTS.md` publishing workflow: create or reuse a draft, upload `trove.yaml`, upload `AGENTS.md`, publish, or submit for review when approval is required.
+Use `trove push` to run the complete `AGENTS.md` publishing workflow: create or reuse a draft, upload `Trovefile`, upload `AGENTS.md`, publish, or submit for review when approval is required.
 
 If the target org exists, the server can auto-create a missing namespace and package during draft creation. Operators control this with server-side `TROVE_CREATE_NAMESPACE_ON_PUSH` and `TROVE_CREATE_PACKAGE_ON_PUSH`; both default to enabled.
 
@@ -56,7 +56,7 @@ trove push --publish
 trove push --force --version 1.0.0
 ```
 
-`--force` resets an existing `review` version back to `draft`, clears prior review state, and reuploads `trove.yaml` and `AGENTS.md`. Existing `draft` versions are already mutable and are reused by default.
+`--force` resets an existing `review` version back to `draft`, clears prior review state, and reuploads `Trovefile` and `AGENTS.md`. Existing `draft` versions are already mutable and are reused by default.
 
 `--force` never overwrites `published`, `deprecated`, or `yanked` versions. Use a new SemVer version for immutable versions.
 
@@ -94,7 +94,7 @@ When review is required, JSON output reports the submitted review state:
 | `--force` | No | Reset an unpublished review version to draft before upload |
 | `--json` | No | Emit machine-readable output |
 
-`trove push` never rewrites `AGENTS.md`. It may rewrite generated fields in `trove.yaml` so the uploaded manifest matches the selected remote.
+`trove push` never rewrites `AGENTS.md`. It may rewrite generated fields in `Trovefile` so the uploaded manifest matches the selected remote.
 
 `trove push` does not create orgs. Create the org first or configure `TROVE_ORG` on the server to bootstrap it at startup.
 

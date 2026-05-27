@@ -162,7 +162,7 @@ Returns the updated package resource. Visibility must be `private`, `internal`, 
 ### Upload Artifact
 
 ```bash
-PUT /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/artifacts/trove.yaml
+PUT /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/artifacts/Trovefile
 Authorization: Bearer <token>
 Content-Type: application/yaml
 

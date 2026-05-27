@@ -19,7 +19,7 @@ trove status
 trove push
 ```
 
-`trove push` uploads `trove.yaml` first, uploads `AGENTS.md` second, then publishes or submits for review if approval is required.
+`trove push` uploads `Trovefile` first, uploads `AGENTS.md` second, then publishes or submits for review if approval is required.
 
 ### Raw API Flow
 
@@ -84,7 +84,7 @@ The server extracts the archive, validates paths, and stores individual artifact
 **Option B: Upload individual files**
 
 ```bash
-PUT /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/artifacts/trove.yaml
+PUT /api/v1/packages/nwks/platform/agent-backend/versions/1.0.0/artifacts/Trovefile
 Content-Type: application/yaml
 Authorization: Bearer <token>
 

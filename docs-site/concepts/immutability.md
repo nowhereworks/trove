@@ -11,7 +11,7 @@ Agents depend on deterministic content. If `nwks/platform/agent-backend@1.0.0` r
 When a version is published, the system locks:
 
 - Artifact file content (blob bytes)
-- Manifest content (`trove.yaml`)
+- Manifest content (`Trovefile`)
 - Version number
 - Package digest
 - Per-file digests and sizes

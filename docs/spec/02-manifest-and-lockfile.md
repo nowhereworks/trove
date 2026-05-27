@@ -2,11 +2,11 @@
 
 ## Package Manifest
 
-Every package version must contain `trove.yaml`.
+Every package version must contain `Trovefile`.
 
 ```yaml
 apiVersion: trove.io/v1
-kind: AgentArtifactPackage
+kind: TrovePackage
 metadata:
   org: companyx
   namespace: platform

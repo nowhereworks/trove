@@ -185,7 +185,7 @@ Subcommands:
 	  Initialize an editable AGENTS.md package worktree
 
 	remote add|list|remove
-	  Manage publishing remotes in .trove/config.yaml
+	  Manage publishing remotes in Trovefile
 
 	status [--json]
 	  Show local AGENTS.md publishing status

@@ -61,7 +61,7 @@ Goal: make package publishing real.
 
 1. Add draft version creation.
 2. Add artifact upload API.
-3. Add `trove.yaml` parsing and validation.
+3. Add `Trovefile` parsing and validation.
 4. Add path validation.
 5. Add digest computation.
 6. Add publish endpoint.

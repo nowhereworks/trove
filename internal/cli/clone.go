@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"trove/internal/manifest"
 )
 
 func RunClone(args []string, jsonOutput bool) error {
@@ -63,11 +65,13 @@ func RunClone(args []string, jsonOutput bool) error {
 		state.Files[artifact.Path] = StateFile{Digest: computeDigest(content)}
 	}
 
-	cfg := configWithRemote(RemoteSpec{ServerURL: client.ServerURL, Package: ref.PackagePath(), Ref: PackageRef{Org: ref.Org, Namespace: ref.Namespace, Name: ref.Name}})
+	cfg := trovefileWithRemote(RemoteSpec{ServerURL: client.ServerURL, Package: ref.PackagePath(), Ref: PackageRef{Org: ref.Org, Namespace: ref.Namespace, Name: ref.Name}})
 	if !isAgentsMDManifest(m) {
-		cfg.ArtifactKind = ""
+		cfg.Spec.Artifacts = m.Spec.Artifacts
+		cfg.Spec.Dependencies = m.Spec.Dependencies
 	}
-	if err := writeProjectConfig(filepath.Join(dir, projectConfigPath), cfg); err != nil {
+	cfg.Metadata = m.Metadata
+	if err := writeTrovefile(filepath.Join(dir, manifestPath), cfg); err != nil {
 		return err
 	}
 	if err := writeProjectState(filepath.Join(dir, projectStatePath), state); err != nil {
@@ -83,11 +87,11 @@ func RunClone(args []string, jsonOutput bool) error {
 
 func RunPull(args []string, jsonOutput bool) error {
 	remoteNameFlag := flagValue(args, "--remote")
-	cfg, err := loadProjectConfig(projectConfigPath)
+	m, err := loadTrovefile(manifestPath)
 	if err != nil {
-		return fmt.Errorf("load %s: %w", projectConfigPath, err)
+		return fmt.Errorf("load %s: %w", manifestPath, err)
 	}
-	remoteName, remote, err := remoteForConfig(cfg, remoteNameFlag)
+	remoteName, remote, err := remoteForManifest(m, remoteNameFlag)
 	if err != nil {
 		return err
 	}
@@ -100,7 +104,7 @@ func RunPull(args []string, jsonOutput bool) error {
 	}
 	if state.Source.Remote != "" {
 		remoteName = state.Source.Remote
-		remote = cfg.Remotes[remoteName]
+		remote = m.Local.Remotes[remoteName]
 		if remote.ServerURL == "" || remote.Package == "" {
 			return fmt.Errorf("remote %q from %s is not configured", remoteName, projectStatePath)
 		}
@@ -122,12 +126,12 @@ func RunPull(args []string, jsonOutput bool) error {
 	if err != nil {
 		return err
 	}
-	manifestBytes, m, err := marshalRawManifestAsYAML(manifestResp.Raw)
+	manifestBytes, downloaded, err := marshalRawManifestAsYAML(manifestResp.Raw)
 	if err != nil {
 		return err
 	}
 	contents := map[string][]byte{manifestPath: manifestBytes}
-	for _, artifact := range m.Spec.Artifacts {
+	for _, artifact := range downloaded.Spec.Artifacts {
 		content, err := client.GetRawArtifact(ref.Org, ref.Namespace, ref.Name, resolved.ResolvedVersion, artifact.Path)
 		if err != nil {
 			return err
@@ -151,6 +155,18 @@ func RunPull(args []string, jsonOutput bool) error {
 		}
 	}
 
+	pulled := downloaded
+	pulled.Local = &manifest.Local{
+		DefaultRemote: remoteName,
+		Remotes: map[string]manifest.ProjectRemote{
+			remoteName: remote,
+		},
+	}
+	pulledBytes, err := yamlMarshal(pulled)
+	if err != nil {
+		return err
+	}
+
 	newState := ProjectState{APIVersion: projectAPIVersion, Kind: projectStateKind, Source: ProjectStateSource{Remote: remoteName, RequestedSelector: selector, ResolvedVersion: resolved.ResolvedVersion, PackageDigest: resolved.Digest, ManifestDigest: computeDigest(manifestBytes)}, Files: map[string]StateFile{}}
 	for path, content := range contents {
 		newState.Files[path] = StateFile{Digest: computeDigest(content)}
@@ -162,5 +178,6 @@ func RunPull(args []string, jsonOutput bool) error {
 		return json.NewEncoder(os.Stdout).Encode(map[string]string{"package": ref.PackagePath(), "version": resolved.ResolvedVersion})
 	}
 	fmt.Printf("Pulled %s@%s\n", ref.PackagePath(), resolved.ResolvedVersion)
+	_ = pulledBytes
 	return nil
 }

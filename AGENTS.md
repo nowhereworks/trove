@@ -76,7 +76,7 @@
 - Agent-facing APIs matter as much as the web UI: raw file fetch, manifest fetch, resolve, archive download, update check, and compatibility checks are first-class.
 - API JSON uses camelCase; list endpoints use cursor pagination; every response should include `X-Request-Id`.
 - Keep registry-style route refs like `/api/v1/resolve/{org}/{namespace}/{package}@{selector}`.
-- Package manifests are `trove.yaml`; package installs may be pinned by `.trove.lock.yaml`.
+- Package manifests are `Trovefile`; package installs may be pinned by `.trove.lock.yaml`.
 - Published manifests require non-empty descriptions and at least one maintainer; manifest dependencies are declare-only in MVP.
 - Artifact `targetPath` defaults to `path`; installs must not overwrite different existing files without an explicit overwrite option.
 - MVP package uploads support `.tar.gz` and `.zip`; archive downloads are generated on demand from stored artifact files.
