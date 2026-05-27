@@ -451,6 +451,20 @@ func (a *Authenticator) CreateAPIToken(ctx context.Context, req CreateTokenReque
 	return token, rawToken, nil
 }
 
+func (a *Authenticator) CreateDevSession(ctx context.Context) (string, error) {
+	user := a.devUser(ctx)
+	_, rawToken, err := a.CreateAPIToken(ctx, CreateTokenRequest{
+		DisplayName: "Dev Session",
+		ActorUserID: user.ID,
+		Scopes:      []string{"*:*"},
+		ExpiresAt:   time.Now().Add(30 * 24 * time.Hour),
+	})
+	if err != nil {
+		return "", err
+	}
+	return rawToken, nil
+}
+
 type CreateTokenRequest struct {
 	DisplayName         string
 	ActorUserID         string

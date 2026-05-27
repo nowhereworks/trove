@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"trove/internal/auth"
 	"trove/internal/config"
 	"trove/internal/packages"
 	"trove/internal/testutil"
@@ -66,6 +67,53 @@ func TestCoreFindTroveSkillServedWithoutAuth(t *testing.T) {
 	}
 	if strings.Contains(body, "npx skills") {
 		t.Fatal("skill body contains npx skills")
+	}
+}
+
+func TestDevLoginCreatesUsableSession(t *testing.T) {
+	router := testRouter(t)
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/dev/login", strings.NewReader(`{"token":"dev-token-local-only"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginRes := httptest.NewRecorder()
+	router.ServeHTTP(loginRes, loginReq)
+
+	if loginRes.Code != http.StatusFound {
+		t.Fatalf("login status = %d, want %d; body=%s", loginRes.Code, http.StatusFound, loginRes.Body.String())
+	}
+
+	var sessionCookie *http.Cookie
+	for _, cookie := range loginRes.Result().Cookies() {
+		if cookie.Name == auth.SessionCookieName {
+			sessionCookie = cookie
+			break
+		}
+	}
+	if sessionCookie == nil || sessionCookie.Value == "" {
+		t.Fatal("dev login did not set a session cookie")
+	}
+
+	meReq := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	meReq.AddCookie(sessionCookie)
+	meRes := httptest.NewRecorder()
+	router.ServeHTTP(meRes, meReq)
+
+	if meRes.Code != http.StatusOK {
+		t.Fatalf("auth/me status = %d, want %d; body=%s", meRes.Code, http.StatusOK, meRes.Body.String())
+	}
+
+	var body struct {
+		Authenticated bool `json:"authenticated"`
+		User          struct {
+			ID    string `json:"id"`
+			IsDev bool   `json:"isDev"`
+		} `json:"user"`
+	}
+	if err := json.NewDecoder(meRes.Body).Decode(&body); err != nil {
+		t.Fatalf("decode auth/me body: %v", err)
+	}
+	if !body.Authenticated || !body.User.IsDev || body.User.ID != auth.DevUserID {
+		t.Fatalf("auth/me body = %+v, want authenticated dev user", body)
 	}
 }
 

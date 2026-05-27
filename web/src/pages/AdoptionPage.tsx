@@ -59,12 +59,12 @@ function AdoptionCard({ pkg }: { pkg: { org: string; namespace: string; name: st
         <span className="text-2xl font-bold">{adoption?.projectCount || 0}</span>
         <span className="text-sm text-muted-foreground">projects</span>
       </div>
-      {adoption?.byVersion && adoption.byVersion.length > 0 && (
+      {adoption?.versions && adoption.versions.length > 0 && (
         <div className="mt-2 space-y-1">
-          {adoption.byVersion.slice(0, 3).map((v) => (
+          {adoption.versions.slice(0, 3).map((v) => (
             <div key={v.version} className="flex justify-between text-xs">
               <span className="font-mono">{v.version}</span>
-              <span className="text-muted-foreground">{v.count}</span>
+              <span className="text-muted-foreground">{v.installCount}</span>
             </div>
           ))}
         </div>

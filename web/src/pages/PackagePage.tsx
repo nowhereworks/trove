@@ -218,12 +218,12 @@ export default function PackagePage() {
               <div className="border rounded-lg p-4">
                 <p className="text-2xl font-bold">{adoption.projectCount}</p>
                 <p className="text-sm text-muted-foreground">projects using this package</p>
-                {adoption.byVersion && adoption.byVersion.length > 0 && (
+                {adoption.versions && adoption.versions.length > 0 && (
                   <div className="mt-3 space-y-1">
-                    {adoption.byVersion.map((v) => (
+                    {adoption.versions.map((v) => (
                       <div key={v.version} className="flex justify-between text-sm">
                         <span className="font-mono">{v.version}</span>
-                        <span className="text-muted-foreground">{v.count}</span>
+                        <span className="text-muted-foreground">{v.installCount}</span>
                       </div>
                     ))}
                   </div>

@@ -53,7 +53,7 @@ export interface ListPackagesResult {
 export interface AdoptionResult {
   projectCount: number
   versionCount: number
-  byVersion: { version: string; count: number }[]
+  versions: { version: string; installCount: number }[]
 }
 
 export interface ManifestData {
@@ -201,13 +201,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ token }),
       redirect: 'manual',
-    }).catch(() => {}),
+    }),
 
   loginLocal: () =>
     request<void>('/auth/local/login', {
       method: 'POST',
       redirect: 'manual',
-    }).catch(() => {}),
+    }),
 
   logout: () =>
     request<void>('/auth/logout', {

@@ -246,7 +246,7 @@ join organizations o on o.id = n.org_id
 where o.slug = sqlc.arg(org)
   and n.slug = sqlc.arg(namespace)
   and p.name = sqlc.arg(package_name)
-group by pv.version
+group by pv.version, pv.semver_major, pv.semver_minor, pv.semver_patch
 order by install_count desc, pv.semver_major desc, pv.semver_minor desc, pv.semver_patch desc;
 
 -- name: ListPackageVersions :many

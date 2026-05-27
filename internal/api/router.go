@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 
 	"trove/internal/auth"
 	"trove/internal/config"
@@ -1410,7 +1409,7 @@ func handleDevLogin(authenticator *auth.Authenticator) http.HandlerFunc {
 			return
 		}
 
-		rawToken, err := devSessionToken(authenticator, body.Token)
+		rawToken, err := devSessionToken(r.Context(), authenticator, body.Token)
 		if err != nil {
 			writeError(w, r, http.StatusUnauthorized, "INVALID_TOKEN", "Invalid dev token.")
 			return
@@ -1421,28 +1420,12 @@ func handleDevLogin(authenticator *auth.Authenticator) http.HandlerFunc {
 	}
 }
 
-func devSessionToken(a *auth.Authenticator, token string) (string, error) {
+func devSessionToken(ctx context.Context, a *auth.Authenticator, token string) (string, error) {
 	if token != a.DevToken() {
 		return "", fmt.Errorf("invalid dev token")
 	}
 
-	rawToken, err := uuid.NewV7()
-	if err != nil {
-		return "", err
-	}
-	raw := rawToken.String()
-
-	_, _, err = a.CreateAPIToken(context.Background(), auth.CreateTokenRequest{
-		DisplayName: "Dev Session",
-		ActorUserID: auth.DevUserID,
-		Scopes:      []string{"*:*"},
-		ExpiresAt:   time.Now().Add(30 * 24 * time.Hour),
-	})
-	if err != nil {
-		return "", err
-	}
-
-	return raw, nil
+	return a.CreateDevSession(ctx)
 }
 
 func handleLocalLogin(authenticator *auth.Authenticator) http.HandlerFunc {
