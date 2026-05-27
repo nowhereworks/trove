@@ -1,0 +1,4 @@
+alter table package_search_documents drop constraint if exists package_search_documents_lifecycle_check;
+alter table package_versions drop constraint if exists package_versions_lifecycle_check;
+alter table packages drop constraint if exists packages_lifecycle_check;
+alter table project_registrations drop constraint if exists project_registrations_team_id_fkey;

@@ -1,3 +1,9 @@
+update package_versions
+set lifecycle = 'draft',
+    updated_at = '2026-05-22T00:00:00Z',
+    published_at = null
+where id = '0198f006-0000-7000-8000-000000000004';
+
 delete from audit_events where id = '0198f006-0000-7000-8000-000000000008';
 delete from channels where package_id = '0198f006-0000-7000-8000-000000000003';
 delete from artifact_files where id = '0198f006-0000-7000-8000-000000000005';

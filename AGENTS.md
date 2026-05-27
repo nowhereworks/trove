@@ -16,7 +16,7 @@
 - `go build ./...` succeeds.
 - Visibility is managed via `PATCH /api/v1/packages/{org}/{namespace}/{package}/visibility` API endpoint, not via the manifest.
 - Runtime package storage is PostgreSQL-only; do not add an in-memory database/store fallback.
-- Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects.
+- Migrations: 000001_init, 000002_seed_sample, 000003_auth_review, 000004_search_projects, 000005_remove_channels, 000006_maintainers_role, 000007_schema_consistency.
 - `sqlc` generated code is committed and covers read, write, and auth query paths.
 - React/Vite/TypeScript SPA is implemented in `web/` and builds to `internal/ui/static/`.
 - UI includes: package list, search, package detail, adoption dashboard, upload/publish flow, and review queue.
