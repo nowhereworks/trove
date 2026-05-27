@@ -1,0 +1,36 @@
+services:
+  trove-postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: trove
+      POSTGRES_PASSWORD: trove
+      POSTGRES_DB: trove
+    networks:
+      - trove-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trove -d trove"]
+      interval: 2s
+      timeout: 5s
+      retries: 20
+
+  trove-server:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    depends_on:
+      trove-postgres:
+        condition: service_healthy
+    environment:
+      TROVE_PUBLIC_URL: http://localhost:8080
+      TROVE_DATABASE_URL: postgres://trove:trove@trove-postgres:5432/trove?sslmode=disable
+      TROVE_DATABASE_MIGRATE_ON_STARTUP: "true"
+      TROVE_AUTH_MODE: dev
+      TROVE_AUTH_DEV_MODE_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    networks:
+      - trove-dev
+
+networks:
+  trove-dev:
+    driver: bridge
