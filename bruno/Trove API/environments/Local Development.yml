@@ -1,0 +1,6 @@
+name: Local Development
+variables:
+  - name: BASE_URL
+    value: http://localhost:8080
+  - name: TOKEN
+    value: dev-token-local-only
