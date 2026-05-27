@@ -6,11 +6,11 @@ Trove is pre-v1.0 software. It is highly unstable and subject to heavy changes, 
 The API contract is not guaranteed at this stage. Use at your own risk.
 :::
 
-## Why
+Trove is a self-hosted registry for the files that tell agents, CLIs, and developer tools how to work inside your organization. Instead of copying `AGENTS.md` files, reusable skills, prompts, commands, review rubrics, and workflow instructions across repositories, teams publish them as versioned packages that can be searched, reviewed, installed, locked, and updated.
 
-Agent tooling has a discovery and governance problem. Teams write `AGENTS.md` files, reusable skills, command definitions, prompts, and review rubrics — but there is no central place to publish, version, review, and distribute them. Files get duplicated across repos, drift out of sync, and no one knows who is using which version.
+The problem Trove solves is drift. Without a registry, every repo slowly grows its own copy of the same operating knowledge: some files are outdated, some are unreviewed, some are impossible to trace, and no one can tell which projects depend on which instructions. Trove gives platform and security teams one controlled place to distribute blessed agent artifacts while still giving developers and agents a simple way to resolve, fetch, and pin the exact version they use.
 
-Trove solves this by acting as a curated registry for agent-consumable artifacts. It behaves like a lightweight npm/OCI-style registry, but for instruction files rather than binary packages.
+In practical terms, Trove works like a lightweight internal package registry for agent-facing engineering context. Packages live under `org/namespace/package`, published versions are immutable, access is governed by visibility and RBAC, and the CLI/API can install artifacts into projects, check for updates, and report adoption. The result is repeatable agent behavior, auditable publishing, and less hand-maintained instruction sprawl across repositories.
 
 ## How
 

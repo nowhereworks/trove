@@ -2,8 +2,8 @@
 layout: home
 hero:
   name: Trove
-  text: Concepts & Examples Guide
-  tagline: A curated registry for agent-consumable engineering artifacts. Browse, publish, and manage AGENTS.md files, skills, commands, prompts, and more.
+  text: Self-Hosted Agent Artifact Registry
+  tagline: Publish versioned agent instructions, skills, prompts, and workflow artifacts once. Review them centrally, install them reproducibly, and keep every repo from drifting.
 ---
 
 ::: warning Pre-v1.0 Software
@@ -20,7 +20,7 @@ const categories = ref([
   {
     title: 'Core Concepts',
     items: [
-      { title: 'What is Trove?', desc: 'Understand the problem Trove solves and how the registry works.', link: withBase('/concepts/what-is-trove') },
+      { title: 'What is Trove?', desc: 'How Trove keeps agent instructions versioned, reviewed, installable, and free from repo drift.', link: withBase('/concepts/what-is-trove') },
       { title: 'Package References', desc: 'How org/namespace/package@selector identifies every package.', link: withBase('/concepts/package-references') },
       { title: 'Version Selectors', desc: 'Resolve @latest and digests to exact versions.', link: withBase('/concepts/version-selectors') },
       { title: 'Lifecycle States', desc: 'draft → review → published → deprecated | yanked.', link: withBase('/concepts/lifecycle-states') },
