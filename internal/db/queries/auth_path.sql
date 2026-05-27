@@ -14,6 +14,18 @@ select id, email, display_name, avatar_url, oidc_issuer, oidc_subject, created_a
 from users
 where id = sqlc.arg(id);
 
+-- name: GetUserByEmail :one
+select id, email, display_name, avatar_url, oidc_issuer, oidc_subject, created_at, updated_at
+from users
+where email = sqlc.arg(email);
+
+-- name: ListAPITokensByUser :many
+select id, token_hash, display_name, actor_user_id, actor_service_account, scopes,
+       org_id, namespace_id, package_id, created_at, expires_at, last_used_at, revoked_at
+from api_tokens
+where actor_user_id = sqlc.arg(actor_user_id)
+order by created_at desc;
+
 -- name: GetAPITokenByHash :one
 select id, token_hash, display_name, actor_user_id, actor_service_account, scopes,
        org_id, namespace_id, package_id, created_at, expires_at, last_used_at, revoked_at

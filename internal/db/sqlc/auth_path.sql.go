@@ -342,6 +342,28 @@ func (q *Queries) GetReview(ctx context.Context, id pgtype.UUID) (Review, error)
 	return i, err
 }
 
+const getUserByEmail = `-- name: GetUserByEmail :one
+select id, email, display_name, avatar_url, oidc_issuer, oidc_subject, created_at, updated_at
+from users
+where email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.DisplayName,
+		&i.AvatarUrl,
+		&i.OidcIssuer,
+		&i.OidcSubject,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const getUserByID = `-- name: GetUserByID :one
 select id, email, display_name, avatar_url, oidc_issuer, oidc_subject, created_at, updated_at
 from users
@@ -450,6 +472,48 @@ func (q *Queries) IsPackageOwner(ctx context.Context, arg IsPackageOwnerParams) 
 	var is_owner bool
 	err := row.Scan(&is_owner)
 	return is_owner, err
+}
+
+const listAPITokensByUser = `-- name: ListAPITokensByUser :many
+select id, token_hash, display_name, actor_user_id, actor_service_account, scopes,
+       org_id, namespace_id, package_id, created_at, expires_at, last_used_at, revoked_at
+from api_tokens
+where actor_user_id = $1
+order by created_at desc
+`
+
+func (q *Queries) ListAPITokensByUser(ctx context.Context, actorUserID pgtype.UUID) ([]ApiToken, error) {
+	rows, err := q.db.Query(ctx, listAPITokensByUser, actorUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ApiToken{}
+	for rows.Next() {
+		var i ApiToken
+		if err := rows.Scan(
+			&i.ID,
+			&i.TokenHash,
+			&i.DisplayName,
+			&i.ActorUserID,
+			&i.ActorServiceAccount,
+			&i.Scopes,
+			&i.OrgID,
+			&i.NamespaceID,
+			&i.PackageID,
+			&i.CreatedAt,
+			&i.ExpiresAt,
+			&i.LastUsedAt,
+			&i.RevokedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listPackageMaintainers = `-- name: ListPackageMaintainers :many

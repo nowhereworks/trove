@@ -22,6 +22,7 @@ import (
 type contextKey struct{}
 
 const DevUserID = "0198f006-0000-7000-8000-00000000de00"
+const SessionCookieName = "trove_session"
 
 type User struct {
 	ID                string
@@ -142,25 +143,24 @@ func (a *Authenticator) Middleware(next http.Handler) http.Handler {
 
 func (a *Authenticator) authenticateRequest(r *http.Request) User {
 	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return User{IsAuthenticated: false}
-	}
-
-	if !strings.HasPrefix(authHeader, "Bearer ") {
-		return User{IsAuthenticated: false}
-	}
-
-	token := strings.TrimPrefix(authHeader, "Bearer ")
-
-	if a.cfg.Auth.Mode == "dev" && a.devToken != "" {
-		if token == a.devToken {
-			return a.devUser(r.Context())
+	if authHeader != "" && strings.HasPrefix(authHeader, "Bearer ") {
+		token := strings.TrimPrefix(authHeader, "Bearer ")
+		if a.cfg.Auth.Mode == "dev" && a.devToken != "" {
+			if token == a.devToken {
+				return a.devUser(r.Context())
+			}
+			return User{IsAuthenticated: false}
 		}
-		return User{IsAuthenticated: false}
+		if a.queries != nil {
+			return a.authenticateToken(r.Context(), token)
+		}
 	}
 
 	if a.queries != nil {
-		return a.authenticateToken(r.Context(), token)
+		cookie, err := r.Cookie(SessionCookieName)
+		if err == nil && cookie.Value != "" {
+			return a.authenticateToken(r.Context(), cookie.Value)
+		}
 	}
 
 	return User{IsAuthenticated: false}
@@ -207,8 +207,14 @@ func (a *Authenticator) authenticateToken(ctx context.Context, token string) Use
 	_ = a.queries.UpdateTokenLastUsed(ctx, apiToken.ID)
 
 	userID := ""
+	email := ""
+	displayName := ""
 	if apiToken.ActorUserID.Valid {
 		userID = uuid.UUID(apiToken.ActorUserID.Bytes).String()
+		if user, err := a.queries.GetUserByID(ctx, apiToken.ActorUserID); err == nil {
+			email = user.Email
+			displayName = user.DisplayName
+		}
 	}
 
 	resourceID := ""
@@ -226,6 +232,8 @@ func (a *Authenticator) authenticateToken(ctx context.Context, token string) Use
 
 	return User{
 		ID:                userID,
+		Email:             email,
+		DisplayName:       displayName,
 		IsAuthenticated:   true,
 		TokenScopes:       apiToken.Scopes,
 		TokenResourceID:   resourceID,
@@ -474,4 +482,94 @@ func mustParseUUID(s string) [16]byte {
 func mustParsePgUUID(s string) pgtype.UUID {
 	uid, _ := uuid.Parse(s)
 	return pgtype.UUID{Bytes: uid, Valid: true}
+}
+
+const LocalUserEmail = "local@trove.internal"
+
+func (a *Authenticator) AuthMode() string {
+	return a.cfg.Auth.Mode
+}
+
+func (a *Authenticator) CookieSecure() bool {
+	return a.cfg.Auth.CookieSecure
+}
+
+func (a *Authenticator) DevModeEnabled() bool {
+	return a.cfg.Auth.DevModeEnabled && a.cfg.Auth.Mode == "dev"
+}
+
+func (a *Authenticator) DevToken() string {
+	return a.devToken
+}
+
+func (a *Authenticator) SetSessionCookie(w http.ResponseWriter, token string, maxAge int) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    token,
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   a.cfg.Auth.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   maxAge,
+	})
+}
+
+func (a *Authenticator) ClearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     SessionCookieName,
+		Value:    "",
+		Path:     "/",
+		HttpOnly: true,
+		Secure:   a.cfg.Auth.CookieSecure,
+		SameSite: http.SameSiteLaxMode,
+		MaxAge:   -1,
+	})
+}
+
+func (a *Authenticator) GetOrCreateLocalUser(ctx context.Context) (User, sqlc.ApiToken, string, error) {
+	var emptyToken sqlc.ApiToken
+	user, err := a.queries.GetUserByEmail(ctx, LocalUserEmail)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return User{}, emptyToken, "", fmt.Errorf("lookup local user: %w", err)
+		}
+		id := uuid.New()
+		_, err = a.queries.CreateUser(ctx, sqlc.CreateUserParams{
+			ID:          pgtype.UUID{Bytes: id, Valid: true},
+			Email:       LocalUserEmail,
+			DisplayName: "Local User",
+		})
+		if err != nil {
+			return User{}, emptyToken, "", fmt.Errorf("create local user: %w", err)
+		}
+		user, err = a.queries.GetUserByEmail(ctx, LocalUserEmail)
+		if err != nil {
+			return User{}, emptyToken, "", fmt.Errorf("lookup created local user: %w", err)
+		}
+	}
+
+	tokens, err := a.queries.ListAPITokensByUser(ctx, user.ID)
+	if err != nil {
+		return User{}, emptyToken, "", fmt.Errorf("list local user tokens: %w", err)
+	}
+	for _, t := range tokens {
+		if !t.RevokedAt.Valid || t.RevokedAt.Time.IsZero() {
+			_ = a.queries.RevokeAPIToken(ctx, t.ID)
+		}
+	}
+
+	token, rawToken, err := a.CreateAPIToken(ctx, CreateTokenRequest{
+		DisplayName: "Local Session",
+		ActorUserID: uuid.UUID(user.ID.Bytes).String(),
+		Scopes:      []string{"*:*"},
+	})
+	if err != nil {
+		return User{}, emptyToken, "", fmt.Errorf("create local session token: %w", err)
+	}
+	return User{
+		ID:              uuid.UUID(user.ID.Bytes).String(),
+		Email:           user.Email,
+		DisplayName:     user.DisplayName,
+		IsAuthenticated: true,
+	}, token, rawToken, nil
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"trove/internal/auth"
 	"trove/internal/config"
@@ -124,7 +125,11 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	})
 
 	r.Get("/auth/oidc/login", handleOIDCLogin(authenticator))
-	r.Get("/auth/oidc/callback", handleOIDCCallback(authenticator))
+	r.Get("/auth/oidc/callback", handleOIDCCallback(authenticator, cfg))
+	r.Post("/api/v1/auth/dev/login", handleDevLogin(authenticator))
+	r.Post("/api/v1/auth/local/login", handleLocalLogin(authenticator))
+	r.Post("/api/v1/auth/logout", handleLogout(authenticator))
+	r.Get("/api/v1/auth/me", handleAuthMe())
 
 	uiHandler := ui.Handler()
 	r.Get("/", uiHandler.ServeHTTP)
@@ -144,9 +149,13 @@ func handleGetConfig(cfg config.Config) http.HandlerFunc {
 		writeJSON(w, http.StatusOK, struct {
 			Org            string `json:"org"`
 			AllowCreateOrg bool   `json:"allowCreateOrg"`
+			AuthMode       string `json:"authMode"`
+			CookieSecure   bool   `json:"cookieSecure"`
 		}{
 			Org:            cfg.Orgs.DefaultOrg,
 			AllowCreateOrg: cfg.Orgs.AllowCreateOrg,
+			AuthMode:       cfg.Auth.Mode,
+			CookieSecure:   cfg.Auth.CookieSecure,
 		})
 	}
 }
@@ -1337,7 +1346,7 @@ func handleOIDCLogin(authenticator *auth.Authenticator) http.HandlerFunc {
 	}
 }
 
-func handleOIDCCallback(authenticator *auth.Authenticator) http.HandlerFunc {
+func handleOIDCCallback(authenticator *auth.Authenticator, cfg config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if authenticator == nil {
 			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "OIDC is not configured.")
@@ -1363,10 +1372,134 @@ func handleOIDCCallback(authenticator *auth.Authenticator) http.HandlerFunc {
 			return
 		}
 
+		token, rawToken, err := authenticator.CreateAPIToken(r.Context(), auth.CreateTokenRequest{
+			DisplayName: "OIDC Session",
+			ActorUserID: user.ID,
+			Scopes:      []string{"*:*"},
+			ExpiresAt:   time.Now().Add(30 * 24 * time.Hour),
+		})
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "SESSION_CREATE_FAILED", "Failed to create session.")
+			return
+		}
+
+		authenticator.SetSessionCookie(w, rawToken, 30*24*60*60)
+
+		_ = token
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+}
+
+func handleDevLogin(authenticator *auth.Authenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticator == nil || !authenticator.DevModeEnabled() {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Dev mode is not enabled.")
+			return
+		}
+
+		var body struct {
+			Token string `json:"token"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
+			return
+		}
+
+		if body.Token == "" {
+			writeError(w, r, http.StatusBadRequest, "MISSING_TOKEN", "Token is required.")
+			return
+		}
+
+		rawToken, err := devSessionToken(authenticator, body.Token)
+		if err != nil {
+			writeError(w, r, http.StatusUnauthorized, "INVALID_TOKEN", "Invalid dev token.")
+			return
+		}
+
+		authenticator.SetSessionCookie(w, rawToken, 30*24*60*60)
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+}
+
+func devSessionToken(a *auth.Authenticator, token string) (string, error) {
+	if token != a.DevToken() {
+		return "", fmt.Errorf("invalid dev token")
+	}
+
+	rawToken, err := uuid.NewV7()
+	if err != nil {
+		return "", err
+	}
+	raw := rawToken.String()
+
+	_, _, err = a.CreateAPIToken(context.Background(), auth.CreateTokenRequest{
+		DisplayName: "Dev Session",
+		ActorUserID: auth.DevUserID,
+		Scopes:      []string{"*:*"},
+		ExpiresAt:   time.Now().Add(30 * 24 * time.Hour),
+	})
+	if err != nil {
+		return "", err
+	}
+
+	return raw, nil
+}
+
+func handleLocalLogin(authenticator *auth.Authenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticator == nil || authenticator.AuthMode() != "local" {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Local mode is not enabled.")
+			return
+		}
+
+		user, _, rawToken, err := authenticator.GetOrCreateLocalUser(r.Context())
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "LOCAL_LOGIN_FAILED", "Failed to create local session.")
+			return
+		}
+
+		authenticator.SetSessionCookie(w, rawToken, 365*24*60*60)
+		_ = user
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+}
+
+func handleLogout(authenticator *auth.Authenticator) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if authenticator == nil {
+			authenticator.ClearSessionCookie(w)
+			http.Redirect(w, r, "/", http.StatusFound)
+			return
+		}
+
+		user, ok := auth.UserFromContext(r.Context())
+		if ok && user.IsAuthenticated && !user.IsDev {
+			_ = user
+		}
+
+		authenticator.ClearSessionCookie(w)
+		http.Redirect(w, r, "/", http.StatusFound)
+	}
+}
+
+func handleAuthMe() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok || !user.IsAuthenticated {
+			writeJSON(w, http.StatusOK, map[string]any{
+				"authenticated": false,
+			})
+			return
+		}
+
 		writeJSON(w, http.StatusOK, map[string]any{
-			"id":          user.ID,
-			"email":       user.Email,
-			"displayName": user.DisplayName,
+			"authenticated": true,
+			"user": map[string]any{
+				"id":          user.ID,
+				"email":       user.Email,
+				"displayName": user.DisplayName,
+				"isDev":       user.IsDev,
+			},
 		})
 	}
 }

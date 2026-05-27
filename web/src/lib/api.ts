@@ -87,6 +87,18 @@ export interface ReviewStatus {
 export interface AppConfig {
   org: string
   allowCreateOrg: boolean
+  authMode: string
+  cookieSecure: boolean
+}
+
+export interface AuthMeResult {
+  authenticated: boolean
+  user?: {
+    id: string
+    email: string
+    displayName: string
+    isDev: boolean
+  }
 }
 
 export interface OrgResource {
@@ -103,13 +115,19 @@ const API_BASE = '/api/v1'
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     headers: { 'Content-Type': 'application/json', ...init?.headers },
+    redirect: init?.redirect ?? 'follow',
     ...init,
   })
-  if (!res.ok) {
+  if (res.status >= 400) {
     const body = await res.json().catch(() => null)
     throw new Error(body?.error?.message || `Request failed: ${res.status}`)
   }
-  return res.json()
+  if (res.status === 0 || res.redirected) {
+    return {} as T
+  }
+  const text = await res.text()
+  if (!text) return {} as T
+  return JSON.parse(text)
 }
 
 export const api = {
@@ -175,4 +193,25 @@ export const api = {
       method: 'PATCH',
       body: JSON.stringify({ visibility }),
     }),
+
+  getAuthMe: () => request<AuthMeResult>('/auth/me'),
+
+  loginDev: (token: string) =>
+    request<void>('/auth/dev/login', {
+      method: 'POST',
+      body: JSON.stringify({ token }),
+      redirect: 'manual',
+    }).catch(() => {}),
+
+  loginLocal: () =>
+    request<void>('/auth/local/login', {
+      method: 'POST',
+      redirect: 'manual',
+    }).catch(() => {}),
+
+  logout: () =>
+    request<void>('/auth/logout', {
+      method: 'POST',
+      redirect: 'manual',
+    }).catch(() => {}),
 }

@@ -6,6 +6,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -55,6 +56,7 @@ type AuthConfig struct {
 	Mode           string
 	DevModeEnabled bool
 	DevToken       string
+	CookieSecure   bool
 }
 
 type OIDCConfig struct {
@@ -105,6 +107,7 @@ func Load() (Config, error) {
 func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
 	cfg := Defaults()
 	var errs []error
+	var cookieSecureRaw string
 
 	assignString(lookup, "TROVE_SERVER_LISTEN", &cfg.Server.Listen)
 	assignString(lookup, "TROVE_PUBLIC_URL", &cfg.Server.PublicURL)
@@ -117,6 +120,7 @@ func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
 	assignString(lookup, "TROVE_OIDC_CLIENT_ID", &cfg.OIDC.ClientID)
 	assignString(lookup, "TROVE_OIDC_CLIENT_SECRET", &cfg.OIDC.ClientSecret)
 	assignString(lookup, "TROVE_OIDC_REDIRECT_URL", &cfg.OIDC.RedirectURL)
+	assignString(lookup, "TROVE_COOKIE_SECURE", &cookieSecureRaw)
 
 	assignBool(lookup, "TROVE_DATABASE_MIGRATE_ON_STARTUP", &cfg.Database.MigrateOnStartup, &errs)
 	assignBool(lookup, "TROVE_AUTH_DEV_MODE_ENABLED", &cfg.Auth.DevModeEnabled, &errs)
@@ -135,6 +139,20 @@ func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
 	assignInt64(lookup, "TROVE_STORAGE_MAX_UNPACKED_PACKAGE_BYTES", &cfg.Storage.Limits.MaxUnpackedPackageBytes, &errs)
 	assignInt(lookup, "TROVE_STORAGE_MAX_ARTIFACTS_PER_VERSION", &cfg.Storage.Limits.MaxArtifactsPerVersion, &errs)
 	assignInt(lookup, "TROVE_REVIEWS_MINIMUM_APPROVALS", &cfg.Reviews.MinimumApprovals, &errs)
+
+	if cookieSecureRaw != "" {
+		parsed, err := strconv.ParseBool(cookieSecureRaw)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("TROVE_COOKIE_SECURE: parse bool: %w", err))
+		} else {
+			cfg.Auth.CookieSecure = parsed
+		}
+	}
+	if cfg.Server.PublicURL != "" && len(errs) == 0 {
+		if strings.HasPrefix(cfg.Server.PublicURL, "https://") {
+			cfg.Auth.CookieSecure = true
+		}
+	}
 
 	if len(errs) > 0 {
 		return Config{}, errors.Join(errs...)
@@ -157,6 +175,7 @@ func Defaults() Config {
 		Auth: AuthConfig{
 			Mode:           DefaultAuthMode,
 			DevModeEnabled: true,
+			CookieSecure:   false,
 		},
 		Orgs: OrgsConfig{
 			AllowCreateOrg: true,

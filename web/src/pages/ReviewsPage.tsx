@@ -1,9 +1,24 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api'
 import { MessageSquare, Loader2 } from 'lucide-react'
+import { useAuth } from '../lib/auth'
 
 export default function ReviewsPage() {
+  const { isAuthenticated, loading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login')
+    }
+  }, [loading, isAuthenticated, navigate])
+
+  if (loading || !isAuthenticated) {
+    return <div className="max-w-4xl mx-auto text-center py-12 text-muted-foreground">Redirecting...</div>
+  }
+
   const [comment, setComment] = useState('')
   const [action, setAction] = useState<'approve' | 'request-changes' | null>(null)
 

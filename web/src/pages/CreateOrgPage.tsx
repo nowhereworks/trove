@@ -1,10 +1,24 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
 
 export default function CreateOrgPage() {
+  const { isAuthenticated, loading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login')
+    }
+  }, [loading, isAuthenticated, navigate])
+
+  if (loading || !isAuthenticated) {
+    return <div className="max-w-md mx-auto text-center py-12 text-muted-foreground">Redirecting...</div>
+  }
+
   const [slug, setSlug] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [createdSlug, setCreatedSlug] = useState('')

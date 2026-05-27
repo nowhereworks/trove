@@ -1,11 +1,26 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Upload, CheckCircle, AlertCircle, Loader2 } from 'lucide-react'
 import { api } from '../lib/api'
+import { useAuth } from '../lib/auth'
 
 type Step = 'create' | 'upload' | 'review' | 'publish' | 'done'
 
 export default function UploadPage() {
+  const { isAuthenticated, loading } = useAuth()
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!loading && !isAuthenticated) {
+      navigate('/login')
+    }
+  }, [loading, isAuthenticated, navigate])
+
+  if (loading || !isAuthenticated) {
+    return <div className="max-w-2xl mx-auto text-center py-12 text-muted-foreground">Redirecting...</div>
+  }
+
   const [step, setStep] = useState<Step>('create')
   const [org, setOrg] = useState('')
   const [namespace, setNamespace] = useState('')
