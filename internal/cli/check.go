@@ -17,12 +17,10 @@ func sha256Sum(data []byte) string {
 }
 
 type CheckResult struct {
-	Package          string `json:"package"`
-	CurrentVersion   string `json:"currentVersion"`
-	LatestVersion    string `json:"latestVersion"`
-	UpdateAvailable  bool   `json:"updateAvailable"`
-	Compatibility    string `json:"compatibility"`
-	ChangelogURL     string `json:"changelogUrl,omitempty"`
+	Package         string `json:"package"`
+	CurrentVersion  string `json:"currentVersion"`
+	LatestVersion   string `json:"latestVersion"`
+	UpdateAvailable bool   `json:"updateAvailable"`
 }
 
 func RunCheck(args []string, jsonOutput bool) error {
@@ -39,7 +37,6 @@ func RunCheck(args []string, jsonOutput bool) error {
 
 	client := NewClient()
 	results := make([]CheckResult, 0, len(lock.Installs))
-	hasIncompatible := false
 
 	for _, install := range lock.Installs {
 		ref, err := ParsePackageRef(install.Package + "@" + install.RequestedSelector)
@@ -71,18 +68,12 @@ func RunCheck(args []string, jsonOutput bool) error {
 		}
 
 		result := CheckResult{
-			Package:          install.Package,
-			CurrentVersion:   install.Version,
-			LatestVersion:    resp.LatestVersion,
-			UpdateAvailable:  resp.UpdateAvailable,
-			Compatibility:    resp.Compatibility,
-			ChangelogURL:     resp.ChangelogURL,
+			Package:         install.Package,
+			CurrentVersion:  install.Version,
+			LatestVersion:   resp.LatestVersion,
+			UpdateAvailable: resp.UpdateAvailable,
 		}
 		results = append(results, result)
-
-		if resp.Compatibility == "incompatible" {
-			hasIncompatible = true
-		}
 	}
 
 	if jsonOutput {
@@ -90,13 +81,8 @@ func RunCheck(args []string, jsonOutput bool) error {
 		enc.SetIndent("", "  ")
 		return enc.Encode(map[string]any{
 			"results":            results,
-			"hasIncompatible":    hasIncompatible,
 			"hasUpdateAvailable": hasUpdate(results),
 		})
-	}
-
-	if hasIncompatible {
-		fmt.Fprintln(os.Stderr, "WARNING: incompatible package versions detected")
 	}
 
 	for _, r := range results {
@@ -104,15 +90,7 @@ func RunCheck(args []string, jsonOutput bool) error {
 		if r.UpdateAvailable {
 			status = "update available: " + r.LatestVersion
 		}
-		compat := ""
-		if r.Compatibility != "" && r.Compatibility != "unknown" {
-			compat = " [" + r.Compatibility + "]"
-		}
-		fmt.Printf("%s: %s%s\n", r.Package, status, compat)
-	}
-
-	if hasIncompatible {
-		return fmt.Errorf("incompatible versions found")
+		fmt.Printf("%s: %s\n", r.Package, status)
 	}
 
 	return nil

@@ -249,4 +249,3 @@ Down migrations are provided for local development when safe. Production rollbac
 ### Next Steps
 
 - See [Configuration](/operations/configuration) for all config options
-- Learn about [Compatibility](/operations/compatibility) rules

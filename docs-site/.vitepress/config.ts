@@ -81,7 +81,6 @@ export default defineConfig({
           { text: 'Configuration', link: '/operations/configuration' },
           { text: 'Deployment', link: '/operations/deployment' },
           { text: 'Helm Chart', link: '/operations/helm-chart' },
-          { text: 'Compatibility', link: '/operations/compatibility' },
         ],
       },
     ],

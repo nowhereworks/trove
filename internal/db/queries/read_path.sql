@@ -220,7 +220,6 @@ where sd.search_text @@ plainto_tsquery('english', sqlc.arg(query)::text)
   and (sqlc.arg(org)::text = '' or o.slug = sqlc.arg(org)::text)
   and (sqlc.arg(namespace)::text = '' or n.slug = sqlc.arg(namespace)::text)
   and (sqlc.arg(artifact_type)::text = '' or sqlc.arg(artifact_type)::text = any(sd.artifact_types))
-  and (sqlc.arg(tool)::text = '' or sqlc.arg(tool)::text = any(sd.tool_names))
   and ((sqlc.arg(cursor)::text = '') or ((o.slug || '/' || n.slug || '/' || p.name) > sqlc.arg(cursor)::text))
 order by rank desc, o.slug, n.slug, p.name
 limit sqlc.arg(page_limit)::int;

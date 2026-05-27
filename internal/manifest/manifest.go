@@ -32,27 +32,9 @@ type Metadata struct {
 }
 
 type Spec struct {
-	Compatibility Compatibility     `yaml:"compatibility" json:"compatibility,omitempty"`
 	Artifacts     []Artifact        `yaml:"artifacts" json:"artifacts"`
 	Dependencies  []string          `yaml:"dependencies" json:"dependencies,omitempty"`
 	Links         map[string]string `yaml:"links" json:"links,omitempty"`
-}
-
-type Compatibility struct {
-	Tools    []ToolCompatibility  `yaml:"tools" json:"tools,omitempty"`
-	Models   []ModelCompatibility `yaml:"models" json:"models,omitempty"`
-	Runtimes []string             `yaml:"runtimes" json:"runtimes,omitempty"`
-}
-
-type ToolCompatibility struct {
-	Name       string `yaml:"name" json:"name"`
-	Version    string `yaml:"version" json:"version,omitempty"`
-	MinVersion string `yaml:"minVersion" json:"minVersion,omitempty"`
-}
-
-type ModelCompatibility struct {
-	Family           string `yaml:"family" json:"family"`
-	MinContextWindow int    `yaml:"minContextWindow" json:"minContextWindow,omitempty"`
 }
 
 type Artifact struct {
@@ -132,7 +114,6 @@ func Validate(m Manifest, opts ValidateOptions) error {
 	}
 
 	validateArtifacts(&problems, m.Spec.Artifacts)
-	validateCompatibility(&problems, m.Spec.Compatibility)
 	validateDependencies(&problems, m.Spec.Dependencies)
 
 	if len(problems) > 0 {
@@ -195,28 +176,6 @@ func validatePath(problems *[]Problem, field string, value string) {
 	cleaned := path.Clean(value)
 	if cleaned == "." || cleaned == ".." || strings.HasPrefix(cleaned, "../") || strings.Contains(cleaned, "/../") {
 		*problems = append(*problems, Problem{Field: field, Message: "must not escape the package root"})
-	}
-}
-
-func validateCompatibility(problems *[]Problem, compatibility Compatibility) {
-	for i, tool := range compatibility.Tools {
-		field := fmt.Sprintf("spec.compatibility.tools[%d]", i)
-		if !slugValueRE.MatchString(tool.Name) {
-			*problems = append(*problems, Problem{Field: field + ".name", Message: "must be a lowercase slug"})
-		}
-		if strings.TrimSpace(tool.Version) == "" && strings.TrimSpace(tool.MinVersion) == "" {
-			*problems = append(*problems, Problem{Field: field + ".version", Message: "is required"})
-		}
-	}
-	for i, model := range compatibility.Models {
-		if !slugValueRE.MatchString(model.Family) {
-			*problems = append(*problems, Problem{Field: fmt.Sprintf("spec.compatibility.models[%d].family", i), Message: "must be a lowercase family name"})
-		}
-	}
-	for i, runtime := range compatibility.Runtimes {
-		if !slugValueRE.MatchString(runtime) {
-			*problems = append(*problems, Problem{Field: fmt.Sprintf("spec.compatibility.runtimes[%d]", i), Message: "must be a lowercase runtime name"})
-		}
 	}
 }
 

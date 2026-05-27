@@ -2,7 +2,7 @@
 
 ## Why
 
-When your organization has dozens of packages across multiple namespaces, finding the right one matters. You might need "a skill for API review," "all Go-related agent instructions," or "packages compatible with Claude." Search lets you discover packages by name, description, type, tool compatibility, and more.
+When your organization has dozens of packages across multiple namespaces, finding the right one matters. You might need "a skill for API review," "all Go-related agent instructions," or "packages for Claude." Search lets you discover packages by name, description, type, and more.
 
 ## How
 
@@ -27,8 +27,7 @@ Response:
       "visibility": "public",
       "lifecycle": "active",
       "labels": { "language": "golang", "framework": "chi" },
-      "artifactTypes": ["agent-instructions", "skill", "command"],
-      "tools": ["opencode"]
+      "artifactTypes": ["agent-instructions", "skill", "command"]
     }
   ],
   "nextCursor": null
@@ -52,15 +51,14 @@ Response:
 | Artifact type | `artifactType` | `?artifactType=skill` |
 | Language label | `language` | `?language=golang` |
 | Framework label | `framework` | `?framework=chi` |
-| Tool compatibility | `tool` | `?tool=opencode` |
 | Visibility | `visibility` | `?visibility=public` |
 | Lifecycle | `lifecycle` | `?lifecycle=active` |
 
 ### Combining Filters
 
 ```bash
-# Find Go skills compatible with opencode in the platform namespace
-GET /api/v1/search/packages?q=skill&namespace=platform&artifactType=skill&language=golang&tool=opencode
+# Find Go skills in the platform namespace
+GET /api/v1/search/packages?q=skill&namespace=platform&artifactType=skill&language=golang
 ```
 
 ### Pagination
@@ -88,7 +86,6 @@ Search indexes the following package metadata:
 - Display name and description
 - Labels (language, framework, maturity, etc.)
 - Artifact paths and types
-- Compatibility tools, runtimes, and model families
 - Maintainer names and teams
 
 Artifact file **contents** are not indexed in the MVP.
@@ -98,7 +95,7 @@ Artifact file **contents** are not indexed in the MVP.
 The Trove UI provides a search page with:
 
 - Text input for free-text queries
-- Filter dropdowns for org, namespace, artifact type, tool, visibility, and lifecycle
+- Filter dropdowns for org, namespace, artifact type, visibility, and lifecycle
 - Result cards showing package name, description, latest version, and labels
 - Pagination controls
 

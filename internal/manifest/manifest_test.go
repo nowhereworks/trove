@@ -82,21 +82,14 @@ func TestValidateRejectsArtifactPathProblems(t *testing.T) {
 	}
 }
 
-func TestValidateRejectsMalformedCompatibilityAndDependencies(t *testing.T) {
+func TestValidateRejectsMalformedDependencies(t *testing.T) {
 	m := mustParse(t, validManifestYAML)
-	m.Spec.Compatibility.Tools = []ToolCompatibility{{Name: "OpenCode"}}
-	m.Spec.Compatibility.Models = []ModelCompatibility{{Family: "GPT"}}
-	m.Spec.Compatibility.Runtimes = []string{"Linux"}
 	m.Spec.Dependencies = []string{"platform/agent-backend"}
 
 	err := Validate(m, ValidateOptions{})
 	problems := validationProblems(t, err)
 
 	for _, field := range []string{
-		"spec.compatibility.tools[0].name",
-		"spec.compatibility.tools[0].version",
-		"spec.compatibility.models[0].family",
-		"spec.compatibility.runtimes[0]",
 		"spec.dependencies[0]",
 	} {
 		assertProblem(t, problems, field)
@@ -144,15 +137,6 @@ metadata:
     framework: chi
 spec:
   visibility: public
-  compatibility:
-    tools:
-      - name: opencode
-        version: ">=0.6.0 <2.0.0"
-    models:
-      - family: gpt
-        minContextWindow: 128000
-    runtimes:
-      - linux
   artifacts:
     - path: AGENTS.md
       type: agent-instructions

@@ -48,7 +48,6 @@ Immediately after submission, the system runs:
 
 - Broken external links
 - Markdown linting
-- Missing or unknown compatibility metadata
 
 ### Step 3: Human Review
 

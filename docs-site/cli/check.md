@@ -2,7 +2,7 @@
 
 ## Why
 
-Your project has installed packages pinned in `.trove.lock.yaml`. Are those versions still current? Has a version been yanked? Is there a newer compatible release? `trove check` answers these questions without changing anything — it's advisory by default, perfect for CI.
+Your project has installed packages pinned in `.trove.lock.yaml`. Are those versions still current? Has a version been yanked? Is there a newer release? `trove check` answers these questions without changing anything — it's advisory by default, perfect for CI.
 
 ## How
 
@@ -20,12 +20,10 @@ Checking .trove.lock.yaml...
 nwks/platform/agent-backend@1.0.0
   Status: current
   Latest: 1.0.0
-  Compatibility: compatible
 
 nwks/frontend/react-defaults@2.0.0
   Status: update available
   Latest: 2.1.0
-  Compatibility: compatible
 
 All checks passed. 1 package has updates available.
 ```
@@ -34,8 +32,8 @@ All checks passed. 1 package has updates available.
 
 | Exit Code | Meaning |
 |---|---|
-| `0` | All checks passed (ordinary updates are advisory) |
-| `1` | Yanked or incompatible versions detected |
+| `0` | All checks passed |
+| `1` | Yanked versions detected |
 | `2` | Error (lockfile not found, server unreachable, etc.) |
 
 ### CI Integration
@@ -47,8 +45,8 @@ trove check --lock .trove.lock.yaml
 # Strict mode — exit non-zero for any update
 trove check --lock .trove.lock.yaml --fail-on-update
 
-# Fail only on yanked or incompatible versions
-trove check --lock .trove.lock.yaml --fail-on-yanked --fail-on-incompatible
+# Fail only on yanked versions
+trove check --lock .trove.lock.yaml --fail-on-yanked
 ```
 
 ### JSON Output
@@ -68,16 +66,14 @@ Output:
       "installedVersion": "1.0.0",
       "installedDigest": "sha256:abc123...",
       "latestVersion": "1.0.0",
-      "status": "current",
-      "compatibility": "compatible"
+      "status": "current"
     },
     {
       "package": "nwks/frontend/react-defaults",
       "installedVersion": "2.0.0",
       "installedDigest": "sha256:def456...",
       "latestVersion": "2.1.0",
-      "status": "update-available",
-      "compatibility": "compatible"
+      "status": "update-available"
     }
   ]
 }
@@ -88,28 +84,9 @@ Output:
 | Status | Meaning |
 |---|---|
 | `current` | Installed version matches latest |
-| `update-available` | A newer compatible version exists |
+| `update-available` | A newer version exists |
 | `yanked` | Installed version has been yanked |
 | `deprecated` | Installed version is deprecated |
-| `incompatible` | Latest version is incompatible with your target |
-
-### Compatibility Values
-
-| Value | Meaning |
-|---|---|
-| `compatible` | Latest version works with your tool, runtime, and model |
-| `incompatible` | Latest version doesn't match your constraints |
-| `unknown` | No compatibility metadata for this package |
-
-Unknown compatibility is advisory by default. In strict mode (`--strict-compatibility`), unknown is treated as a failure.
-
-### Strict Compatibility Mode
-
-```bash
-trove check --lock .trove.lock.yaml --strict-compatibility
-```
-
-In strict mode, `unknown` compatibility causes a non-zero exit. This is useful in CI pipelines that require full compatibility metadata.
 
 ### Adoption Reporting
 

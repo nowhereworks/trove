@@ -2,7 +2,7 @@
 
 ## Why
 
-You've run `trove check` and found updates available. Now you want to apply them — but safely. `trove update` shows you what will change before it changes anything. It's dry-run by default, so you can review diffs and compatibility before writing files.
+You've run `trove check` and found updates available. Now you want to apply them — but safely. `trove update` shows you what will change before it changes anything. It's dry-run by default, so you can review diffs before writing files.
 
 ## How
 
@@ -20,7 +20,6 @@ Checking for updates...
 nwks/frontend/react-defaults
   Current: 2.0.0 (sha256:def456...)
   Latest:  2.1.0 (sha256:ghi789...)
-  Compatibility: compatible
 
   Changed artifacts:
     ~ AGENTS.md (3840 → 4096 bytes)
@@ -57,7 +56,7 @@ Updates applied. 1 package updated.
 
 ### What Happens During Apply
 
-1. Resolves each package's latest compatible version
+1. Resolves each package's latest version
 2. Downloads changed artifacts
 3. Writes artifacts to their target paths (fails if target differs and `--overwrite` is not set)
 4. Rewrites `.trove.lock.yaml` with new versions and digests
@@ -106,20 +105,6 @@ Output:
 }
 ```
 
-### Compatibility Checks
-
-`trove update` checks compatibility before applying:
-
-```bash
-trove update --lock .trove.lock.yaml
-# nwks/ai/security-reviewer
-#   Latest: 1.0.0 → 2.0.0
-#   Compatibility: incompatible (requires opencode >=1.0.0, you have 0.6.0)
-#   Skipping incompatible update.
-```
-
-Incompatible updates are skipped by default. Use `--include-incompatible` to force them (not recommended).
-
 ### Adoption Reporting
 
 ```bash
@@ -133,7 +118,6 @@ trove update --lock .trove.lock.yaml --apply --report
 | Lockfile not found | The specified lockfile doesn't exist |
 | File conflict | Target file has local changes (use `--overwrite`) |
 | `UNAUTHORIZED` | Authentication required |
-| Incompatible | Latest version doesn't match your constraints |
 
 ### Next Steps
 

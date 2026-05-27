@@ -72,11 +72,6 @@ export interface ManifestData {
       required: boolean
       targetPath: string
     }[]
-    compatibility?: {
-      tools?: { name: string; version: string }[]
-      runtimes?: string[]
-      models?: { family: string; minContextWindow?: number }[]
-    }
   }
 }
 

@@ -301,7 +301,6 @@ type SearchParams struct {
 	Org          string
 	Namespace    string
 	ArtifactType string
-	Tool         string
 	Limit        int
 	Cursor       string
 }

@@ -721,10 +721,9 @@ where sd.search_text @@ plainto_tsquery('english', $1::text)
   and ($2::text = '' or o.slug = $2::text)
   and ($3::text = '' or n.slug = $3::text)
   and ($4::text = '' or $4::text = any(sd.artifact_types))
-  and ($5::text = '' or $5::text = any(sd.tool_names))
-  and (($6::text = '') or ((o.slug || '/' || n.slug || '/' || p.name) > $6::text))
+  and (($5::text = '') or ((o.slug || '/' || n.slug || '/' || p.name) > $5::text))
 order by rank desc, o.slug, n.slug, p.name
-limit $7::int
+limit $6::int
 `
 
 type SearchPackagesParams struct {
@@ -732,7 +731,6 @@ type SearchPackagesParams struct {
 	Org          string `json:"org"`
 	Namespace    string `json:"namespace"`
 	ArtifactType string `json:"artifact_type"`
-	Tool         string `json:"tool"`
 	Cursor       string `json:"cursor"`
 	PageLimit    int32  `json:"page_limit"`
 }
@@ -755,7 +753,6 @@ func (q *Queries) SearchPackages(ctx context.Context, arg SearchPackagesParams) 
 		arg.Org,
 		arg.Namespace,
 		arg.ArtifactType,
-		arg.Tool,
 		arg.Cursor,
 		arg.PageLimit,
 	)

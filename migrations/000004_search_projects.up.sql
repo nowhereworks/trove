@@ -4,7 +4,6 @@ create table package_search_documents (
   search_text tsvector not null,
   labels_json jsonb not null default '{}'::jsonb,
   artifact_types text[] not null default '{}',
-  tool_names text[] not null default '{}',
   lifecycle text not null,
   visibility text not null,
   updated_at timestamptz not null
@@ -14,7 +13,6 @@ create index package_search_documents_search_idx on package_search_documents usi
 create index package_search_documents_lifecycle_idx on package_search_documents(lifecycle);
 create index package_search_documents_visibility_idx on package_search_documents(visibility);
 create index package_search_documents_artifact_types_idx on package_search_documents using gin(artifact_types);
-create index package_search_documents_tool_names_idx on package_search_documents using gin(tool_names);
 
 create table project_registrations (
   id uuid primary key,

@@ -270,7 +270,6 @@ insert into package_search_documents (
   search_text,
   labels_json,
   artifact_types,
-  tool_names,
   lifecycle,
   visibility,
   updated_at
@@ -281,7 +280,6 @@ values (
   to_tsvector('english', sqlc.arg(search_text)),
   sqlc.arg(labels_json),
   sqlc.arg(artifact_types)::text[],
-  sqlc.arg(tool_names)::text[],
   sqlc.arg(lifecycle),
   sqlc.arg(visibility),
   now()
@@ -291,7 +289,6 @@ set latest_published_version_id = excluded.latest_published_version_id,
     search_text = excluded.search_text,
     labels_json = excluded.labels_json,
     artifact_types = excluded.artifact_types,
-    tool_names = excluded.tool_names,
     lifecycle = excluded.lifecycle,
     visibility = excluded.visibility,
     updated_at = excluded.updated_at;

@@ -173,4 +173,3 @@ Secrets are referenced by environment variable name:
 ### Next Steps
 
 - Learn about [Deployment](/operations/deployment) for running Trove
-- See [Compatibility](/operations/compatibility) for tool/model/runtime rules

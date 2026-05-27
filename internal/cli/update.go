@@ -11,11 +11,10 @@ import (
 )
 
 type UpdateResult struct {
-	Package          string `json:"package"`
-	CurrentVersion   string `json:"currentVersion"`
-	LatestVersion    string `json:"latestVersion"`
-	Updated          bool   `json:"updated"`
-	Compatibility    string `json:"compatibility"`
+	Package        string `json:"package"`
+	CurrentVersion string `json:"currentVersion"`
+	LatestVersion  string `json:"latestVersion"`
+	Updated        bool   `json:"updated"`
 }
 
 func RunUpdate(args []string, apply bool, jsonOutput bool) error {
@@ -49,10 +48,9 @@ func RunUpdate(args []string, apply bool, jsonOutput bool) error {
 		}
 
 		result := UpdateResult{
-			Package:          install.Package,
-			CurrentVersion:   install.Version,
-			LatestVersion:    resp.LatestVersion,
-			Compatibility:    resp.Compatibility,
+			Package:        install.Package,
+			CurrentVersion: install.Version,
+			LatestVersion:  resp.LatestVersion,
 		}
 
 		if resp.UpdateAvailable && apply {

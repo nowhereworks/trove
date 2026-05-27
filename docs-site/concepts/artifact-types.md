@@ -2,7 +2,7 @@
 
 ## Why
 
-Trove manages many kinds of agent-consumable files. Categorizing them by type enables filtering in search, install-time selection, and compatibility checks. Instead of treating every file as a generic blob, Trove recognizes 10 first-class artifact types.
+Trove manages many kinds of agent-consumable files. Categorizing them by type enables filtering in search and install-time selection. Instead of treating every file as a generic blob, Trove recognizes 10 first-class artifact types.
 
 ## How
 

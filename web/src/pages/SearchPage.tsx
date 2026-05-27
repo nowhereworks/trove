@@ -31,7 +31,7 @@ export default function SearchPage() {
       <div>
         <h1 className="text-2xl font-bold">Search Packages</h1>
         <p className="text-muted-foreground">
-          Find packages by name, description, labels, or tool compatibility.
+          Find packages by name, description, or labels.
         </p>
       </div>
 

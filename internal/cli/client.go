@@ -536,25 +536,13 @@ type ApprovalStatusResponse struct {
 }
 
 type UpdateCheckRequest struct {
-	Package             string `json:"package"`
-	CurrentVersion      string `json:"currentVersion"`
-	CurrentDigest       string `json:"currentDigest"`
-	StrictCompatibility bool   `json:"strictCompatibility"`
-	Target              Target `json:"target"`
-}
-
-type Target struct {
-	Tool          string `json:"tool"`
-	ToolVersion   string `json:"toolVersion"`
-	Runtime       string `json:"runtime"`
-	ModelFamily   string `json:"modelFamily"`
-	ContextWindow int    `json:"contextWindow"`
+	Package        string `json:"package"`
+	CurrentVersion string `json:"currentVersion"`
+	CurrentDigest  string `json:"currentDigest"`
 }
 
 type UpdateCheckResponse struct {
-	UpdateAvailable        bool   `json:"updateAvailable"`
-	LatestVersion          string `json:"latestVersion"`
-	LatestDigest           string `json:"latestDigest"`
-	Compatibility          string `json:"compatibility"`
-	ChangelogURL           string `json:"changelogUrl"`
+	UpdateAvailable bool   `json:"updateAvailable"`
+	LatestVersion   string `json:"latestVersion"`
+	LatestDigest    string `json:"latestDigest"`
 }

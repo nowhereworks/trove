@@ -24,15 +24,6 @@ metadata:
   annotations:
     owner: platform-engineering
 spec:
-  compatibility:
-    tools:
-      - name: opencode
-        version: ">=0.6.0 <2.0.0"
-    models:
-      - family: gpt
-        minContextWindow: 128000
-    runtimes:
-      - linux
   artifacts:
     - path: AGENTS.md
       type: agent-instructions
@@ -69,7 +60,6 @@ spec:
 |---|---|---|
 | `metadata.labels` | object | Key-value labels for search and filtering |
 | `metadata.annotations` | object | Key-value metadata for tooling |
-| `spec.compatibility` | object | Tool, model, and runtime constraints |
 | `spec.dependencies` | array | Declare-only dependency references |
 | `spec.links` | object | Documentation and related URLs |
 
@@ -97,7 +87,6 @@ Publishing fails when:
 | `metadata.description` is empty | `INVALID_MANIFEST` |
 | No maintainer declared | `INVALID_MANIFEST` |
 | Unknown artifact type | `INVALID_MANIFEST` |
-| Malformed compatibility metadata | `INVALID_MANIFEST` |
 | Malformed dependency references | `INVALID_MANIFEST` |
 | Invalid link URLs | `INVALID_MANIFEST` |
 | Secrets or blocked unsafe instructions detected | `SECRET_DETECTED` / `UNSAFE_INSTRUCTION` |

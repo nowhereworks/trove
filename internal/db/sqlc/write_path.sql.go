@@ -1093,7 +1093,6 @@ insert into package_search_documents (
   search_text,
   labels_json,
   artifact_types,
-  tool_names,
   lifecycle,
   visibility,
   updated_at
@@ -1104,9 +1103,8 @@ values (
   to_tsvector('english', $3),
   $4,
   $5::text[],
-  $6::text[],
+  $6,
   $7,
-  $8,
   now()
 )
 on conflict (package_id) do update
@@ -1114,7 +1112,6 @@ set latest_published_version_id = excluded.latest_published_version_id,
     search_text = excluded.search_text,
     labels_json = excluded.labels_json,
     artifact_types = excluded.artifact_types,
-    tool_names = excluded.tool_names,
     lifecycle = excluded.lifecycle,
     visibility = excluded.visibility,
     updated_at = excluded.updated_at
@@ -1126,7 +1123,6 @@ type UpsertSearchDocumentParams struct {
 	SearchText               []byte      `json:"search_text"`
 	LabelsJson               []byte      `json:"labels_json"`
 	ArtifactTypes            []string    `json:"artifact_types"`
-	ToolNames                []string    `json:"tool_names"`
 	Lifecycle                string      `json:"lifecycle"`
 	Visibility               string      `json:"visibility"`
 }
@@ -1138,7 +1134,6 @@ func (q *Queries) UpsertSearchDocument(ctx context.Context, arg UpsertSearchDocu
 		arg.SearchText,
 		arg.LabelsJson,
 		arg.ArtifactTypes,
-		arg.ToolNames,
 		arg.Lifecycle,
 		arg.Visibility,
 	)

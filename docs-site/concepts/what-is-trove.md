@@ -39,7 +39,7 @@ nwks/platform/agent-backend@1.0.0
 | Capability | Description |
 |---|---|
 | **Publishing** | Upload `.tar.gz` or `.zip` archives, validate manifests, submit for review, and publish immutable versions |
-| **Discovery** | Search packages by name, description, artifact type, tool compatibility, and more |
+| **Discovery** | Search packages by name, description, artifact type, and more |
 | **Agent APIs** | Resolve selectors to exact versions, fetch raw artifacts, download archives |
 | **CLI** | Install, check for updates, and manage lockfiles from the command line |
 | **Governance** | RBAC, review workflows, approval gates, security scanning, and audit trails |
@@ -49,7 +49,7 @@ nwks/platform/agent-backend@1.0.0
 
 - **Platform engineers** publish and maintain blessed artifact packages
 - **Application developers** discover and adopt packages for their projects
-- **Agents and CLIs** resolve versions, fetch raw files, and check compatibility
+- **Agents and CLIs** resolve versions, fetch raw files, and check for updates
 - **Security reviewers** approve packages and enforce policy before publishing
 
 ### Architecture

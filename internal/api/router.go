@@ -106,7 +106,6 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Get("/raw/{org}/{namespace}/{package}/*", handleRawArtifact(store, cfg))
 
 	r.Post("/api/v1/updates/check", handleCheckUpdate(updateService))
-	r.Post("/api/v1/compatibility/check", handleCheckCompatibility(updateService))
 	r.Post("/api/v1/projects/report", auth.RequireAuth(handleReportProjectAdoption(writeStore)))
 	r.Post("/api/v1/projects", auth.RequireAuth(handleCreateProject(writeStore)))
 
@@ -1399,33 +1398,6 @@ func handleCheckUpdate(service *updates.Service) http.HandlerFunc {
 	}
 }
 
-func handleCheckCompatibility(service *updates.Service) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req updates.CompatibilityCheckRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			writeError(w, r, http.StatusBadRequest, "INVALID_JSON", "Request body must be valid JSON.")
-			return
-		}
-
-		if req.Package == "" {
-			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "package is required.")
-			return
-		}
-		if req.Version == "" {
-			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST", "version is required.")
-			return
-		}
-
-		result, err := service.CheckCompatibility(r.Context(), req)
-		if err != nil {
-			writeStoreError(w, r, err)
-			return
-		}
-
-		writeJSON(w, http.StatusOK, result)
-	}
-}
-
 func handleSearchPackages(store packages.Store) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		query := r.URL.Query().Get("q")
@@ -1449,7 +1421,6 @@ func handleSearchPackages(store packages.Store) http.HandlerFunc {
 			Org:          r.URL.Query().Get("org"),
 			Namespace:    r.URL.Query().Get("namespace"),
 			ArtifactType: r.URL.Query().Get("artifactType"),
-			Tool:         r.URL.Query().Get("tool"),
 			Limit:        limit,
 			Cursor:       r.URL.Query().Get("cursor"),
 		})

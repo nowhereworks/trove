@@ -285,14 +285,12 @@ func (s *PostgresStore) PublishVersion(ctx context.Context, req PublishVersionRe
 	searchText := buildSearchText(parsed, req.Org, req.Namespace, req.Package, rows)
 	labelsJSON, _ := json.Marshal(parsed.Metadata.Labels)
 	artifactTypes := extractArtifactTypes(parsed)
-	toolNames := extractToolNames(parsed)
 	if err := q.UpsertSearchDocument(ctx, sqlc.UpsertSearchDocumentParams{
 		PackageID:                version.PackageID,
 		LatestPublishedVersionID: version.ID,
 		SearchText:               []byte(searchText),
 		LabelsJson:               labelsJSON,
 		ArtifactTypes:            artifactTypes,
-		ToolNames:                toolNames,
 		Lifecycle:                "active",
 		Visibility:               pkgVis,
 	}); err != nil {
@@ -847,7 +845,6 @@ func (s *PostgresStore) SearchPackages(ctx context.Context, params SearchParams)
 		Org:          params.Org,
 		Namespace:    params.Namespace,
 		ArtifactType: params.ArtifactType,
-		Tool:         params.Tool,
 		Cursor:       params.Cursor,
 		PageLimit:    int32(limit + 1),
 	})
@@ -1184,16 +1181,4 @@ func extractArtifactTypes(parsed manifest.Manifest) []string {
 		}
 	}
 	return types
-}
-
-func extractToolNames(parsed manifest.Manifest) []string {
-	seen := map[string]bool{}
-	var names []string
-	for _, tool := range parsed.Spec.Compatibility.Tools {
-		if tool.Name != "" && !seen[tool.Name] {
-			seen[tool.Name] = true
-			names = append(names, tool.Name)
-		}
-	}
-	return names
 }

@@ -120,7 +120,6 @@ type PackageSearchDocument struct {
 	SearchText               interface{}        `json:"search_text"`
 	LabelsJson               []byte             `json:"labels_json"`
 	ArtifactTypes            []string           `json:"artifact_types"`
-	ToolNames                []string           `json:"tool_names"`
 	Lifecycle                string             `json:"lifecycle"`
 	Visibility               string             `json:"visibility"`
 	UpdatedAt                pgtype.Timestamptz `json:"updated_at"`
