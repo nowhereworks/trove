@@ -9,8 +9,8 @@
   --card-foreground: 222.2 84% 4.9%;
   --popover: 0 0% 100%;
   --popover-foreground: 222.2 84% 4.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
+  --primary: 38 73% 55%;
+  --primary-foreground: 222.2 47.4% 11.2%;
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222.2 47.4% 11.2%;
   --muted: 210 40% 96.1%;
@@ -26,25 +26,25 @@
 }
 
 .dark {
-  --background: 222.2 84% 4.9%;
-  --foreground: 210 40% 98%;
-  --card: 222.2 84% 4.9%;
-  --card-foreground: 210 40% 98%;
-  --popover: 222.2 84% 4.9%;
-  --popover-foreground: 210 40% 98%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 11.2%;
-  --secondary: 217.2 32.6% 17.5%;
-  --secondary-foreground: 210 40% 98%;
-  --muted: 217.2 32.6% 17.5%;
-  --muted-foreground: 215 20.2% 65.1%;
-  --accent: 217.2 32.6% 17.5%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 217.2 32.6% 17.5%;
-  --input: 217.2 32.6% 17.5%;
-  --ring: 212.7 26.8% 83.9%;
+  --background: 220 22% 7%;
+  --foreground: 220 12% 95%;
+  --card: 214 20% 11%;
+  --card-foreground: 220 12% 95%;
+  --popover: 214 20% 11%;
+  --popover-foreground: 220 12% 95%;
+  --primary: 38 73% 55%;
+  --primary-foreground: 220 22% 7%;
+  --secondary: 215 21% 16%;
+  --secondary-foreground: 220 12% 95%;
+  --muted: 215 21% 16%;
+  --muted-foreground: 44 7% 63%;
+  --accent: 215 21% 16%;
+  --accent-foreground: 220 12% 95%;
+  --destructive: 0 63% 31%;
+  --destructive-foreground: 220 12% 95%;
+  --border: 214 21% 21%;
+  --input: 214 21% 21%;
+  --ring: 38 73% 55%;
 }
 
 * {
@@ -54,8 +54,20 @@
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: Inter, Manrope, "IBM Plex Sans", "Segoe UI", Arial, sans-serif;
   margin: 0;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+input,
+select,
+textarea {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: hsl(var(--muted-foreground));
 }

@@ -6,8 +6,8 @@ import { Copy, Package, Clock, Shield, Users } from 'lucide-react'
 
 function roleBadgeClass(role: string) {
   return role === 'owner'
-    ? 'bg-amber-100 text-amber-700'
-    : 'bg-blue-100 text-blue-700'
+    ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+    : 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
 }
 
 export default function PackagePage() {
@@ -83,10 +83,10 @@ export default function PackagePage() {
             <span
               className={`text-xs px-2 py-1 rounded-full ${
                 pkg.visibility === 'public'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
                   : pkg.visibility === 'internal'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-700'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                    : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
               {pkg.visibility}
@@ -94,8 +94,8 @@ export default function PackagePage() {
             <span
               className={`text-xs px-2 py-1 rounded-full ${
                 pkg.lifecycle === 'published'
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-yellow-100 text-yellow-700'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                  : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300'
               }`}
             >
               {pkg.lifecycle}
@@ -145,8 +145,8 @@ export default function PackagePage() {
                     <span
                       className={`ml-2 text-xs px-1.5 py-0.5 rounded ${
                         v.lifecycle === 'published'
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-yellow-100 text-yellow-700'
+                          ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
+                          : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300'
                       }`}
                     >
                       {v.lifecycle}

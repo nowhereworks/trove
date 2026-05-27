@@ -105,14 +105,14 @@ export default function ReviewsPage() {
       </div>
 
       {message ? (
-        <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg">
+        <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg dark:bg-green-950/40 dark:text-green-300">
           <CheckCircle className="w-4 h-4" />
           <span className="text-sm">{message}</span>
         </div>
       ) : null}
 
       {error ? (
-        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg">
+        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg dark:bg-red-950/40 dark:text-red-300">
           <AlertCircle className="w-4 h-4" />
           <span className="text-sm">{error}</span>
         </div>
@@ -282,10 +282,10 @@ function ReviewCard({
 
 function Badge({ tone, children }: { tone: 'neutral' | 'warning' | 'success'; children: string }) {
   const className = tone === 'success'
-    ? 'bg-green-100 text-green-700'
+    ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
     : tone === 'warning'
-      ? 'bg-yellow-100 text-yellow-700'
-      : 'bg-gray-100 text-gray-700'
+      ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-950/40 dark:text-yellow-300'
+      : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300'
 
   return <span className={`text-xs px-2 py-1 rounded-full ${className}`}>{children}</span>
 }

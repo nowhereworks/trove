@@ -11,12 +11,15 @@ import CreateOrgPage from './pages/CreateOrgPage'
 import LoginPage from './pages/LoginPage'
 import { api } from './lib/api'
 import { AuthProvider, useAuth } from './lib/auth'
+import { ThemeProvider, useTheme, type ThemePreference } from './lib/theme'
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppContent />
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <AppContent />
+      </AuthProvider>
+    </ThemeProvider>
   )
 }
 
@@ -32,7 +35,7 @@ function AppContent() {
           <Link to="/" className="text-lg font-semibold">
             Trove
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-wrap items-center justify-end gap-3 sm:gap-4">
             <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
               Packages
             </Link>
@@ -50,6 +53,7 @@ function AppContent() {
                 New Org
               </Link>
             )}
+            <ThemeSelect />
             {isAuthenticated ? (
               <div className="relative">
                 <button
@@ -68,7 +72,7 @@ function AppContent() {
                     </div>
                     <button
                       onClick={() => { setShowUserMenu(false); logout(); }}
-                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-muted"
+                      className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-muted dark:text-red-300"
                     >
                       Sign out
                     </button>
@@ -96,5 +100,25 @@ function AppContent() {
         </Routes>
       </main>
     </div>
+  )
+}
+
+function ThemeSelect() {
+  const { preference, resolvedTheme, setPreference } = useTheme()
+
+  return (
+    <label className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span className="sr-only">Theme</span>
+      <select
+        value={preference}
+        onChange={(event) => setPreference(event.target.value as ThemePreference)}
+        className="rounded-md border bg-background px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+        aria-label={`Theme, currently ${preference === 'system' ? `system (${resolvedTheme})` : preference}`}
+      >
+        <option value="system">System</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+      </select>
+    </label>
   )
 }

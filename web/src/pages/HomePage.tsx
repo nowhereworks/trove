@@ -106,10 +106,10 @@ function PackageList({ items, filter }: { items: PackageSummary[]; filter: strin
             <span
               className={`shrink-0 text-xs px-2 py-0.5 rounded-full ${
                 pkg.visibility === 'public'
-                  ? 'bg-green-100 text-green-700'
+                  ? 'bg-green-100 text-green-700 dark:bg-green-950/40 dark:text-green-300'
                   : pkg.visibility === 'internal'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-700'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300'
+                    : 'bg-gray-100 text-gray-700 dark:bg-slate-800 dark:text-slate-300'
               }`}
             >
               {pkg.visibility}

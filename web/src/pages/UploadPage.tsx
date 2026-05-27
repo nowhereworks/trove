@@ -161,14 +161,14 @@ export default function UploadPage() {
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg">
+        <div className="flex items-center gap-2 p-3 bg-red-50 text-red-700 rounded-lg dark:bg-red-950/40 dark:text-red-300">
           <AlertCircle className="w-4 h-4" />
           <span className="text-sm">{error}</span>
         </div>
       )}
 
       {success && (
-        <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg">
+        <div className="flex items-center gap-2 p-3 bg-green-50 text-green-700 rounded-lg dark:bg-green-950/40 dark:text-green-300">
           <CheckCircle className="w-4 h-4" />
           <span className="text-sm">{success}</span>
         </div>
@@ -352,7 +352,7 @@ export default function UploadPage() {
 
       {step === 'done' && (
         <div className="border rounded-lg p-6 text-center space-y-4">
-          <CheckCircle className="w-12 h-12 mx-auto text-green-600" />
+          <CheckCircle className="w-12 h-12 mx-auto text-green-600 dark:text-green-300" />
           <h2 className="text-lg font-semibold">{reviewUrl ? 'Submitted for Review' : 'Published Successfully'}</h2>
           <p className="text-muted-foreground">{success}</p>
           {reviewUrl ? (
@@ -384,7 +384,7 @@ function StepIndicator({ current, step, label }: { current: Step; step: Step; la
   const isComplete = stepIndex < currentIndex
 
   return (
-    <div className={`flex items-center gap-1 ${isActive ? 'text-primary font-medium' : isComplete ? 'text-green-600' : 'text-muted-foreground'}`}>
+    <div className={`flex items-center gap-1 ${isActive ? 'text-primary font-medium' : isComplete ? 'text-green-600 dark:text-green-300' : 'text-muted-foreground'}`}>
       {isComplete ? <CheckCircle className="w-4 h-4" /> : <span className="w-4 h-4 text-center">{stepIndex + 1}</span>}
       <span className="text-xs">{label}</span>
     </div>

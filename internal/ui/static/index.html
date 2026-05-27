@@ -4,8 +4,19 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Trove</title>
-    <script type="module" crossorigin src="/assets/index-BeLbwLie.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-DwgvBc3q.css">
+    <script>
+      (() => {
+        const stored = window.localStorage.getItem('trove-theme')
+        const preference = stored === 'light' || stored === 'dark' || stored === 'system' ? stored : 'system'
+        const theme = preference === 'system'
+          ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          : preference
+        document.documentElement.classList.toggle('dark', theme === 'dark')
+        document.documentElement.style.colorScheme = theme
+      })()
+    </script>
+    <script type="module" crossorigin src="/assets/index-CrMGkZr9.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CLoKztQR.css">
   </head>
   <body>
     <div id="root"></div>

@@ -46,7 +46,7 @@ export default function CreateOrgPage() {
       </div>
 
       {!allowCreateOrg && (
-        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800">
+        <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-300">
           <AlertCircle className="mt-0.5 h-4 w-4" />
           <div className="text-sm">
             Org creation is disabled by this server. Configure <code>TROVE_ORG</code> at startup or enable <code>TROVE_ALLOW_CREATE_ORG</code>.
@@ -55,14 +55,14 @@ export default function CreateOrgPage() {
       )}
 
       {createdSlug && (
-        <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-700">
+        <div className="flex items-center gap-2 rounded-lg bg-green-50 p-3 text-green-700 dark:bg-green-950/40 dark:text-green-300">
           <CheckCircle className="h-4 w-4" />
           <span className="text-sm">Created org {createdSlug}. You can now create namespaces and packages under it.</span>
         </div>
       )}
 
       {createOrg.error && (
-        <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-700">
+        <div className="flex items-center gap-2 rounded-lg bg-red-50 p-3 text-red-700 dark:bg-red-950/40 dark:text-red-300">
           <AlertCircle className="h-4 w-4" />
           <span className="text-sm">{createOrg.error.message}</span>
         </div>

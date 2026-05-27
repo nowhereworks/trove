@@ -61,7 +61,7 @@ export default function LoginPage() {
         </h1>
 
         {error && (
-          <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">{error}</div>
+          <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm dark:bg-red-950/40 dark:text-red-300">{error}</div>
         )}
 
         {authMode === 'dev' && (
