@@ -53,7 +53,7 @@ func remoteAdd(name string, value string, force bool) error {
 	if err := writeTrovefile(manifestPath, m); err != nil {
 		return err
 	}
-	if m.Metadata.Org == "" || m.Metadata.Org == "nwks" {
+	if (m.Metadata.Org == "" || m.Metadata.Org == "nwks") && spec.Ref.Org != "" {
 		m.Metadata.Org = spec.Ref.Org
 		m.Metadata.Namespace = spec.Ref.Namespace
 		m.Metadata.Name = spec.Ref.Name
