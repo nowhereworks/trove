@@ -167,7 +167,7 @@ Authorization: Bearer <token>
 Content-Type: application/yaml
 
 apiVersion: trove.io/v1
-kind: AgentArtifactPackage
+kind: TrovePackage
 # ... manifest content ...
 ```
 

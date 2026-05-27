@@ -15,7 +15,7 @@ Trove is designed to be simple to deploy: a single Go binary and a PostgreSQL da
 │  │   JSON APIs         │  │
 │  │   Raw Endpoints     │  │
 │  │   Embedded SPA UI   │  │
-│  │   Health / Metrics  │  │
+│  │   Health Endpoints  │  │
 │  │   CLI               │  │
 │  └────────────────────┘  │
 └──────────┬───────────────┘
@@ -224,17 +224,6 @@ readinessProbe:
   initialDelaySeconds: 10
   periodSeconds: 5
 ```
-
-### Metrics
-
-The `/metrics` endpoint exposes Prometheus-compatible metrics:
-
-- API request count, duration, and status
-- Raw artifact request count, duration, and status
-- Publish attempts and failures
-- Validation failures by reason
-- Auth failures
-- Update check count
 
 ### Migration Strategy
 

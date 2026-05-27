@@ -9,7 +9,7 @@ Trove serves both human users and automated agents. Humans need a familiar login
 ### Authentication Modes
 
 | Mode | Use Case | Enabled By |
-|---|---|---|---|
+|---|---|---|
 | **OIDC** | Production human login | Configured issuer URL, client ID, and client secret |
 | **API tokens** | Agents, CI, CLI | Created by authenticated users |
 | **Dev mode** | Local development and tests | Explicit `auth.mode: dev` configuration |
@@ -18,18 +18,12 @@ Trove serves both human users and automated agents. Humans need a familiar login
 
 OIDC is standards-based and provider-neutral. Microsoft Entra, Okta, Authentik, Dex, and other OIDC providers work through configuration. Trove reads the provider's `.well-known/openid-configuration` document at startup and uses the discovered authorization, token, and UserInfo endpoints.
 
-```yaml
-auth:
-  mode: oidc
-  oidc:
-    issuerUrl: "https://login.microsoftonline.com/tenant-id/v2.0"
-    clientId: "trove"
-    clientSecretRef: "TROVE_OIDC_CLIENT_SECRET"
-    redirectUrl: "https://trove.nwks.com/auth/oidc/callback"
-    scopes:
-      - openid
-      - profile
-      - email
+```bash
+export TROVE_AUTH_MODE=oidc
+export TROVE_OIDC_ISSUER_URL=https://login.microsoftonline.com/tenant-id/v2.0
+export TROVE_OIDC_CLIENT_ID=trove
+export TROVE_OIDC_CLIENT_SECRET='<client-secret>'
+export TROVE_OIDC_REDIRECT_URL=https://trove.nwks.com/auth/oidc/callback
 ```
 
 Login flow:
@@ -93,10 +87,8 @@ Dev mode bypasses OIDC and accepts a static token. It must not be enabled in pro
 
 API tokens are stored as hashes, not plaintext. The hash secret is configured separately:
 
-```yaml
-auth:
-  tokens:
-    hashSecretRef: "TROVE_TOKEN_HASH_SECRET"
+```bash
+Authorization: Bearer <api-token>
 ```
 
 This means:

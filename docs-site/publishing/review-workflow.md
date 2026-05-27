@@ -9,7 +9,7 @@ Before a package version reaches consumers, it needs human review. A maintainer 
 ### Review Lifecycle
 
 ```
-draft → submit → automated checks → human review → approved → published
+draft → submit → automated checks → human approval → published
 ```
 
 ### Roles
@@ -47,7 +47,7 @@ Immediately after submission, the system runs:
 **Warning checks** (advisory, don't block):
 
 - Broken external links
-- Markdown linting
+- Additional advisory checks can be added later
 
 ### Step 3: Human Review
 
@@ -105,7 +105,6 @@ Publishing:
 - Locks all artifact blobs
 - Updates the `@latest` alias pointer
 - Writes an audit event
-- Emits a webhook (if configured)
 
 ### Key Rules
 
@@ -114,7 +113,7 @@ Publishing:
 | **Self-approval blocked** | The same actor cannot approve their own submission |
 | **One approval required** | MVP requires at least one human approval before publish |
 | **Content changes reset reviews** | Modifying a submitted version returns it to draft and invalidates approvals |
-| **Approved content is locked** | Once approved, content cannot change without returning to draft |
+| **Reviewed content is locked** | Content changes require returning the version to draft and resubmitting |
 | **Reviewer ≠ publisher** | The reviewer approves; the maintainer decides when to publish |
 
 ### Review Comments

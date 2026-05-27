@@ -9,7 +9,7 @@ You've found the package you need. Now you want its artifacts installed into you
 ### Basic Usage
 
 ```bash
-trove install nwks/platform/agent-backend@latest --target .
+trove install nwks/platform/agent-backend@latest --output .
 ```
 
 Output:
@@ -40,10 +40,10 @@ spec:
 
 ### Installing Optional Artifacts
 
-To include optional artifacts, use the `--all` flag:
+To include optional artifacts, use the `--optional` flag:
 
 ```bash
-trove install nwks/platform/agent-backend@latest --target . --all
+trove install nwks/platform/agent-backend@latest --output . --optional
 ```
 
 ### Overwriting Existing Files
@@ -51,7 +51,7 @@ trove install nwks/platform/agent-backend@latest --target . --all
 If a target file already exists with different content, `trove install` fails:
 
 ```bash
-trove install nwks/platform/agent-backend@latest --target .
+trove install nwks/platform/agent-backend@latest --output .
 # ERROR: AGENTS.md already exists and differs from fetched artifact.
 # Use --overwrite to replace it.
 ```
@@ -59,7 +59,7 @@ trove install nwks/platform/agent-backend@latest --target .
 To force overwrite:
 
 ```bash
-trove install nwks/platform/agent-backend@latest --target . --overwrite
+trove install nwks/platform/agent-backend@latest --output . --overwrite
 ```
 
 ### Lockfile Generation
@@ -92,20 +92,10 @@ installs:
         digest: sha256:ghi789...
 ```
 
-### Adoption Reporting
-
-When configured with an API token, `trove install` reports adoption:
-
-```bash
-trove install nwks/platform/agent-backend@latest --target . --report
-```
-
-This sends the lockfile summary to the server so the adoption dashboard stays current.
-
 ### JSON Output
 
 ```bash
-trove install nwks/platform/agent-backend@latest --target . --json
+trove install nwks/platform/agent-backend@latest --output . --json
 ```
 
 Output:
@@ -113,13 +103,9 @@ Output:
 ```json
 {
   "package": "nwks/platform/agent-backend",
-  "resolvedVersion": "1.0.0",
+  "version": "1.0.0",
   "digest": "sha256:abc123...",
-  "artifactsInstalled": [
-    { "source": "AGENTS.md", "target": "AGENTS.md", "bytes": 4096 },
-    { "source": "skills/backend-api/SKILL.md", "target": ".opencode/skills/backend-api/SKILL.md", "bytes": 2048 }
-  ],
-  "lockfile": ".trove.lock.yaml"
+  "artifacts": 2
 }
 ```
 

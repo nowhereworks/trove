@@ -59,7 +59,7 @@ Archive entries are sorted by artifact path for deterministic output. The same p
 ### Caching
 
 | URL Type | Cache-Control | ETag |
-|---|---|---|---|
+|---|---|---|
 | Exact version | `public, max-age=31536000, immutable` (public) or `private, max-age=31536000, immutable` (private) | Package digest |
 | Selector | `no-cache` | — |
 

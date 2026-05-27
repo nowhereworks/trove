@@ -9,7 +9,7 @@ Users and agents rarely know the exact version number they want. They want "the 
 ### Selector Types
 
 | Selector | Resolution | Example |
-|---|---|---|---|
+|---|---|---|
 | `@latest` | Newest published version | `nwks/platform/agent-backend@latest` → `2.1.0` |
 | `@sha256:<digest>` | Exact package-version digest | `nwks/platform/agent-backend@sha256:abc123...` |
 | `@v3` | Newest version with major `3` | `nwks/platform/agent-backend@v3` → `3.4.1` |
@@ -55,7 +55,7 @@ This keeps caching behavior explicit — alias responses use `Cache-Control: no-
 - `@latest` is the only named alias
 - `@v3` and `@v3.2` are derived from SemVer
 - `@sha256:<digest>` identifies a whole package version, not individual files
-- Yanked versions are hidden from `@latest` but remain fetchable by exact version for authorized clients
+- Yanked versions remain fetchable by exact version and may still resolve through selectors in the current MVP implementation
 - Prerelease versions are not supported in the MVP
 
 ### Next Steps

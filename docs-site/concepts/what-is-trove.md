@@ -73,7 +73,7 @@ Trove runs as a single Go binary backed by PostgreSQL:
 └──────────────────────────┘
 ```
 
-The binary serves JSON APIs, raw artifact endpoints, an embedded React SPA, and health/metrics endpoints. All metadata and artifact blobs are stored in PostgreSQL.
+The binary serves JSON APIs, raw artifact endpoints, an embedded React SPA, and health endpoints. All metadata and artifact blobs are stored in PostgreSQL.
 
 ### Next Steps
 

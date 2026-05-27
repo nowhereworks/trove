@@ -45,64 +45,30 @@ Write API routes require specific scopes:
 | `POST /api/v1/orgs/{org}/namespaces` | `namespace:write` |
 | `POST /api/v1/packages` | `package:write` |
 
-### Token Restrictions
+### Token Resource Metadata
 
-Tokens can be restricted to specific resources:
-
-| Restriction | Effect |
-|---|---|
-| `orgId` | Token only works for one organization |
-| `namespaceId` | Token only works for one namespace |
-| `packageId` | Token only works for one package |
-
-Example: a CI token restricted to one package:
-
-```bash
-POST /api/v1/tokens
-{
-  "displayName": "CI for agent-backend",
-  "scopes": ["package:read"],
-  "packageId": "pkg-abc123"
-}
-```
-
-This token can only read `nwks/platform/agent-backend`. It cannot access other packages, even in the same namespace.
+Token creation accepts `orgId`, `namespaceId`, and `packageId` fields and stores them with the token for auditing and future policy work. The current authorization path enforces scopes on protected routes; it does not enforce resource ID matching.
 
 ### Effective Permissions
 
-A user's effective permissions are the intersection of:
+A user's effective permissions are determined by:
 
 1. Their role (reader, maintainer, reviewer, etc.)
 2. The token's scopes (if using a token)
-3. The token's resource restrictions (if any)
-4. The resource's visibility (private, internal, public)
+3. The resource's visibility (private, internal, public)
 
 ### Example: Creating a Scoped Token
 
 ```bash
-# Create a token that can only read and write in one namespace
+# Create a token that can read and write packages
 POST /api/v1/tokens
 Authorization: Bearer <session>
 
 {
-  "displayName": "Namespace CI token",
+  "displayName": "CI token",
   "scopes": ["package:read", "package:write"],
-  "namespaceId": "ns-def456",
   "expiresAt": "2027-06-01T00:00:00Z"
 }
-```
-
-### Example: Using a Restricted Token
-
-```bash
-# This works — reading the allowed namespace
-GET /api/v1/packages/nwks/platform/agent-backend
-Authorization: Bearer trove_tk_restricted...
-
-# This fails — different namespace
-GET /api/v1/packages/nwks/frontend/react-defaults
-Authorization: Bearer trove_tk_restricted...
-# → 403 FORBIDDEN
 ```
 
 ### Next Steps

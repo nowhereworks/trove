@@ -2,7 +2,7 @@
 
 ## Why
 
-Agents and tools need direct access to individual artifact files — `AGENTS.md`, skills, commands — without downloading the whole package archive. Raw artifact URLs serve the exact bytes of a file, with proper caching headers and digest-based ETags for conditional requests.
+Agents and tools need direct access to individual artifact files — `AGENTS.md`, skills, commands — without downloading the whole package archive. Raw artifact URLs serve the exact bytes of a file with caching headers and digest-based ETags.
 
 ## How
 
@@ -55,21 +55,6 @@ The client follows the redirect to the exact version URL.
 | Exact version (public) | `public, max-age=31536000, immutable` | Artifact digest |
 | Exact version (private) | `private, max-age=31536000, immutable` | Artifact digest |
 | Selector (alias) | `no-cache` | — |
-
-### Conditional Requests
-
-Use the `If-None-Match` header with the ETag:
-
-```bash
-GET /raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
-If-None-Match: "sha256:def456..."
-```
-
-If the artifact hasn't changed:
-
-```
-HTTP/1.1 304 Not Modified
-```
 
 ### Authentication
 
@@ -126,11 +111,6 @@ curl -H "Authorization: Bearer $TROVE_TOKEN" \
 # Omitted selector resolves latest and redirects to the exact version
 curl -L -H "Authorization: Bearer $TROVE_TOKEN" \
   https://trove.nwks.com/raw/nwks/platform/agent-backend/AGENTS.md
-
-# Conditional request (only download if changed)
-curl -H "Authorization: Bearer $TROVE_TOKEN" \
-  -H 'If-None-Match: "sha256:def456..."' \
-  https://trove.nwks.com/raw/nwks/platform/agent-backend/AGENTS.md@1.0.0
 ```
 
 ### Next Steps

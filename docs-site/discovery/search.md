@@ -26,8 +26,7 @@ Response:
       "latestVersion": "1.0.0",
       "visibility": "public",
       "lifecycle": "active",
-      "labels": { "language": "golang", "framework": "chi" },
-      "artifactTypes": ["agent-instructions", "skill", "command"]
+      "lifecycle": "active"
     }
   ],
   "nextCursor": null
@@ -37,8 +36,8 @@ Response:
 ### Default Behavior
 
 - Returns **published active packages only**
-- Draft, review, yanked, and archived versions are excluded
-- Deprecated packages are included only when explicitly filtered and authorized
+- Draft, review, and yanked versions are excluded from search results
+- Results are currently limited to public active packages
 - Results are ranked by relevance using PostgreSQL full-text search
 
 ### Filters
@@ -49,16 +48,12 @@ Response:
 | Organization | `org` | `?org=nwks` |
 | Namespace | `namespace` | `?namespace=platform` |
 | Artifact type | `artifactType` | `?artifactType=skill` |
-| Language label | `language` | `?language=golang` |
-| Framework label | `framework` | `?framework=chi` |
-| Visibility | `visibility` | `?visibility=public` |
-| Lifecycle | `lifecycle` | `?lifecycle=active` |
 
 ### Combining Filters
 
 ```bash
 # Find Go skills in the platform namespace
-GET /api/v1/search/packages?q=skill&namespace=platform&artifactType=skill&language=golang
+GET /api/v1/search/packages?q=skill&namespace=platform&artifactType=skill
 ```
 
 ### Pagination
@@ -84,9 +79,7 @@ Search indexes the following package metadata:
 
 - Organization, namespace, and package slugs
 - Display name and description
-- Labels (language, framework, maturity, etc.)
 - Artifact paths and types
-- Maintainer names and teams
 
 Artifact file **contents** are not indexed in the MVP.
 
@@ -95,8 +88,7 @@ Artifact file **contents** are not indexed in the MVP.
 The Trove UI provides a search page with:
 
 - Text input for free-text queries
-- Filter dropdowns for org, namespace, artifact type, visibility, and lifecycle
-- Result cards showing package name, description, latest version, and labels
+- Result cards showing package name, description, and visibility
 - Pagination controls
 
 ### Next Steps

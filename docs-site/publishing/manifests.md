@@ -2,7 +2,7 @@
 
 ## Why
 
-Every package needs a manifest that declares what it contains, who maintains it, what tools it works with, and how its artifacts should be installed. The manifest (`Trovefile`) is the package's identity — it is included in the version digest and validated before publishing.
+Every package needs a manifest that declares what it contains and how its artifacts should be installed. The manifest (`Trovefile`) is the package's identity — it is included in the version digest and validated before publishing.
 
 ## How
 
@@ -34,8 +34,6 @@ spec:
       required: false
       targetPath: .opencode/skills/backend-api/SKILL.md
   dependencies: []
-  maintainers:
-    - team: platform-engineering
 
 # Local-only section — stripped before upload
 local:
@@ -58,13 +56,12 @@ local:
 | `metadata.displayName` | string | Human-readable name |
 | `metadata.description` | string | Non-empty description (required at publish) |
 | `spec.artifacts` | array | List of artifact declarations |
-| `spec.maintainers` | array | At least one maintainer (required at publish) |
 
 ### Optional Fields
 
 | Field | Type | Description |
 |---|---|---|
-| `metadata.labels` | object | Key-value labels for search and filtering |
+| `metadata.labels` | object | Key-value metadata for tooling |
 | `metadata.annotations` | object | Key-value metadata for tooling |
 | `spec.dependencies` | array | Declare-only dependency references |
 | `local` | object | Local CLI config (remotes, publish defaults) — stripped before upload, not part of version digest |
@@ -91,7 +88,6 @@ Publishing fails when:
 | Duplicate artifact paths | `INVALID_MANIFEST` |
 | Required artifact file missing | `INVALID_MANIFEST` |
 | `metadata.description` is empty | `INVALID_MANIFEST` |
-| No maintainer declared | `INVALID_MANIFEST` |
 | Unknown artifact type | `INVALID_MANIFEST` |
 | Malformed dependency references | `INVALID_MANIFEST` |
 | Secrets or blocked unsafe instructions detected | `SECRET_DETECTED` / `UNSAFE_INSTRUCTION` |

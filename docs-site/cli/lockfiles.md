@@ -118,9 +118,9 @@ All lockfile package references must use the full `org/namespace/package` form:
 
 | Command | Behavior |
 |---|---|
-| `trove check --lock .trove.lock.yaml` | Reads lockfile, checks for updates |
-| `trove update --lock .trove.lock.yaml` | Reads lockfile, shows available updates |
-| `trove update --lock .trove.lock.yaml --apply` | Reads lockfile, updates packages, rewrites lockfile |
+| `trove check` | Reads `.trove.lock.yaml`, checks for updates |
+| `trove update` | Reads `.trove.lock.yaml`, shows available updates |
+| `trove update --apply` | Reads `.trove.lock.yaml`, updates packages, rewrites lockfile |
 
 ### Update Checks
 

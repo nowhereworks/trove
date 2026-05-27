@@ -87,7 +87,6 @@ When review is required, JSON output reports the submitted review state:
 | `--major` | No | Increment major and reset minor and patch |
 | `--version <x.y.z>` | No | Use an explicit strict SemVer version |
 | `--remote <name>` | No | Push to a configured remote |
-| `--visibility private\|internal\|public` | No | Override visibility for this push |
 | `--draft` | No | Upload draft only |
 | `--submit-only` | No | Upload and submit for review |
 | `--publish` | No | Require publish to succeed |

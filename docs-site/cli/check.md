@@ -9,92 +9,61 @@ Your project has installed packages pinned in `.trove.lock.yaml`. Are those vers
 ### Basic Usage
 
 ```bash
-trove check --lock .trove.lock.yaml
+trove check
 ```
 
 Output:
 
 ```
-Checking .trove.lock.yaml...
-
-nwks/platform/agent-backend@1.0.0
-  Status: current
-  Latest: 1.0.0
-
-nwks/frontend/react-defaults@2.0.0
-  Status: update available
-  Latest: 2.1.0
-
-All checks passed. 1 package has updates available.
+nwks/platform/agent-backend: up to date
+nwks/frontend/react-defaults: update available: 2.1.0
 ```
 
 ### Exit Codes
 
 | Exit Code | Meaning |
 |---|---|
-| `0` | All checks passed |
-| `1` | Yanked versions detected |
-| `2` | Error (lockfile not found, server unreachable, etc.) |
+| `0` | Command completed, including advisory update results |
+| non-zero | Error reading the lockfile or contacting the server |
 
 ### CI Integration
 
 ```bash
 # Advisory mode (default) — exits 0 even if updates are available
-trove check --lock .trove.lock.yaml
-
-# Strict mode — exit non-zero for any update
-trove check --lock .trove.lock.yaml --fail-on-update
-
-# Fail only on yanked versions
-trove check --lock .trove.lock.yaml --fail-on-yanked
+trove check
 ```
 
 ### JSON Output
 
 ```bash
-trove check --lock .trove.lock.yaml --json
+trove check --json
 ```
 
 Output:
 
 ```json
 {
-  "lockfile": ".trove.lock.yaml",
-  "packages": [
+  "results": [
     {
       "package": "nwks/platform/agent-backend",
-      "installedVersion": "1.0.0",
-      "installedDigest": "sha256:abc123...",
+      "currentVersion": "1.0.0",
       "latestVersion": "1.0.0",
-      "status": "current"
+      "updateAvailable": false
     },
     {
       "package": "nwks/frontend/react-defaults",
-      "installedVersion": "2.0.0",
-      "installedDigest": "sha256:def456...",
+      "currentVersion": "2.0.0",
       "latestVersion": "2.1.0",
-      "status": "update-available"
+      "updateAvailable": true
     }
-  ]
+  ],
+  "hasUpdateAvailable": true
 }
 ```
 
 ### Status Values
 
-| Status | Meaning |
-|---|---|
-| `current` | Installed version matches latest |
-| `update-available` | A newer version exists |
-| `yanked` | Installed version has been yanked |
-| `deprecated` | Installed version is deprecated |
-
-### Adoption Reporting
-
-When configured with an API token, `trove check` can report adoption:
-
-```bash
-trove check --lock .trove.lock.yaml --report
-```
+Human output reports either `up to date` or `update available: <version>` for each install.
 
 ### Error Cases
 

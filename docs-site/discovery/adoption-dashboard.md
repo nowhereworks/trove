@@ -29,48 +29,31 @@ Response:
   "versions": [
     {
       "version": "1.0.0",
-      "projectCount": 8,
-      "lastInstalledAt": "2026-05-22T14:30:00Z"
+      "installCount": 8
     },
     {
       "version": "0.9.0",
-      "projectCount": 3,
-      "lastInstalledAt": "2026-05-15T09:00:00Z"
+      "installCount": 3
     },
     {
       "version": "0.8.0",
-      "projectCount": 1,
-      "lastInstalledAt": "2026-04-01T12:00:00Z"
+      "installCount": 1
     }
   ]
 }
 ```
 
-### Aggregate vs Detailed Views
+### Aggregate Views
 
 | View | Who Sees It | What It Shows |
 |---|---|---|
-| **Aggregate** | Everyone (including anonymous for public packages) | Project counts, version counts, install timestamps |
-| **Detailed** | Authorized org/package users | Project names, repository URLs, team ownership |
+| **Aggregate** | Everyone with package read access | Project counts and per-version install counts |
 
-Public package adoption views default to aggregate counts. Project names and repository URLs are only visible to users with org or package access.
+The current endpoint returns aggregate counts only. Project names and repository URLs are not returned by the adoption read API.
 
 ### How Adoption is Reported
 
-Adoption data comes from CLI commands when configured with an API token:
-
-```bash
-# trove install reports adoption
-trove install nwks/platform/agent-backend@latest --target . --report
-
-# trove check reports adoption
-trove check --lock .trove.lock.yaml --report
-
-# trove update --apply reports adoption
-trove update --lock .trove.lock.yaml --apply --report
-```
-
-The CLI sends a report to the server:
+Adoption data comes from project adoption reports sent to the server:
 
 ```bash
 POST /api/v1/projects/report
@@ -94,16 +77,14 @@ Authorization: Bearer <token>
 
 - Artifact file contents are never sent
 - Project source code is never sent
-- Only lockfile summaries (package, version, digest, target paths) are reported
+- Only package, version, and digest summaries are reported
 
 ### Adoption UI
 
 The Trove UI includes an adoption dashboard page showing:
 
 - Package-level adoption counts
-- Per-version breakdown with bar charts
-- Trend indicators (increasing, stable, decreasing)
-- Filter by package, namespace, or org
+- Per-version breakdown for each package card
 
 ### Use Cases
 
@@ -117,4 +98,4 @@ The Trove UI includes an adoption dashboard page showing:
 ### Next Steps
 
 - Learn how [Search](/discovery/search) helps discover packages
-- See how [trove install](/cli/install) reports adoption data
+- Use [Management APIs](/api/management-apis) to register projects and report adoption

@@ -2,7 +2,7 @@
 
 ## Why
 
-Agents, CI systems, and CLI tools need to interact with Trove without a browser session. API tokens provide machine access with revocation, auditing, and least-privilege scoping. Unlike browser sessions, tokens can be restricted to specific organizations, namespaces, or packages.
+Agents, CI systems, and CLI tools need to interact with Trove without a browser session. API tokens provide machine access with revocation, auditing, and least-privilege scopes.
 
 ## How
 
@@ -16,9 +16,9 @@ Agents, CI systems, and CLI tools need to interact with Trove without a browser 
 | `actorUserId` | UUID | The user who created this token |
 | `actorServiceAccount` | string | Optional service account name |
 | `scopes` | array | List of granted scopes |
-| `orgId` | UUID | Optional: restrict to one organization |
-| `namespaceId` | UUID | Optional: restrict to one namespace |
-| `packageId` | UUID | Optional: restrict to one package |
+| `orgId` | UUID | Optional resource metadata recorded with the token |
+| `namespaceId` | UUID | Optional resource metadata recorded with the token |
+| `packageId` | UUID | Optional resource metadata recorded with the token |
 | `createdAt` | timestamp | When the token was created |
 | `expiresAt` | timestamp | Optional: when the token expires |
 | `lastUsedAt` | timestamp | When the token was last used |
@@ -48,7 +48,7 @@ Response:
   "id": "tok-abc123",
   "displayName": "Production CI",
   "scopes": ["package:read", "version:publish"],
-  "token": "trove_tk_abc123def456ghi789...",
+  "token": "01902f1e-9c7a-7f4a-8a31-8f2b2d9c1a44",
   "createdAt": "2026-05-23T00:00:00Z"
 }
 ```
@@ -61,7 +61,7 @@ Include the token in the `Authorization` header:
 
 ```bash
 GET /api/v1/packages/nwks/platform/agent-backend
-Authorization: Bearer trove_tk_abc123def456ghi789...
+Authorization: Bearer 01902f1e-9c7a-7f4a-8a31-8f2b2d9c1a44
 ```
 
 ### Default Scopes
@@ -99,7 +99,6 @@ Revoked tokens are immediately invalid. The `lastUsedAt` and `revokedAt` timesta
 |---|---|
 | Set an expiration date | Limits exposure if a token is leaked |
 | Restrict to the smallest scope | Least-privilege access reduces blast radius |
-| Restrict to a specific package/namespace | Prevents cross-resource access |
 | Use separate tokens for CI and humans | Easier to revoke one without affecting the other |
 | Rotate tokens periodically | Reduces the window of exposure |
 
@@ -123,19 +122,18 @@ All token usage is audited:
 - Token usage (last used timestamp)
 - Token revocation (who revoked it, when)
 
-### Example: CI Token for a Single Package
+### Example: CI Token
 
 ```bash
 POST /api/v1/tokens
 {
   "displayName": "agent-backend CI",
   "scopes": ["package:read", "package:write", "version:publish"],
-  "packageId": "pkg-agent-backend-001",
   "expiresAt": "2026-12-31T00:00:00Z"
 }
 ```
 
-This token can only interact with `nwks/platform/agent-backend`. It cannot read or write any other package.
+Grant only the scopes the automation needs. Resource ID fields are stored as token metadata in the current implementation; route authorization is enforced by scopes.
 
 ### Next Steps
 

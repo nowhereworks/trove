@@ -9,9 +9,9 @@ Not every package version is ready for consumption. Drafts are being worked on, 
 ### State Diagram
 
 ```
-draft → submit → review → approved → publish → published
-                                              ↓
-                                    deprecated | yanked | archived
+draft → submit → review → publish → published
+                                     ↓
+                              deprecated | yanked
 ```
 
 ### States
@@ -20,23 +20,19 @@ draft → submit → review → approved → publish → published
 |---|---|---|---|---|
 | `draft` | Yes | No | No | Being created, artifacts being uploaded |
 | `review` | No (content changes reset to draft) | No | No | Submitted for review, awaiting approval |
-| `approved` | No | No | No | Passed review, ready to publish |
 | `published` | No | Yes | Yes | Immutable, publicly available |
 | `deprecated` | No | Yes (with filter) | Yes | Still fetchable but discouraged |
-| `yanked` | No | No | Only by exact version | Hidden from selectors, fetchable by authorized clients |
-| `archived` | No | No | No | Read-only, excluded from discovery |
+| `yanked` | No | No | Yes in the current MVP selector implementation | Hidden from search, fetchable by authorized clients |
 
 ### State Transitions
 
 | From | Action | To | Who |
 |---|---|---|---|
 | `draft` | Submit for review | `review` | Maintainer |
-| `review` | Approve | `approved` | Reviewer (not the submitter) |
 | `review` | Request changes | `draft` | Reviewer |
-| `approved` | Publish | `published` | Maintainer |
+| `review` | Publish after enough approvals | `published` | Maintainer |
 | `published` | Deprecate | `deprecated` | Maintainer |
 | `published` | Yank | `yanked` | Admin or maintainer |
-| `published` | Archive | `archived` | Admin |
 
 ### Key Rules
 

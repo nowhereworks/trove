@@ -12,9 +12,7 @@ For the standard repo-root `AGENTS.md` package, use the CLI. It hides draft crea
 
 ```bash
 trove init agents-md \
-  --remote https://trove.company.com/nwks/platform/agent-defaults \
-  --maintainer-team platform-engineering \
-  --yes
+  --remote https://trove.company.com/nwks/platform/agent-defaults
 trove status
 trove push
 ```
@@ -89,7 +87,7 @@ Content-Type: application/yaml
 Authorization: Bearer <token>
 
 apiVersion: trove.io/v1
-kind: AgentArtifactPackage
+kind: TrovePackage
 # ... manifest content ...
 ```
 
@@ -107,7 +105,7 @@ Authorization: Bearer <token>
 After upload, the server automatically validates:
 
 - Manifest schema and required fields
-- Route/version consistency (manifest org/namespace/name/version must match the URL)
+- Route consistency (manifest org/namespace/name must match the URL)
 - Artifact path rules (no `..`, no duplicates, no escaping)
 - Size limits (per-file and total package)
 - Secret scanning patterns

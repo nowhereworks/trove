@@ -23,7 +23,7 @@ const categories = ref([
       { title: 'What is Trove?', desc: 'Understand the problem Trove solves and how the registry works.', link: withBase('/concepts/what-is-trove') },
       { title: 'Package References', desc: 'How org/namespace/package@selector identifies every package.', link: withBase('/concepts/package-references') },
       { title: 'Version Selectors', desc: 'Resolve @latest and digests to exact versions.', link: withBase('/concepts/version-selectors') },
-      { title: 'Lifecycle States', desc: 'draft → review → approved → published → deprecated | yanked.', link: withBase('/concepts/lifecycle-states') },
+      { title: 'Lifecycle States', desc: 'draft → review → published → deprecated | yanked.', link: withBase('/concepts/lifecycle-states') },
       { title: 'Visibility', desc: 'Private, internal, and public access control with inheritance.', link: withBase('/concepts/visibility') },
       { title: 'Artifact Types', desc: '10 first-class types: skills, commands, prompts, and more.', link: withBase('/concepts/artifact-types') },
       { title: 'Immutability', desc: 'Why published versions never change and how fixes work.', link: withBase('/concepts/immutability') },

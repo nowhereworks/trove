@@ -10,9 +10,7 @@ Use `trove init agents-md` to turn a repo-root `AGENTS.md` into an editable Trov
 
 ```bash
 trove init agents-md \
-  --remote https://trove.company.com/nwks/platform/agent-defaults \
-  --maintainer-team platform-engineering \
-  --yes
+  --remote https://trove.company.com/nwks/platform/agent-defaults
 ```
 
 The command creates or adopts `AGENTS.md` and writes a single `Trovefile` that contains both the package manifest and local CLI configuration (publishing remotes, default visibility).
@@ -40,11 +38,8 @@ Use this when you know the package coordinate before the server URL.
 | `--package <org/namespace/package>` | No | Set package coordinates without requiring a remote |
 | `--display-name <name>` | No | Set `metadata.displayName` |
 | `--description <text>` | No | Set `metadata.description` |
-| `--visibility private\|internal\|public` | No | Set default package visibility |
-| `--maintainer-team <team>` | No | Add a team maintainer |
-| `--maintainer-user <user>` | No | Add a user maintainer |
 | `--force` | No | Rewrite generated metadata files; never overwrites `AGENTS.md` |
-| `--yes` | No | Disable interactive prompts |
+| `--yes` | No | Accepted for non-interactive scripts; no prompts are currently shown |
 | `--json` | No | Emit machine-readable output |
 
 `trove init agents-md` does not call the network.

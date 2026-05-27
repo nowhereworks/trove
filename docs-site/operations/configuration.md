@@ -2,176 +2,123 @@
 
 ## Why
 
-Trove needs to know how to listen for requests, connect to the database, authenticate users, and enforce limits. All configuration is done through a single YAML file or environment variables, with sensible defaults for development.
+Trove needs startup configuration for HTTP serving, PostgreSQL, authentication, raw artifact access, review policy, and upload limits. The current implementation reads configuration from environment variables only.
 
 ## How
 
-### Full Example
+### Development Example
 
-```yaml
-server:
-  listen: ":8080"
-  publicUrl: "https://trove.nwks.com"
+```bash
+export TROVE_SERVER_LISTEN=:8080
+export TROVE_PUBLIC_URL=http://localhost:8080
+export TROVE_DATABASE_URL="postgres://trove:trove@localhost:5432/trove?sslmode=disable"
+export TROVE_DATABASE_MIGRATE_ON_STARTUP=true
+export TROVE_AUTH_MODE=dev
+export TROVE_AUTH_DEV_MODE_ENABLED=true
+export TROVE_RAW_REQUIRE_AUTH_BY_DEFAULT=false
+export TROVE_REVIEWS_REQUIRE_APPROVAL=false
+```
 
-database:
-  url: "postgres://trove:trove@postgres:5432/trove?sslmode=disable"
-  migrateOnStartup: false
+### Production OIDC Example
 
-auth:
-  mode: oidc
-  devModeEnabled: false
-  oidc:
-    issuerUrl: "https://login.microsoftonline.com/tenant-id/v2.0"
-    clientId: "trove"
-    clientSecretRef: "TROVE_OIDC_CLIENT_SECRET"
-    redirectUrl: "https://trove.nwks.com/auth/oidc/callback"
-    scopes:
-      - openid
-      - profile
-      - email
-  tokens:
-    hashSecretRef: "TROVE_TOKEN_HASH_SECRET"
-
-storage:
-  mode: postgres
-  limits:
-    maxArtifactFileBytes: 10485760
-    maxUnpackedPackageBytes: 104857600
-    maxArtifactsPerVersion: 1000
-  s3:
-    enabled: false
-    endpoint: "http://rustfs:9000"
-    bucket: "trove-artifacts"
-    accessKeyRef: "TROVE_S3_ACCESS_KEY"
-    secretKeyRef: "TROVE_S3_SECRET_KEY"
-
-raw:
-  requireAuthByDefault: true
-  allowPublicNamespaces: true
-  allowPublicPackages: true
-
-orgs:
-  allowCreateOrg: true
-  defaultOrg: "nwks"
-
-packages:
-  createPackageOnPush: true
-  createNamespaceOnPush: true
-
-reviews:
-  requireApproval: true
-  minimumApprovals: 1
-  allowSelfApproval: false
-
-security:
-  secretScanning: true
-  unsafeInstructionScanning: true
+```bash
+export TROVE_SERVER_LISTEN=:8080
+export TROVE_PUBLIC_URL=https://trove.nwks.com
+export TROVE_DATABASE_URL="postgres://trove:trove@postgres:5432/trove?sslmode=require"
+export TROVE_DATABASE_MIGRATE_ON_STARTUP=false
+export TROVE_AUTH_MODE=oidc
+export TROVE_AUTH_DEV_MODE_ENABLED=false
+export TROVE_OIDC_ISSUER_URL=https://login.example.com/realms/nwks
+export TROVE_OIDC_CLIENT_ID=trove
+export TROVE_OIDC_CLIENT_SECRET='<client-secret>'
+export TROVE_OIDC_REDIRECT_URL=https://trove.nwks.com/auth/oidc/callback
+export TROVE_COOKIE_SECURE=true
 ```
 
 ### Server
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `server.listen` | string | `:8080` | Address and port to listen on |
-| `server.publicUrl` | string | — | Public URL for redirects and links |
+| `TROVE_SERVER_LISTEN` | string | `:8080` | Address and port to listen on |
+| `TROVE_PUBLIC_URL` | string | empty | Public URL for redirects and links |
+
+When `TROVE_PUBLIC_URL` starts with `https://`, secure browser cookies are enabled automatically unless overridden.
 
 ### Database
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `database.url` | string | Required | PostgreSQL connection URL |
-| `database.migrateOnStartup` | boolean | `false` | Run migrations on startup (dev/tests only) |
+| `TROVE_DATABASE_URL` | string | required | PostgreSQL connection URL |
+| `TROVE_DATABASE_MIGRATE_ON_STARTUP` | boolean | `false` | Run embedded migrations on startup |
 
-**Note:** PostgreSQL is required. Trove does not support an in-memory database mode. `migrateOnStartup` is for local development and tests only. Production should run migrations as an explicit command or deployment job.
+PostgreSQL is required. Trove does not support an in-memory database mode. Use `TROVE_DATABASE_MIGRATE_ON_STARTUP=true` for local development and test-style environments only. Production should run migrations as an explicit deployment step.
 
 ### Authentication
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `auth.mode` | string | `oidc` | `oidc` or `dev` |
-| `auth.devModeEnabled` | boolean | `false` | Enable dev/static auth mode |
-| `auth.oidc.issuerUrl` | string | — | OIDC provider issuer URL |
-| `auth.oidc.clientId` | string | — | OIDC client ID |
-| `auth.oidc.clientSecretRef` | string | — | Environment variable name for client secret |
-| `auth.oidc.redirectUrl` | string | — | OIDC callback URL |
-| `auth.oidc.scopes` | array | `[openid, profile, email]` | Requested OIDC scopes |
-| `auth.tokens.hashSecretRef` | string | — | Environment variable name for token hash secret |
+| `TROVE_AUTH_MODE` | string | `dev` | `dev` or `oidc` |
+| `TROVE_AUTH_DEV_MODE_ENABLED` | boolean | `true` | Enable dev/static auth mode |
+| `TROVE_AUTH_DEV_TOKEN` | string | empty | Optional fixed dev token |
+| `TROVE_COOKIE_SECURE` | boolean | inferred from `TROVE_PUBLIC_URL` | Force secure browser cookies |
+| `TROVE_OIDC_ISSUER_URL` | string | empty | OIDC provider issuer URL |
+| `TROVE_OIDC_CLIENT_ID` | string | empty | OIDC client ID |
+| `TROVE_OIDC_CLIENT_SECRET` | string | empty | OIDC client secret |
+| `TROVE_OIDC_REDIRECT_URL` | string | empty | OIDC callback URL |
 
-When `auth.mode` is `oidc`, Trove reads the provider's `.well-known/openid-configuration` document at startup and uses the discovered authorization, token, and UserInfo endpoints.
+When `TROVE_AUTH_MODE=oidc`, Trove reads the provider's `.well-known/openid-configuration` document at startup.
 
 ### Storage
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `storage.mode` | string | `postgres` | `postgres` (S3 reserved for future) |
-| `storage.limits.maxArtifactFileBytes` | integer | `10485760` (10 MiB) | Max size per artifact file |
-| `storage.limits.maxUnpackedPackageBytes` | integer | `104857600` (100 MiB) | Max total unpacked package size |
-| `storage.limits.maxArtifactsPerVersion` | integer | `1000` | Max artifact count per version |
-| `storage.s3.enabled` | boolean | `false` | Enable S3-compatible storage |
-| `storage.s3.endpoint` | string | — | S3 endpoint URL |
-| `storage.s3.bucket` | string | — | S3 bucket name |
-| `storage.s3.accessKeyRef` | string | — | Environment variable for access key |
-| `storage.s3.secretKeyRef` | string | — | Environment variable for secret key |
+| `TROVE_STORAGE_MODE` | string | `postgres` | Storage mode. The current runtime supports PostgreSQL storage only. |
+| `TROVE_STORAGE_MAX_ARTIFACT_FILE_BYTES` | integer | `10485760` | Max size per artifact file |
+| `TROVE_STORAGE_MAX_UNPACKED_PACKAGE_BYTES` | integer | `104857600` | Max total unpacked archive size |
+| `TROVE_STORAGE_MAX_ARTIFACTS_PER_VERSION` | integer | `1000` | Max artifact count per version |
+
+Artifact bytes are stored in PostgreSQL `bytea` in the current implementation.
 
 ### Raw Artifact Access
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `raw.requireAuthByDefault` | boolean | `true` | Require auth for raw URLs |
-| `raw.allowPublicNamespaces` | boolean | `true` | Allow public namespaces |
-| `raw.allowPublicPackages` | boolean | `true` | Allow public packages |
+| `TROVE_RAW_REQUIRE_AUTH_BY_DEFAULT` | boolean | `true` | Require auth for raw URLs unless public package access is allowed |
+| `TROVE_RAW_ALLOW_PUBLIC_NAMESPACES` | boolean | `true` | Allow public namespace/package raw artifact access |
+| `TROVE_RAW_ALLOW_PUBLIC_PACKAGES` | boolean | `true` | Allow public packages to expose raw artifacts anonymously |
 
 ### Organizations
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `orgs.allowCreateOrg` | boolean | `true` | Allow authenticated users with `org:write` to create orgs through the API and UI |
-| `orgs.defaultOrg` | string | — | Optional org slug to ensure exists on startup |
-
-Set `TROVE_ORG` when you want Trove to bootstrap a known org at startup. This does not restrict the instance to that org, and additional orgs can still be created when `TROVE_ALLOW_CREATE_ORG=true`.
+| `TROVE_ALLOW_CREATE_ORG` | boolean | `true` | Allow authenticated users with `org:write` to create orgs through API/UI |
+| `TROVE_ORG` | string | empty | Optional org slug to ensure exists on startup |
 
 If `TROVE_ALLOW_CREATE_ORG=false`, `TROVE_ORG` is required so the instance has at least one org available.
 
 ### Packages
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `packages.createPackageOnPush` | boolean | `true` | Allow `trove push` draft creation to auto-create a missing package when the org and namespace exist |
-| `packages.createNamespaceOnPush` | boolean | `true` | Allow `trove push` draft creation to auto-create a missing namespace when the org exists |
+| `TROVE_CREATE_PACKAGE_ON_PUSH` | boolean | `true` | Allow draft creation to auto-create a missing package when the org and namespace exist |
+| `TROVE_CREATE_NAMESPACE_ON_PUSH` | boolean | `true` | Allow draft creation to auto-create a missing namespace when the org exists |
 
-These are server-side controls. The CLI does not read them. Missing orgs are never auto-created by `trove push`; use `TROVE_ORG` startup bootstrapping or the org creation API/UI first.
+These are server-side controls. Missing orgs are never auto-created by `trove push`; create the org first or configure `TROVE_ORG` on the server.
 
 ### Reviews
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `reviews.requireApproval` | boolean | `true` | Require approval before publishing |
-| `reviews.minimumApprovals` | integer | `1` | Minimum approvals required |
-| `reviews.allowSelfApproval` | boolean | `false` | Allow self-approval |
+| `TROVE_REVIEWS_REQUIRE_APPROVAL` | boolean | `true` | Require approval before publish |
+| `TROVE_REVIEWS_MINIMUM_APPROVALS` | integer | `1` | Minimum approvals required |
+| `TROVE_REVIEWS_ALLOW_SELF_APPROVAL` | boolean | `false` | Allow submitters to approve their own changes |
 
-### Security
+### Security Scanning
 
-| Key | Type | Default | Description |
+| Variable | Type | Default | Description |
 |---|---|---|---|
-| `security.secretScanning` | boolean | `true` | Enable secret scanning |
-| `security.unsafeInstructionScanning` | boolean | `true` | Enable unsafe instruction scanning |
-
-### Environment Variables
-
-Secrets are referenced by environment variable name:
-
-| Variable | Used By |
-|---|---|
-| `TROVE_OIDC_CLIENT_SECRET` | OIDC client secret |
-| `TROVE_COOKIE_SECURE` | Force secure browser cookies (`true` for HTTPS) |
-| `TROVE_TOKEN_HASH_SECRET` | API token hashing |
-| `TROVE_S3_ACCESS_KEY` | S3 access key (if enabled) |
-| `TROVE_S3_SECRET_KEY` | S3 secret key (if enabled) |
-| `TROVE_DATABASE_URL` | PostgreSQL connection (alternative to config file) |
-| `TROVE_ALLOW_CREATE_ORG` | Enable or disable org creation through API/UI (`true` by default) |
-| `TROVE_ORG` | Optional org slug to ensure exists on startup; required when `TROVE_ALLOW_CREATE_ORG=false` |
-| `TROVE_CREATE_PACKAGE_ON_PUSH` | Server-side control for package auto-creation during `trove push` (`true` by default) |
-| `TROVE_CREATE_NAMESPACE_ON_PUSH` | Server-side control for namespace auto-creation during `trove push` (`true` by default) |
+| `TROVE_SECURITY_SECRET_SCANNING` | boolean | `true` | Enable secret scanning |
+| `TROVE_SECURITY_UNSAFE_INSTRUCTION_SCANNING` | boolean | `true` | Enable unsafe-instruction scanning |
 
 ### Next Steps
 

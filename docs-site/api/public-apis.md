@@ -107,10 +107,14 @@ List endpoints use cursor pagination:
   "visibility": "public",
   "lifecycle": "active",
   "latestVersion": "1.0.0",
-  "maintainers": [{ "team": "platform-engineering" }],
-  "labels": { "language": "golang", "framework": "chi" },
-  "createdAt": "2026-01-15T00:00:00Z",
-  "updatedAt": "2026-05-23T00:00:00Z"
+  "versions": [
+    {
+      "version": "1.0.0",
+      "digest": "sha256:abc123...",
+      "lifecycle": "published",
+      "publishedAt": "2026-05-23T00:00:00Z"
+    }
+  ]
 }
 ```
 
