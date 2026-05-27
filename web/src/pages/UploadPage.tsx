@@ -144,9 +144,9 @@ export default function UploadPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Publish Package</h1>
+        <h1 className="text-2xl font-bold">Create Package</h1>
         <p className="text-muted-foreground">
-          Create a draft version, upload artifacts, and publish.
+          Create a package draft and upload artifacts. Approved versions are published from the review queue.
         </p>
       </div>
 
@@ -157,7 +157,7 @@ export default function UploadPage() {
         <div className="w-8 h-px bg-border" />
         <StepIndicator current={step} step="review" label="Review" />
         <div className="w-8 h-px bg-border" />
-        <StepIndicator current={step} step="publish" label="Publish" />
+        <StepIndicator current={step} step="publish" label="Submit" />
       </div>
 
       {error && (
@@ -311,7 +311,7 @@ export default function UploadPage() {
 
       {step === 'review' && (
         <div className="border rounded-lg p-6 space-y-4">
-          <h2 className="text-lg font-semibold">Review & Publish</h2>
+          <h2 className="text-lg font-semibold">Review & Submit</h2>
           <div className="bg-muted/30 rounded-lg p-4 space-y-2">
             <p className="text-sm">
               <span className="font-medium">Package:</span> {org}/{namespace}/{name}
@@ -324,7 +324,7 @@ export default function UploadPage() {
             </p>
           </div>
           <p className="text-sm text-muted-foreground">
-            Review the package details before publishing. Published versions are immutable.
+            Review the package details before submitting. Approved versions are published from the review queue.
           </p>
           <div className="flex gap-3">
             <button
@@ -340,10 +340,10 @@ export default function UploadPage() {
             >
               {publish.isPending ? (
                 <span className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin" /> Publishing...
+                  <Loader2 className="w-4 h-4 animate-spin" /> Submitting...
                 </span>
               ) : (
-                'Publish'
+                'Submit for Review'
               )}
             </button>
           </div>

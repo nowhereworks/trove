@@ -50,9 +50,6 @@ function AppContent() {
                 New Org
               </Link>
             )}
-            <Link to="/upload" className="text-sm text-primary hover:underline">
-              Publish
-            </Link>
             {isAuthenticated ? (
               <div className="relative">
                 <button

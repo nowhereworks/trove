@@ -45,7 +45,7 @@ export default function ReviewsPage() {
   const approve = useMutation({
     mutationFn: (item: ReviewQueueItem) => api.approveReview(item.reviewId, item.packageVersionId, comment || undefined),
     onSuccess: (_, item) => {
-      setMessage(`${item.org}/${item.namespace}/${item.package}@${item.version} approved.`)
+      setMessage(`${item.org}/${item.namespace}/${item.package}@${item.version} approved. Publish it to make it visible on the Packages page.`)
       setError(null)
       resetAction()
       refreshReviewData(item)
@@ -99,8 +99,8 @@ export default function ReviewsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Review Queue</h1>
-        <p className="text-muted-foreground">
-          Approve submitted package versions, request changes, then publish approved versions.
+          <p className="text-muted-foreground">
+          Approve submitted package versions, then publish approved versions to make them visible in Packages.
         </p>
       </div>
 
@@ -267,7 +267,7 @@ function ReviewCard({
           disabled={!item.hasEnoughApprovals || publishing}
           className="px-3 py-1.5 border rounded text-sm font-medium hover:bg-muted disabled:opacity-50"
         >
-          {publishing ? <span className="inline-flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Publishing</span> : 'Publish'}
+          {publishing ? <span className="inline-flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Publishing</span> : 'Publish to Packages'}
         </button>
         <Link
           to={`/packages/${item.org}/${item.namespace}/${item.package}`}
