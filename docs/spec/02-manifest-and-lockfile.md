@@ -41,8 +41,6 @@ spec:
       required: false
       targetPath: .opencode/skills/backend-api/SKILL.md
   dependencies: []
-  links:
-    docs: https://docs.company.com/agent-backend
 ```
 
 ## Required Manifest Fields
@@ -73,7 +71,6 @@ Publishing must fail when:
 - an artifact type is unknown.
 - compatibility metadata is malformed.
 - dependency references are malformed.
-- links are syntactically invalid.
 - secrets or blocked unsafe instructions are detected.
 - uploaded files exceed configured per-file or package size limits.
 

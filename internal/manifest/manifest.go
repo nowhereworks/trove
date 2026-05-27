@@ -34,7 +34,6 @@ type Metadata struct {
 type Spec struct {
 	Artifacts     []Artifact        `yaml:"artifacts" json:"artifacts"`
 	Dependencies  []string          `yaml:"dependencies" json:"dependencies,omitempty"`
-	Links         map[string]string `yaml:"links" json:"links,omitempty"`
 }
 
 type Artifact struct {
