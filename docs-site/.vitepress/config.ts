@@ -62,6 +62,7 @@ export default defineConfig({
         text: 'Security',
         items: [
           { text: 'Authentication', link: '/security/authentication' },
+          { text: 'Azure Entra ID', link: '/security/azure-entra-id' },
           { text: 'RBAC & Scopes', link: '/security/rbac-scopes' },
           { text: 'API Tokens', link: '/security/api-tokens' },
         ],

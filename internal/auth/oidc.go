@@ -16,10 +16,19 @@ import (
 )
 
 type OIDCProvider struct {
-	cfg         config.OIDCConfig
-	httpClient  *http.Client
-	stateStore  sync.Map
-	nonceStore  sync.Map
+	cfg                   config.OIDCConfig
+	httpClient            *http.Client
+	authorizationEndpoint string
+	tokenEndpoint         string
+	userinfoEndpoint      string
+	stateStore            sync.Map
+	nonceStore            sync.Map
+}
+
+type oidcDiscoveryDocument struct {
+	AuthorizationEndpoint string `json:"authorization_endpoint"`
+	TokenEndpoint         string `json:"token_endpoint"`
+	UserinfoEndpoint      string `json:"userinfo_endpoint"`
 }
 
 type OIDCTokenResponse struct {
@@ -50,13 +59,52 @@ func NewOIDCProvider(cfg config.OIDCConfig) (*OIDCProvider, error) {
 	if cfg.RedirectURL == "" {
 		return nil, fmt.Errorf("OIDC redirect URL is required")
 	}
+	if len(cfg.Scopes) == 0 {
+		cfg.Scopes = []string{"openid", "profile", "email"}
+	}
 
-	return &OIDCProvider{
+	provider := &OIDCProvider{
 		cfg: cfg,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
-	}, nil
+	}
+	if err := provider.discoverEndpoints(); err != nil {
+		return nil, err
+	}
+	return provider, nil
+}
+
+func (p *OIDCProvider) discoverEndpoints() error {
+	resp, err := p.httpClient.Get(strings.TrimRight(p.cfg.IssuerURL, "/") + "/.well-known/openid-configuration")
+	if err != nil {
+		return fmt.Errorf("OIDC discovery failed: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("OIDC discovery returned %d: %s", resp.StatusCode, string(body))
+	}
+
+	var doc oidcDiscoveryDocument
+	if err := json.NewDecoder(resp.Body).Decode(&doc); err != nil {
+		return fmt.Errorf("OIDC discovery decode failed: %w", err)
+	}
+	if doc.AuthorizationEndpoint == "" {
+		return fmt.Errorf("OIDC discovery missing authorization_endpoint")
+	}
+	if doc.TokenEndpoint == "" {
+		return fmt.Errorf("OIDC discovery missing token_endpoint")
+	}
+	if doc.UserinfoEndpoint == "" {
+		return fmt.Errorf("OIDC discovery missing userinfo_endpoint")
+	}
+
+	p.authorizationEndpoint = doc.AuthorizationEndpoint
+	p.tokenEndpoint = doc.TokenEndpoint
+	p.userinfoEndpoint = doc.UserinfoEndpoint
+	return nil
 }
 
 func (p *OIDCProvider) AuthURL() string {
@@ -66,6 +114,16 @@ func (p *OIDCProvider) AuthURL() string {
 	p.stateStore.Store(state, time.Now().Add(10*time.Minute))
 	p.nonceStore.Store(nonce, time.Now().Add(10*time.Minute))
 
+	return p.authURL(state, nonce)
+}
+
+func (p *OIDCProvider) AuthURLWithState(state, nonce string) string {
+	p.stateStore.Store(state, time.Now().Add(10*time.Minute))
+	p.nonceStore.Store(nonce, time.Now().Add(10*time.Minute))
+	return p.authURL(state, nonce)
+}
+
+func (p *OIDCProvider) authURL(state, nonce string) string {
 	params := url.Values{}
 	params.Set("response_type", "code")
 	params.Set("client_id", p.cfg.ClientID)
@@ -74,7 +132,7 @@ func (p *OIDCProvider) AuthURL() string {
 	params.Set("state", state)
 	params.Set("nonce", nonce)
 
-	return p.cfg.IssuerURL + "/authorize?" + params.Encode()
+	return p.authorizationEndpoint + "?" + params.Encode()
 }
 
 func (p *OIDCProvider) HandleCallback(code, state string) (*OIDCUserInfo, error) {
@@ -104,7 +162,7 @@ func (p *OIDCProvider) exchangeCode(code string) (*OIDCTokenResponse, error) {
 	params.Set("client_id", p.cfg.ClientID)
 	params.Set("client_secret", p.cfg.ClientSecret)
 
-	resp, err := p.httpClient.PostForm(p.cfg.IssuerURL+"/token", params)
+	resp, err := p.httpClient.PostForm(p.tokenEndpoint, params)
 	if err != nil {
 		return nil, err
 	}
@@ -124,7 +182,7 @@ func (p *OIDCProvider) exchangeCode(code string) (*OIDCTokenResponse, error) {
 }
 
 func (p *OIDCProvider) getUserInfo(accessToken string) (*OIDCUserInfo, error) {
-	req, err := http.NewRequest("GET", p.cfg.IssuerURL+"/userinfo", nil)
+	req, err := http.NewRequest("GET", p.userinfoEndpoint, nil)
 	if err != nil {
 		return nil, err
 	}

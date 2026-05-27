@@ -1,7 +1,9 @@
 package auth
 
 import (
+	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -178,6 +180,9 @@ func TestAuthenticatorCanAccessPackageUnauthenticated(t *testing.T) {
 }
 
 func TestOIDCProviderValidation(t *testing.T) {
+	issuerURL, cleanup := testOIDCDiscoveryServer(t)
+	defer cleanup()
+
 	tests := []struct {
 		name    string
 		cfg     config.OIDCConfig
@@ -187,7 +192,7 @@ func TestOIDCProviderValidation(t *testing.T) {
 		{"missing client ID", config.OIDCConfig{IssuerURL: "x", ClientSecret: "x", RedirectURL: "x"}, true},
 		{"missing client secret", config.OIDCConfig{IssuerURL: "x", ClientID: "x", RedirectURL: "x"}, true},
 		{"missing redirect", config.OIDCConfig{IssuerURL: "x", ClientID: "x", ClientSecret: "x"}, true},
-		{"valid config", config.OIDCConfig{IssuerURL: "https://auth.example.com", ClientID: "abc", ClientSecret: "secret", RedirectURL: "http://localhost/callback", Scopes: []string{"openid", "email"}}, false},
+		{"valid config", config.OIDCConfig{IssuerURL: issuerURL, ClientID: "abc", ClientSecret: "secret", RedirectURL: "http://localhost/callback", Scopes: []string{"openid", "email"}}, false},
 	}
 
 	for _, tt := range tests {
@@ -201,8 +206,11 @@ func TestOIDCProviderValidation(t *testing.T) {
 }
 
 func TestOIDCProviderAuthURL(t *testing.T) {
+	issuerURL, cleanup := testOIDCDiscoveryServer(t)
+	defer cleanup()
+
 	cfg := config.OIDCConfig{
-		IssuerURL:    "https://auth.example.com",
+		IssuerURL:    issuerURL,
 		ClientID:     "test-client",
 		ClientSecret: "secret",
 		RedirectURL:  "http://localhost/callback",
@@ -215,11 +223,14 @@ func TestOIDCProviderAuthURL(t *testing.T) {
 
 	authURL := provider.AuthURL()
 
-	if !strings.HasPrefix(authURL, "https://auth.example.com/authorize?") {
-		t.Fatalf("auth URL = %q, want prefix https://auth.example.com/authorize?", authURL)
+	if !strings.HasPrefix(authURL, strings.TrimSuffix(issuerURL, "/tenant/v2.0")+"/tenant/oauth2/v2.0/authorize?") {
+		t.Fatalf("auth URL = %q, want discovered authorize endpoint", authURL)
 	}
 	if !strings.Contains(authURL, "client_id=test-client") {
 		t.Fatal("auth URL missing client_id")
+	}
+	if !strings.Contains(authURL, "scope=openid+email") {
+		t.Fatal("auth URL missing configured scopes")
 	}
 	if !strings.Contains(authURL, "state=") {
 		t.Fatal("auth URL missing state")
@@ -227,6 +238,133 @@ func TestOIDCProviderAuthURL(t *testing.T) {
 	if !strings.Contains(authURL, "nonce=") {
 		t.Fatal("auth URL missing nonce")
 	}
+}
+
+func TestOIDCProviderDefaultsScopes(t *testing.T) {
+	issuerURL, cleanup := testOIDCDiscoveryServer(t)
+	defer cleanup()
+
+	provider, err := NewOIDCProvider(config.OIDCConfig{
+		IssuerURL:    issuerURL,
+		ClientID:     "test-client",
+		ClientSecret: "secret",
+		RedirectURL:  "http://localhost/callback",
+	})
+	if err != nil {
+		t.Fatalf("NewOIDCProvider error: %v", err)
+	}
+
+	got := strings.Join(provider.cfg.Scopes, " ")
+	if got != "openid profile email" {
+		t.Fatalf("default scopes = %q, want openid profile email", got)
+	}
+}
+
+func TestOIDCProviderUsesDiscoveredTokenAndUserinfoEndpoints(t *testing.T) {
+	issuerURL, cleanup := testOIDCDiscoveryServer(t)
+	defer cleanup()
+
+	provider, err := NewOIDCProvider(config.OIDCConfig{
+		IssuerURL:    issuerURL,
+		ClientID:     "test-client",
+		ClientSecret: "secret",
+		RedirectURL:  "http://localhost/callback",
+	})
+	if err != nil {
+		t.Fatalf("NewOIDCProvider error: %v", err)
+	}
+
+	tokenResp, err := provider.exchangeCode("auth-code")
+	if err != nil {
+		t.Fatalf("exchangeCode error: %v", err)
+	}
+	if tokenResp.AccessToken != "access-token" {
+		t.Fatalf("access token = %q, want access-token", tokenResp.AccessToken)
+	}
+
+	userInfo, err := provider.getUserInfo(tokenResp.AccessToken)
+	if err != nil {
+		t.Fatalf("getUserInfo error: %v", err)
+	}
+	if userInfo.Subject != "user-subject" || userInfo.Email != "user@nwks.com" || userInfo.Name != "Test User" {
+		t.Fatalf("userinfo = %+v", userInfo)
+	}
+}
+
+func TestOIDCProviderDiscoveryErrors(t *testing.T) {
+	t.Run("non-200 discovery", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Error(w, "not found", http.StatusNotFound)
+		}))
+		defer server.Close()
+
+		_, err := NewOIDCProvider(config.OIDCConfig{
+			IssuerURL:    server.URL,
+			ClientID:     "test-client",
+			ClientSecret: "secret",
+			RedirectURL:  "http://localhost/callback",
+		})
+		if err == nil || !strings.Contains(err.Error(), "OIDC discovery returned 404") {
+			t.Fatalf("NewOIDCProvider error = %v, want discovery status error", err)
+		}
+	})
+
+	t.Run("missing endpoint", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			_, _ = w.Write([]byte(`{"authorization_endpoint":"https://auth.example.test/authorize"}`))
+		}))
+		defer server.Close()
+
+		_, err := NewOIDCProvider(config.OIDCConfig{
+			IssuerURL:    server.URL,
+			ClientID:     "test-client",
+			ClientSecret: "secret",
+			RedirectURL:  "http://localhost/callback",
+		})
+		if err == nil || !strings.Contains(err.Error(), "token_endpoint") {
+			t.Fatalf("NewOIDCProvider error = %v, want missing token_endpoint error", err)
+		}
+	})
+}
+
+func testOIDCDiscoveryServer(t *testing.T) (string, func()) {
+	t.Helper()
+
+	var baseURL string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/tenant/v2.0/.well-known/openid-configuration":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = fmt.Fprintf(w, `{
+				"authorization_endpoint":"%s/tenant/oauth2/v2.0/authorize",
+				"token_endpoint":"%s/tenant/oauth2/v2.0/token",
+				"userinfo_endpoint":"%s/oidc/userinfo"
+			}`, baseURL, baseURL, baseURL)
+		case "/tenant/oauth2/v2.0/token":
+			if err := r.ParseForm(); err != nil {
+				http.Error(w, "invalid form", http.StatusBadRequest)
+				return
+			}
+			if r.Form.Get("code") != "auth-code" {
+				http.Error(w, "invalid code", http.StatusBadRequest)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"access_token":"access-token","token_type":"Bearer","expires_in":3600,"id_token":"id-token"}`))
+		case "/oidc/userinfo":
+			if r.Header.Get("Authorization") != "Bearer access-token" {
+				http.Error(w, "invalid authorization", http.StatusUnauthorized)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"sub":"user-subject","email":"user@nwks.com","name":"Test User"}`))
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	baseURL = server.URL
+
+	return server.URL + "/tenant/v2.0", server.Close
 }
 
 func devConfig() config.Config {

@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 
@@ -352,18 +351,7 @@ func (a *Authenticator) OIDCAuthURL() (string, string, error) {
 	state := OidcRandomState()
 	nonce := OidcRandomState()
 
-	a.oidc.stateStore.Store(state, time.Now().Add(10*time.Minute))
-	a.oidc.nonceStore.Store(nonce, time.Now().Add(10*time.Minute))
-
-	params := url.Values{}
-	params.Set("response_type", "code")
-	params.Set("client_id", a.oidc.cfg.ClientID)
-	params.Set("redirect_uri", a.oidc.cfg.RedirectURL)
-	params.Set("scope", strings.Join(a.oidc.cfg.Scopes, " "))
-	params.Set("state", state)
-	params.Set("nonce", nonce)
-
-	return a.oidc.cfg.IssuerURL + "/authorize?" + params.Encode(), state, nil
+	return a.oidc.AuthURLWithState(state, nonce), state, nil
 }
 
 func (a *Authenticator) OIDCCallback(ctx context.Context, code string) (User, error) {

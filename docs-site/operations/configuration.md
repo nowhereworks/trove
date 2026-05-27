@@ -97,6 +97,8 @@ security:
 | `auth.oidc.scopes` | array | `[openid, profile, email]` | Requested OIDC scopes |
 | `auth.tokens.hashSecretRef` | string | — | Environment variable name for token hash secret |
 
+When `auth.mode` is `oidc`, Trove reads the provider's `.well-known/openid-configuration` document at startup and uses the discovered authorization, token, and UserInfo endpoints.
+
 ### Storage
 
 | Key | Type | Default | Description |
@@ -161,6 +163,7 @@ Secrets are referenced by environment variable name:
 | Variable | Used By |
 |---|---|
 | `TROVE_OIDC_CLIENT_SECRET` | OIDC client secret |
+| `TROVE_COOKIE_SECURE` | Force secure browser cookies (`true` for HTTPS) |
 | `TROVE_TOKEN_HASH_SECRET` | API token hashing |
 | `TROVE_S3_ACCESS_KEY` | S3 access key (if enabled) |
 | `TROVE_S3_SECRET_KEY` | S3 secret key (if enabled) |

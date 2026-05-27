@@ -16,7 +16,7 @@ Trove serves both human users and automated agents. Humans need a familiar login
 
 ### OIDC Login (Humans)
 
-OIDC is standards-based and provider-neutral. Microsoft Entra, Okta, Authentik, Dex, and other OIDC providers work through configuration:
+OIDC is standards-based and provider-neutral. Microsoft Entra, Okta, Authentik, Dex, and other OIDC providers work through configuration. Trove reads the provider's `.well-known/openid-configuration` document at startup and uses the discovered authorization, token, and UserInfo endpoints.
 
 ```yaml
 auth:
@@ -40,6 +40,8 @@ Login flow:
 4. Provider redirects back to `/auth/oidc/callback` with an authorization code
 5. Trove exchanges the code for tokens, creates or updates the user record
 6. User receives a browser session cookie
+
+For Microsoft Entra ID, follow the [Azure Entra ID setup guide](/security/azure-entra-id).
 
 ### API Tokens (Agents and CI)
 
@@ -120,3 +122,4 @@ This means:
 
 - Learn about [RBAC & Scopes](/security/rbac-scopes) for access control
 - See how to manage [API Tokens](/security/api-tokens)
+- Configure [Azure Entra ID](/security/azure-entra-id) as an OIDC provider

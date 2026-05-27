@@ -67,6 +67,7 @@ const categories = ref([
     title: 'Security',
     items: [
       { title: 'Authentication', desc: 'OIDC for humans, API tokens for agents and CI.', link: withBase('/security/authentication') },
+      { title: 'Azure Entra ID', desc: 'Set up Microsoft Entra ID as Trove\'s OIDC provider.', link: withBase('/security/azure-entra-id') },
       { title: 'RBAC & Scopes', desc: 'Roles, scopes, and least-privilege access.', link: withBase('/security/rbac-scopes') },
       { title: 'API Tokens', desc: 'Create, scope, restrict, and revoke machine access.', link: withBase('/security/api-tokens') },
     ],
