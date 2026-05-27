@@ -57,7 +57,7 @@ postgres:
 
 .PHONY: run-dev
 run-dev:
-	docker compose -f resources/docker-compose.yaml up --build
+	docker compose -f resources/docker-compose-dev-ephemeral.yaml up --build
 
 .PHONY: test
 test:

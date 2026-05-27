@@ -27,6 +27,7 @@ services:
       TROVE_AUTH_MODE: dev
       TROVE_AUTH_DEV_MODE_ENABLED: "true"
       TROVE_ORG: nwks
+      TROVE_REVIEWS_ALLOW_SELF_APPROVAL: "true"
     ports:
       - "8080:8080"
     networks:
