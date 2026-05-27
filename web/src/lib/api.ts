@@ -84,6 +84,32 @@ export interface ReviewStatus {
   reviews: { id: string; action: string; comment: string; createdAt: string }[]
 }
 
+export interface ReviewQueueItem {
+  org: string
+  namespace: string
+  package: string
+  displayName: string
+  description: string
+  visibility: string
+  version: string
+  lifecycle: string
+  digest: string
+  reviewId: string
+  packageVersionId: string
+  reviewerId: string
+  reviewStatus: string
+  currentApprovals: number
+  requiredApprovals: number
+  hasEnoughApprovals: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ReviewQueueResult {
+  items: ReviewQueueItem[]
+  nextCursor: string | null
+}
+
 export interface AppConfig {
   org: string
   allowCreateOrg: boolean
@@ -167,6 +193,29 @@ export const api = {
 
   getApprovalStatus: (org: string, namespace: string, name: string, version: string) =>
     request<ReviewStatus>(`/reviews/${org}/${namespace}/${name}/versions/${version}/approval-status`),
+
+  listReviewQueue: (params?: { limit?: number }) => {
+    const qs = new URLSearchParams()
+    if (params?.limit) qs.set('limit', String(params.limit))
+    return request<ReviewQueueResult>(`/reviews?${qs}`)
+  },
+
+  approveReview: (reviewId: string, packageVersionId: string, comment?: string) =>
+    request<void>(`/reviews/${reviewId}/approve`, {
+      method: 'POST',
+      body: JSON.stringify({ packageVersionId, comment }),
+    }),
+
+  requestReviewChanges: (reviewId: string, comment: string) =>
+    request<void>(`/reviews/${reviewId}/request-changes`, {
+      method: 'POST',
+      body: JSON.stringify({ comment }),
+    }),
+
+  publishVersion: (org: string, namespace: string, name: string, version: string) =>
+    request<void>(`/packages/${org}/${namespace}/${name}/versions/${version}/publish`, {
+      method: 'POST',
+    }),
 
   getRawUrl: (org: string, namespace: string, name: string, version: string, path: string) =>
     `/raw/${org}/${namespace}/${name}/${version}/${path}`,

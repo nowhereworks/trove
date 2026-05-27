@@ -30,6 +30,7 @@ export default function UploadPage() {
   const [manifestContent, setManifestContent] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+  const [reviewUrl, setReviewUrl] = useState<string | null>(null)
 
   const queryClient = useQueryClient()
   const { data: config } = useQuery({ queryKey: ['config'], queryFn: api.getConfig })
@@ -82,13 +83,34 @@ export default function UploadPage() {
       fetch(`/api/v1/packages/${org}/${namespace}/${name}/versions/${version}/publish`, {
         method: 'POST',
       }).then((r) => {
-        if (!r.ok) return r.json().then((b) => Promise.reject(new Error(b.error?.message || 'Publish failed')))
+        if (!r.ok) {
+          return r.json().then(async (b) => {
+            if (b.error?.code === 'APPROVAL_REQUIRED') {
+              const submit = await fetch(`/api/v1/reviews/${org}/${namespace}/${name}/versions/${version}/submit`, {
+                method: 'POST',
+              })
+              if (!submit.ok) {
+                const submitBody = await submit.json().catch(() => null)
+                throw new Error(submitBody?.error?.message || 'Submit for review failed')
+              }
+              return { submittedForReview: true }
+            }
+            throw new Error(b.error?.message || 'Publish failed')
+          })
+        }
         return r.json()
       }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       setStep('done')
-      setSuccess(`Version ${version} published successfully!`)
+      if ((result as any)?.submittedForReview) {
+        setReviewUrl(`/reviews?package=${encodeURIComponent(`${org}/${namespace}/${name}`)}&version=${encodeURIComponent(version)}`)
+        setSuccess(`Version ${version} was submitted for review.`)
+      } else {
+        setReviewUrl(null)
+        setSuccess(`Version ${version} published successfully!`)
+      }
       queryClient.invalidateQueries({ queryKey: ['packages'] })
+      queryClient.invalidateQueries({ queryKey: ['reviewQueue'] })
     },
     onError: (e) => setError(e.message),
   })
@@ -331,14 +353,23 @@ export default function UploadPage() {
       {step === 'done' && (
         <div className="border rounded-lg p-6 text-center space-y-4">
           <CheckCircle className="w-12 h-12 mx-auto text-green-600" />
-          <h2 className="text-lg font-semibold">Published Successfully</h2>
+          <h2 className="text-lg font-semibold">{reviewUrl ? 'Submitted for Review' : 'Published Successfully'}</h2>
           <p className="text-muted-foreground">{success}</p>
-          <a
-            href={`/packages/${org}/${namespace}/${name}`}
-            className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90"
-          >
-            View Package
-          </a>
+          {reviewUrl ? (
+            <a
+              href={reviewUrl}
+              className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90"
+            >
+              Open Review Queue
+            </a>
+          ) : (
+            <a
+              href={`/packages/${org}/${namespace}/${name}`}
+              className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:opacity-90"
+            >
+              View Package
+            </a>
+          )}
         </div>
       )}
     </div>

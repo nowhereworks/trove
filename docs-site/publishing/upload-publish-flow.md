@@ -19,6 +19,19 @@ trove push
 
 `trove push` uploads `Trovefile` first, uploads `AGENTS.md` second, then publishes or submits for review if approval is required.
 
+If approval is required, open `/reviews` in the web UI to approve and publish the submitted version. For single-user local development, start the server with `TROVE_REVIEWS_ALLOW_SELF_APPROVAL=true` to approve your own submissions in the browser.
+
+### Browser Flow
+
+The web UI can run the same workflow without leaving the browser:
+
+1. Open `/upload`
+2. Create the package version draft
+3. Upload an archive or paste the `Trovefile`
+4. Click publish
+5. If approval is required, follow the link to `/reviews`
+6. Approve, then publish the version from the review queue
+
 ### Raw API Flow
 
 Use the raw API when building automation that cannot shell out to the CLI.
@@ -128,12 +141,21 @@ The version moves from `draft` to `review`. Automated checks run, and the versio
 
 ### Step 6: Review
 
-A reviewer (not the submitter) opens the version in the UI or API:
+A reviewer opens `/reviews` in the UI or lists the review queue by API:
+
+```bash
+GET /api/v1/reviews
+Authorization: Bearer <token-with-review:write>
+```
+
+The reviewer opens the version and:
 
 - Reviews the manifest
 - Checks artifact content
 - Sees automated scan results
 - Approves or requests changes
+
+Self-approval is blocked by default. Enable `TROVE_REVIEWS_ALLOW_SELF_APPROVAL=true` for local single-user review workflows.
 
 ```bash
 # Approve

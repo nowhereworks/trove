@@ -16,7 +16,7 @@ draft → submit → automated checks → human approval → published
 
 | Role | Can | Cannot |
 |---|---|---|
-| **Maintainer** | Create drafts, upload artifacts, submit for review, publish | Approve their own submissions |
+| **Maintainer** | Create drafts, upload artifacts, submit for review, publish | Approve their own submissions unless self-approval is enabled |
 | **Reviewer** | Approve or request changes, add comments | Publish versions |
 
 ### Step 1: Submit for Review
@@ -51,7 +51,14 @@ Immediately after submission, the system runs:
 
 ### Step 3: Human Review
 
-A reviewer opens the submitted version and sees:
+A reviewer opens `/reviews` in the web UI or calls the review queue API:
+
+```bash
+GET /api/v1/reviews
+Authorization: Bearer <token-with-review:write>
+```
+
+The review queue includes submitted versions that are not published yet, including packages that do not appear on the public package list. A reviewer opens the submitted version and sees:
 
 - Full manifest content
 - Artifact file list with sizes and types
@@ -110,7 +117,7 @@ Publishing:
 
 | Rule | Description |
 |---|---|
-| **Self-approval blocked** | The same actor cannot approve their own submission |
+| **Self-approval blocked by default** | The same actor cannot approve their own submission unless `TROVE_REVIEWS_ALLOW_SELF_APPROVAL=true` |
 | **One approval required** | MVP requires at least one human approval before publish |
 | **Content changes reset reviews** | Modifying a submitted version returns it to draft and invalidates approvals |
 | **Reviewed content is locked** | Content changes require returning the version to draft and resubmitting |
@@ -132,12 +139,25 @@ Threaded comments and line-level artifact comments are deferred.
 ### Viewing Reviews
 
 ```bash
+# List submitted versions awaiting review
+GET /api/v1/reviews
+
 # List all reviews for a version
 GET /api/v1/reviews/nwks/platform/agent-backend/versions/1.0.0
 
 # Get approval status
 GET /api/v1/reviews/nwks/platform/agent-backend/versions/1.0.0/approval-status
 ```
+
+### Local Browser Workflow
+
+For single-user local development, enable self-approval before starting the server:
+
+```bash
+TROVE_REVIEWS_ALLOW_SELF_APPROVAL=true
+```
+
+Then push a package, open `/reviews`, approve it yourself, and publish it from the browser.
 
 ### Next Steps
 

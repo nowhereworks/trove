@@ -21,6 +21,7 @@ All management endpoints require authentication via session or API token. Specif
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions` | `package:write` | Create draft version |
 | `PUT` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/artifacts/{path...}` | `package:write` | Upload draft artifact |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/archive` | `package:write` | Upload archive (.tar.gz/.zip) |
+| `GET` | `/api/v1/reviews` | `review:write` | List submitted versions awaiting review |
 | `POST` | `/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit` | `review:write` | Submit for review |
 | `POST` | `/api/v1/packages/{org}/{namespace}/{package}/versions/{version}/reset-draft` | `package:write` | Reset an unpublished review version to draft |
 | `POST` | `/api/v1/reviews/{reviewId}/approve` | `review:write` | Approve version |
@@ -38,6 +39,53 @@ All management endpoints require authentication via session or API token. Specif
 - **200 OK** — for state transition endpoints (submit, reset, approve, publish, deprecate, yank)
 
 Create endpoints return the created resource JSON and a `Location` header.
+
+### Review Queue
+
+```bash
+GET /api/v1/reviews?limit=50
+Authorization: Bearer <token-with-review:write>
+```
+
+Response: `200 OK`
+
+```json
+{
+  "items": [
+    {
+      "org": "nwks",
+      "namespace": "platform",
+      "package": "agent-backend",
+      "displayName": "Agent Backend",
+      "description": "Shared AGENTS.md instructions.",
+      "visibility": "private",
+      "version": "1.0.0",
+      "lifecycle": "review",
+      "digest": "",
+      "reviewId": "019e6acc-df93-7f27-9259-d31ef37d0fec",
+      "packageVersionId": "019e6acc-df85-73a6-95a3-d309369d995b",
+      "reviewerId": "0198f006-0000-7000-8000-00000000de00",
+      "reviewStatus": "submitted",
+      "currentApprovals": 0,
+      "requiredApprovals": 1,
+      "hasEnoughApprovals": false,
+      "createdAt": "2026-05-27T18:57:52Z",
+      "updatedAt": "2026-05-27T18:57:52Z"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `items` | array | yes | `[]` | Submitted package versions awaiting review |
+| `items[].reviewId` | string | yes | none | Review record ID for approve/request-changes actions |
+| `items[].packageVersionId` | string | yes | none | Version ID used when approving |
+| `items[].currentApprovals` | integer | yes | `0` | Current approval count |
+| `items[].requiredApprovals` | integer | yes | configured value | Required approval count |
+| `items[].hasEnoughApprovals` | boolean | yes | `false` | Whether the version can be published |
+| `nextCursor` | string or null | yes | `null` | Reserved for pagination |
 
 ### Public UI Configuration
 

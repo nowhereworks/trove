@@ -272,6 +272,181 @@ func TestAuthenticatedSubmitReviewTransitionsLifecycle(t *testing.T) {
 	}
 }
 
+func TestReviewQueueIncludesReviewOnlyVersions(t *testing.T) {
+	store := testutil.NewPostgresPackageStore(t)
+	router := NewRouter(config.Defaults(), store, nil)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.7","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/reviews/companyx/platform/agent-backend/versions/1.0.7/submit", nil)
+	submitReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	submitRes := httptest.NewRecorder()
+	router.ServeHTTP(submitRes, submitReq)
+	if submitRes.Code != http.StatusOK {
+		t.Fatalf("submit status = %d, want %d; body=%s", submitRes.Code, http.StatusOK, submitRes.Body.String())
+	}
+
+	queueReq := httptest.NewRequest(http.MethodGet, "/api/v1/reviews", nil)
+	queueReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	queueRes := httptest.NewRecorder()
+	router.ServeHTTP(queueRes, queueReq)
+	if queueRes.Code != http.StatusOK {
+		t.Fatalf("queue status = %d, want %d; body=%s", queueRes.Code, http.StatusOK, queueRes.Body.String())
+	}
+	var queue struct {
+		Items []struct {
+			Org                string `json:"org"`
+			Namespace          string `json:"namespace"`
+			Package            string `json:"package"`
+			Version            string `json:"version"`
+			Lifecycle          string `json:"lifecycle"`
+			ReviewStatus       string `json:"reviewStatus"`
+			CurrentApprovals   int64  `json:"currentApprovals"`
+			RequiredApprovals  int    `json:"requiredApprovals"`
+			HasEnoughApprovals bool   `json:"hasEnoughApprovals"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(queueRes.Body).Decode(&queue); err != nil {
+		t.Fatalf("decode queue: %v", err)
+	}
+	if len(queue.Items) != 1 {
+		t.Fatalf("queue items = %d, want 1; body=%s", len(queue.Items), queueRes.Body.String())
+	}
+	item := queue.Items[0]
+	if item.Org != "companyx" || item.Namespace != "platform" || item.Package != "agent-backend" || item.Version != "1.0.7" || item.Lifecycle != "review" || item.ReviewStatus != "submitted" {
+		t.Fatalf("queue item = %+v", item)
+	}
+	if item.CurrentApprovals != 0 || item.RequiredApprovals != 1 || item.HasEnoughApprovals {
+		t.Fatalf("queue approval fields = %+v", item)
+	}
+}
+
+func TestReviewSelfApprovalConfig(t *testing.T) {
+	store := testutil.NewPostgresPackageStore(t)
+	cfg := config.Defaults()
+	cfg.Reviews.AllowSelfApproval = true
+	router := NewRouter(cfg, store, nil)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.8","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/reviews/companyx/platform/agent-backend/versions/1.0.8/submit", nil)
+	submitReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	submitRes := httptest.NewRecorder()
+	router.ServeHTTP(submitRes, submitReq)
+	if submitRes.Code != http.StatusOK {
+		t.Fatalf("submit status = %d, want %d; body=%s", submitRes.Code, http.StatusOK, submitRes.Body.String())
+	}
+
+	queueReq := httptest.NewRequest(http.MethodGet, "/api/v1/reviews", nil)
+	queueReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	queueRes := httptest.NewRecorder()
+	router.ServeHTTP(queueRes, queueReq)
+	if queueRes.Code != http.StatusOK {
+		t.Fatalf("queue status = %d, want %d; body=%s", queueRes.Code, http.StatusOK, queueRes.Body.String())
+	}
+	var queue struct {
+		Items []struct {
+			ReviewID         string `json:"reviewId"`
+			PackageVersionID string `json:"packageVersionId"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(queueRes.Body).Decode(&queue); err != nil {
+		t.Fatalf("decode queue: %v", err)
+	}
+	if len(queue.Items) != 1 {
+		t.Fatalf("queue items = %d, want 1; body=%s", len(queue.Items), queueRes.Body.String())
+	}
+
+	approveReq := httptest.NewRequest(http.MethodPost, "/api/v1/reviews/"+queue.Items[0].ReviewID+"/approve", strings.NewReader(`{"packageVersionId":"`+queue.Items[0].PackageVersionID+`"}`))
+	approveReq.Header.Set("Content-Type", "application/json")
+	approveReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	approveRes := httptest.NewRecorder()
+	router.ServeHTTP(approveRes, approveReq)
+	if approveRes.Code != http.StatusOK {
+		t.Fatalf("approve status = %d, want %d; body=%s", approveRes.Code, http.StatusOK, approveRes.Body.String())
+	}
+
+	statusReq := httptest.NewRequest(http.MethodGet, "/api/v1/reviews/companyx/platform/agent-backend/versions/1.0.8/approval-status", nil)
+	statusReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	statusRes := httptest.NewRecorder()
+	router.ServeHTTP(statusRes, statusReq)
+	if statusRes.Code != http.StatusOK {
+		t.Fatalf("status status = %d, want %d; body=%s", statusRes.Code, http.StatusOK, statusRes.Body.String())
+	}
+	var status struct {
+		HasEnoughApprovals bool  `json:"hasEnoughApprovals"`
+		CurrentCount       int64 `json:"currentCount"`
+	}
+	if err := json.NewDecoder(statusRes.Body).Decode(&status); err != nil {
+		t.Fatalf("decode status: %v", err)
+	}
+	if !status.HasEnoughApprovals || status.CurrentCount != 1 {
+		t.Fatalf("approval status = %+v, want enough approvals", status)
+	}
+}
+
+func TestReviewSelfApprovalBlockedByDefault(t *testing.T) {
+	store := testutil.NewPostgresPackageStore(t)
+	router := NewRouter(config.Defaults(), store, nil)
+
+	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/packages/companyx/platform/agent-backend/versions", strings.NewReader(`{"version":"1.0.9","visibility":"public"}`))
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	createRes := httptest.NewRecorder()
+	router.ServeHTTP(createRes, createReq)
+	if createRes.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body=%s", createRes.Code, http.StatusCreated, createRes.Body.String())
+	}
+
+	submitReq := httptest.NewRequest(http.MethodPost, "/api/v1/reviews/companyx/platform/agent-backend/versions/1.0.9/submit", nil)
+	submitReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	submitRes := httptest.NewRecorder()
+	router.ServeHTTP(submitRes, submitReq)
+	if submitRes.Code != http.StatusOK {
+		t.Fatalf("submit status = %d, want %d; body=%s", submitRes.Code, http.StatusOK, submitRes.Body.String())
+	}
+
+	queueReq := httptest.NewRequest(http.MethodGet, "/api/v1/reviews", nil)
+	queueReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	queueRes := httptest.NewRecorder()
+	router.ServeHTTP(queueRes, queueReq)
+	var queue struct {
+		Items []struct {
+			ReviewID         string `json:"reviewId"`
+			PackageVersionID string `json:"packageVersionId"`
+		} `json:"items"`
+	}
+	if err := json.NewDecoder(queueRes.Body).Decode(&queue); err != nil {
+		t.Fatalf("decode queue: %v", err)
+	}
+	if len(queue.Items) != 1 {
+		t.Fatalf("queue items = %d, want 1; body=%s", len(queue.Items), queueRes.Body.String())
+	}
+
+	approveReq := httptest.NewRequest(http.MethodPost, "/api/v1/reviews/"+queue.Items[0].ReviewID+"/approve", strings.NewReader(`{"packageVersionId":"`+queue.Items[0].PackageVersionID+`"}`))
+	approveReq.Header.Set("Content-Type", "application/json")
+	approveReq.Header.Set("Authorization", "Bearer dev-token-local-only")
+	approveRes := httptest.NewRecorder()
+	router.ServeHTTP(approveRes, approveReq)
+	if approveRes.Code != http.StatusForbidden || !strings.Contains(approveRes.Body.String(), "SELF_APPROVAL_BLOCKED") {
+		t.Fatalf("approve status/body = %d %s, want self-approval blocked", approveRes.Code, approveRes.Body.String())
+	}
+}
+
 func TestResetUnpublishedVersionReturnsDraftAndKeepsAnonymousHidden(t *testing.T) {
 	store := testutil.NewPostgresPackageStore(t)
 	router := NewRouter(config.Defaults(), store, nil)

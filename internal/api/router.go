@@ -110,6 +110,7 @@ func NewRouter(cfg config.Config, store packages.Store, readiness ReadinessCheck
 	r.Post("/api/v1/projects", auth.RequireAuth(handleCreateProject(writeStore)))
 
 	r.Group(func(r chi.Router) {
+		r.Get("/api/v1/reviews", auth.RequireAuth(auth.RequireScope("review:write")(handleListReviewQueue(reviewService))))
 		r.Post("/api/v1/reviews/{org}/{namespace}/{package}/versions/{version}/submit", auth.RequireAuth(auth.RequireScope("review:write")(handleSubmitReview(reviewService))))
 		r.Post("/api/v1/reviews/{reviewId}/approve", auth.RequireAuth(auth.RequireScope("review:write")(handleApproveReview(reviewService))))
 		r.Post("/api/v1/reviews/{reviewId}/request-changes", auth.RequireAuth(auth.RequireScope("review:write")(handleRequestChanges(reviewService))))
@@ -1022,6 +1023,33 @@ func handleResetUnpublishedVersion(writeStore packages.WriteStore) http.HandlerF
 			return
 		}
 		writeJSON(w, http.StatusOK, result)
+	}
+}
+
+func handleListReviewQueue(reviewService *reviews.Service) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if reviewService == nil {
+			writeError(w, r, http.StatusNotImplemented, "NOT_IMPLEMENTED", "Review workflow is not configured.")
+			return
+		}
+
+		limit := 50
+		if rawLimit := r.URL.Query().Get("limit"); rawLimit != "" {
+			parsed, err := strconv.Atoi(rawLimit)
+			if err != nil || parsed < 1 {
+				writeError(w, r, http.StatusBadRequest, "INVALID_LIMIT", "limit must be a positive integer.")
+				return
+			}
+			limit = parsed
+		}
+
+		items, err := reviewService.ListQueue(r.Context(), limit)
+		if err != nil {
+			writeError(w, r, http.StatusInternalServerError, "LIST_REVIEWS_FAILED", "Failed to list review queue.")
+			return
+		}
+
+		writeJSON(w, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 	}
 }
 

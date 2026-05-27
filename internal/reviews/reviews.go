@@ -51,6 +51,27 @@ type ApprovalStatus struct {
 	RequiredCount      int   `json:"requiredCount"`
 }
 
+type QueueItem struct {
+	Org                string `json:"org"`
+	Namespace          string `json:"namespace"`
+	Package            string `json:"package"`
+	DisplayName        string `json:"displayName"`
+	Description        string `json:"description"`
+	Visibility         string `json:"visibility"`
+	Version            string `json:"version"`
+	Lifecycle          string `json:"lifecycle"`
+	Digest             string `json:"digest"`
+	ReviewID           string `json:"reviewId"`
+	PackageVersionID   string `json:"packageVersionId"`
+	ReviewerID         string `json:"reviewerId"`
+	ReviewStatus       string `json:"reviewStatus"`
+	CurrentApprovals   int64  `json:"currentApprovals"`
+	RequiredApprovals  int    `json:"requiredApprovals"`
+	HasEnoughApprovals bool   `json:"hasEnoughApprovals"`
+	CreatedAt          string `json:"createdAt"`
+	UpdatedAt          string `json:"updatedAt"`
+}
+
 func (s *Service) ResolvePackageVersionID(ctx context.Context, org, namespace, packageName, version string) (string, error) {
 	row, err := s.queries.GetPackageVersionIDForProjectInstall(ctx, sqlc.GetPackageVersionIDForProjectInstallParams{
 		Org:         org,
@@ -96,18 +117,24 @@ func (s *Service) SubmitForReview(ctx context.Context, packageVersionID, userID 
 }
 
 func (s *Service) Approve(ctx context.Context, reviewID, reviewerID, packageVersionID, comment string) (Review, error) {
-	if !s.cfg.AllowSelfApproval {
-		hasApproval, err := s.queries.HasApprovalFrom(ctx, sqlc.HasApprovalFromParams{
-			PackageVersionID: mustParseUUID(packageVersionID),
-			ReviewerID:       mustParseUUID(reviewerID),
-		})
-		if err == nil && hasApproval {
-			return Review{}, ErrAlreadyApproved
-		}
+	existing, err := s.queries.GetReview(ctx, mustParseUUID(reviewID))
+	if err != nil {
+		return Review{}, err
+	}
+
+	reviewerUUID := mustParseUUID(reviewerID)
+	if !s.cfg.AllowSelfApproval && existing.ReviewerID == reviewerUUID {
+		return Review{}, ErrSelfApproval
+	}
+	hasApproval, err := s.queries.HasApprovalFrom(ctx, sqlc.HasApprovalFromParams{
+		PackageVersionID: mustParseUUID(packageVersionID),
+		ReviewerID:       reviewerUUID,
+	})
+	if err == nil && hasApproval {
+		return Review{}, ErrAlreadyApproved
 	}
 
 	rID := mustParseUUID(reviewID)
-	reviewerUUID := mustParseUUID(reviewerID)
 
 	pgComment := pgtype.Text{}
 	if comment != "" {
@@ -134,6 +161,42 @@ func (s *Service) Approve(ctx context.Context, reviewID, reviewerID, packageVers
 	}
 
 	return toReview(row), nil
+}
+
+func (s *Service) ListQueue(ctx context.Context, limit int) ([]QueueItem, error) {
+	if limit <= 0 || limit > 100 {
+		limit = 50
+	}
+	rows, err := s.queries.ListReviewQueue(ctx, int32(limit))
+	if err != nil {
+		return nil, err
+	}
+
+	items := make([]QueueItem, 0, len(rows))
+	for _, row := range rows {
+		required := s.cfg.MinimumApprovals
+		items = append(items, QueueItem{
+			Org:                row.Org,
+			Namespace:          row.Namespace,
+			Package:            row.PackageName,
+			DisplayName:        row.DisplayName,
+			Description:        row.Description,
+			Visibility:         row.Visibility,
+			Version:            row.Version,
+			Lifecycle:          row.Lifecycle,
+			Digest:             row.Digest,
+			ReviewID:           uuid.UUID(row.ReviewID.Bytes).String(),
+			PackageVersionID:   uuid.UUID(row.PackageVersionID.Bytes).String(),
+			ReviewerID:         uuid.UUID(row.ReviewerID.Bytes).String(),
+			ReviewStatus:       row.ReviewStatus,
+			CurrentApprovals:   row.CurrentApprovals,
+			RequiredApprovals:  required,
+			HasEnoughApprovals: row.CurrentApprovals >= int64(required),
+			CreatedAt:          packages.FormatTime(row.CreatedAt.Time),
+			UpdatedAt:          packages.FormatTime(row.UpdatedAt.Time),
+		})
+	}
+	return items, nil
 }
 
 func (s *Service) RequestChanges(ctx context.Context, reviewID, comment string) (Review, error) {

@@ -596,6 +596,95 @@ func (q *Queries) ListReviewComments(ctx context.Context, reviewID pgtype.UUID) 
 	return items, nil
 }
 
+const listReviewQueue = `-- name: ListReviewQueue :many
+select o.slug as org,
+       n.slug as namespace,
+       p.name as package_name,
+       p.display_name as display_name,
+       coalesce(p.description, '') as description,
+       p.visibility as visibility,
+       pv.version as version,
+       pv.lifecycle as lifecycle,
+       coalesce(pv.digest, '') as digest,
+       r.id as review_id,
+       r.package_version_id as package_version_id,
+       r.reviewer_id as reviewer_id,
+       r.status as review_status,
+       r.created_at as created_at,
+       r.updated_at as updated_at,
+       coalesce(approval_counts.current_count, 0)::bigint as current_approvals
+from reviews r
+join package_versions pv on pv.id = r.package_version_id
+join packages p on p.id = pv.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+left join lateral (
+  select count(*)::bigint as current_count
+  from approvals a
+  where a.package_version_id = pv.id
+) approval_counts on true
+where pv.lifecycle = 'review'
+  and p.lifecycle = 'active'
+order by r.updated_at desc, r.created_at desc
+limit $1::int
+`
+
+type ListReviewQueueRow struct {
+	Org              string             `json:"org"`
+	Namespace        string             `json:"namespace"`
+	PackageName      string             `json:"package_name"`
+	DisplayName      string             `json:"display_name"`
+	Description      string             `json:"description"`
+	Visibility       string             `json:"visibility"`
+	Version          string             `json:"version"`
+	Lifecycle        string             `json:"lifecycle"`
+	Digest           string             `json:"digest"`
+	ReviewID         pgtype.UUID        `json:"review_id"`
+	PackageVersionID pgtype.UUID        `json:"package_version_id"`
+	ReviewerID       pgtype.UUID        `json:"reviewer_id"`
+	ReviewStatus     string             `json:"review_status"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	CurrentApprovals int64              `json:"current_approvals"`
+}
+
+func (q *Queries) ListReviewQueue(ctx context.Context, pageLimit int32) ([]ListReviewQueueRow, error) {
+	rows, err := q.db.Query(ctx, listReviewQueue, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListReviewQueueRow{}
+	for rows.Next() {
+		var i ListReviewQueueRow
+		if err := rows.Scan(
+			&i.Org,
+			&i.Namespace,
+			&i.PackageName,
+			&i.DisplayName,
+			&i.Description,
+			&i.Visibility,
+			&i.Version,
+			&i.Lifecycle,
+			&i.Digest,
+			&i.ReviewID,
+			&i.PackageVersionID,
+			&i.ReviewerID,
+			&i.ReviewStatus,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.CurrentApprovals,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewsForVersion = `-- name: ListReviewsForVersion :many
 select r.id, r.package_version_id, r.reviewer_id, r.status, r.comment, r.created_at, r.updated_at
 from reviews r

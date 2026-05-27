@@ -126,6 +126,38 @@ from reviews r
 where r.package_version_id = sqlc.arg(package_version_id)
 order by r.created_at desc;
 
+-- name: ListReviewQueue :many
+select o.slug as org,
+       n.slug as namespace,
+       p.name as package_name,
+       p.display_name as display_name,
+       coalesce(p.description, '') as description,
+       p.visibility as visibility,
+       pv.version as version,
+       pv.lifecycle as lifecycle,
+       coalesce(pv.digest, '') as digest,
+       r.id as review_id,
+       r.package_version_id as package_version_id,
+       r.reviewer_id as reviewer_id,
+       r.status as review_status,
+       r.created_at as created_at,
+       r.updated_at as updated_at,
+       coalesce(approval_counts.current_count, 0)::bigint as current_approvals
+from reviews r
+join package_versions pv on pv.id = r.package_version_id
+join packages p on p.id = pv.package_id
+join namespaces n on n.id = p.namespace_id
+join organizations o on o.id = n.org_id
+left join lateral (
+  select count(*)::bigint as current_count
+  from approvals a
+  where a.package_version_id = pv.id
+) approval_counts on true
+where pv.lifecycle = 'review'
+  and p.lifecycle = 'active'
+order by r.updated_at desc, r.created_at desc
+limit sqlc.arg(page_limit)::int;
+
 -- name: UpdateReviewStatus :one
 update reviews
 set status = sqlc.arg(status), comment = coalesce(sqlc.arg(comment), comment), updated_at = now()

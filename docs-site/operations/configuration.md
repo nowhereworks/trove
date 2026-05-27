@@ -113,6 +113,8 @@ These are server-side controls. Missing orgs are never auto-created by `trove pu
 | `TROVE_REVIEWS_MINIMUM_APPROVALS` | integer | `1` | Minimum approvals required |
 | `TROVE_REVIEWS_ALLOW_SELF_APPROVAL` | boolean | `false` | Allow submitters to approve their own changes |
 
+Keep self-approval disabled in shared environments. For single-user local browser workflows, set `TROVE_REVIEWS_ALLOW_SELF_APPROVAL=true`, then approve and publish submitted versions from `/reviews`.
+
 ### Security Scanning
 
 | Variable | Type | Default | Description |
