@@ -36,9 +36,7 @@ func TestPushNewPackagePublishesAndUploadsManifestFirst(t *testing.T) {
 	if err != nil {
 		t.Fatalf("load manifest: %v", err)
 	}
-	if m.Spec.Lifecycle != "draft" {
-		t.Fatalf("manifest lifecycle = %s", m.Spec.Lifecycle)
-	}
+	_ = m
 }
 
 func TestPushExistingPackageUsesNextPatchVersion(t *testing.T) {
@@ -212,9 +210,9 @@ func newPushServer(t *testing.T, opts pushServerOptions) (*httptest.Server, *[]s
 			calls = append(calls, "GET version 1.0.0")
 			_ = json.NewEncoder(w).Encode(VersionResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Lifecycle: opts.createConflictLifecycle})
 		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/artifacts/trove.yaml":
-			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "lifecycle: draft")
+			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "apiVersion: trove.io/v1")
 		case r.Method == http.MethodPut && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/artifacts/trove.yaml":
-			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "lifecycle: draft")
+			handlePushUpload(t, w, r, &calls, "PUT trove.yaml", "apiVersion: trove.io/v1")
 		case r.Method == http.MethodPut && strings.HasSuffix(r.URL.Path, "/artifacts/AGENTS.md"):
 			handlePushUpload(t, w, r, &calls, "PUT AGENTS.md", "# Local instructions\n")
 		case r.Method == http.MethodPost && (r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/publish" || r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.1/publish"):

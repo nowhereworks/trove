@@ -822,7 +822,6 @@ metadata:
   description: Default agent instructions, skills, and commands for backend services.
 spec:
   visibility: public
-  lifecycle: draft
   artifacts:
     - path: AGENTS.md
       type: agent-instructions

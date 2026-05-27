@@ -28,7 +28,6 @@ func TestValidateReportsRequiredFields(t *testing.T) {
 		"metadata.name",
 		"metadata.displayName",
 		"metadata.description",
-		"spec.lifecycle",
 		"spec.artifacts",
 	} {
 		assertProblem(t, problems, field)
@@ -144,9 +143,7 @@ metadata:
     language: golang
     framework: chi
 spec:
-  license: internal
   visibility: public
-  lifecycle: published
   compatibility:
     tools:
       - name: opencode

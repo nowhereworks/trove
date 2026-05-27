@@ -21,9 +21,7 @@ metadata:
     owner: platform-engineering
 spec:
   version: 1.0.0
-  license: internal
   visibility: private
-  lifecycle: draft
   compatibility:
     tools:
       - name: opencode
@@ -57,7 +55,6 @@ spec:
 - `metadata.displayName`
 - `metadata.description`
 - `spec.visibility`
-- `spec.lifecycle`
 - `spec.artifacts`
 
 Package references in manifests must use full `org/namespace/package` form. Contextual shorthand is not supported in the MVP.

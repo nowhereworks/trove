@@ -279,7 +279,7 @@ Package-only initialization may omit `defaultRemote` and `remotes`; commands tha
 
 `trove.yaml` remains the actual package manifest uploaded to Trove.
 
-`trove push` may update generated manifest fields, especially package coordinates, `spec.visibility`, and `spec.lifecycle`. It must not rewrite artifact content files. Local editable manifests remain draft-oriented; published lifecycle is represented by server version state and publish responses.
+`trove push` may update generated manifest fields, especially package coordinates and `spec.visibility`. It must not rewrite artifact content files. Local editable manifests remain draft-oriented; published lifecycle is represented by server version state and publish responses.
 
 ## API Requirements
 

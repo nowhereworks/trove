@@ -32,8 +32,6 @@ type Metadata struct {
 }
 
 type Spec struct {
-	License       string            `yaml:"license" json:"license,omitempty"`
-	Lifecycle     string            `yaml:"lifecycle" json:"lifecycle"`
 	Compatibility Compatibility     `yaml:"compatibility" json:"compatibility,omitempty"`
 	Artifacts     []Artifact        `yaml:"artifacts" json:"artifacts"`
 	Dependencies  []string          `yaml:"dependencies" json:"dependencies,omitempty"`
@@ -122,7 +120,6 @@ func Validate(m Manifest, opts ValidateOptions) error {
 	requireSlug(&problems, "metadata.name", m.Metadata.Name)
 	requireNonEmpty(&problems, "metadata.displayName", m.Metadata.DisplayName)
 	requireNonEmpty(&problems, "metadata.description", m.Metadata.Description)
-	requireNonEmpty(&problems, "spec.lifecycle", m.Spec.Lifecycle)
 
 	if opts.Org != "" && m.Metadata.Org != opts.Org {
 		problems = append(problems, Problem{Field: "metadata.org", Message: "must match route org"})

@@ -24,8 +24,6 @@ metadata:
   annotations:
     owner: platform-engineering
 spec:
-  license: internal
-  lifecycle: draft
   compatibility:
     tools:
       - name: opencode
@@ -62,7 +60,6 @@ spec:
 | `metadata.name` | string | Package slug (e.g., `agent-backend`) |
 | `metadata.displayName` | string | Human-readable name |
 | `metadata.description` | string | Non-empty description (required at publish) |
-| `spec.lifecycle` | string | Current lifecycle state |
 | `spec.artifacts` | array | List of artifact declarations |
 | `spec.maintainers` | array | At least one maintainer (required at publish) |
 
@@ -72,7 +69,6 @@ spec:
 |---|---|---|
 | `metadata.labels` | object | Key-value labels for search and filtering |
 | `metadata.annotations` | object | Key-value metadata for tooling |
-| `spec.license` | string | License identifier |
 | `spec.compatibility` | object | Tool, model, and runtime constraints |
 | `spec.dependencies` | array | Declare-only dependency references |
 | `spec.links` | object | Documentation and related URLs |

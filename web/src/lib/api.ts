@@ -66,7 +66,6 @@ export interface ManifestData {
   }
   spec: {
     version: string
-    lifecycle: string
     artifacts: {
       path: string
       type: string

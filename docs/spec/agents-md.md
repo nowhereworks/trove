@@ -236,7 +236,6 @@ Default generated values:
 | `metadata.displayName` | Title-cased package name |
 | `metadata.description` | `Shared AGENTS.md instructions.` |
 | `spec.visibility` | `private` |
-| `spec.lifecycle` | `draft` |
 | maintainer | Require flag, prompt, or leave invalid with clear status error in non-interactive mode |
 
 Human output example:
@@ -430,7 +429,6 @@ Manifest rewrite rules:
 - The CLI may rewrite generated fields in `trove.yaml`.
 - The CLI must not rewrite `AGENTS.md`.
 - The CLI must upload `trove.yaml` before `AGENTS.md` so artifact metadata can be typed from the manifest.
-- Local editable `trove.yaml` remains draft-oriented. A successful publish changes server-side lifecycle to `published`, but the CLI does not rewrite local `spec.lifecycle` from `draft` to `published`.
 
 Allowed generated manifest fields:
 
@@ -440,10 +438,7 @@ Allowed generated manifest fields:
 - `metadata.displayName` when generated and not user-set
 - `metadata.description` when generated and not user-set
 - `spec.visibility`
-- `spec.lifecycle`
 - `spec.artifacts` for the required `AGENTS.md` artifact
-
-`spec.lifecycle` in the uploaded manifest should be `draft` for editable worktrees. The server publish response is the source of truth for published lifecycle state.
 
 Human output when publish succeeds:
 
@@ -616,7 +611,6 @@ metadata:
   description: Shared AGENTS.md instructions.
 spec:
   visibility: private
-  lifecycle: draft
   artifacts:
     - path: AGENTS.md
       type: agent-instructions
@@ -627,8 +621,6 @@ spec:
 ```
 
 The manifest must pass the validation rules in [`02-manifest-and-lockfile.md`](02-manifest-and-lockfile.md).
-
-For editable worktrees, `spec.lifecycle` stays `draft` before and after `trove push`. Published lifecycle is represented by server version state and publish responses, not by rewriting the local editable manifest to `published`.
 
 For the `agents-md` workflow, `trove status` and `trove push` must additionally verify:
 

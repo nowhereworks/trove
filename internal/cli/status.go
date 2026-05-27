@@ -167,7 +167,6 @@ func applyGeneratedManifestFields(m manifest.Manifest, ref PackageRef, cfg Proje
 	if m.Metadata.Description == "" {
 		m.Metadata.Description = "Shared AGENTS.md instructions."
 	}
-	m.Spec.Lifecycle = "draft"
 	m.Spec.Artifacts = agentsArtifacts()
 	return m
 }
