@@ -127,5 +127,6 @@ When implementing a feature that has no matching docs page:
 - Tutorial-first: explain the problem (Why), then step-by-step usage (How), then reference tables
 - Use `nwks` (Nowhereworks) as the fictional org in all examples
 - Document only what is implemented; do not document deferred features
+- Every docsite diagram must be authored as Mermaid in a fenced `mermaid` code block; do not use ASCII diagrams, embedded images, SVG diagrams, PlantUML, or Graphviz for docsite diagrams.
 - Keep examples copy-paste runnable where possible
 - Reference tables should include: fields, types, required/optional, defaults, and descriptions

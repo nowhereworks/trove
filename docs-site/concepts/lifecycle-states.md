@@ -8,10 +8,14 @@ Not every package version is ready for consumption. Drafts are being worked on, 
 
 ### State Diagram
 
-```
-draft → submit → review → publish → published
-                                     ↓
-                              deprecated | yanked
+```mermaid
+stateDiagram-v2
+  [*] --> draft
+  draft --> review: submit
+  review --> draft: request changes
+  review --> published: publish
+  published --> deprecated: deprecate
+  published --> yanked: yank
 ```
 
 ### States
