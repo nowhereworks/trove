@@ -36,11 +36,11 @@ func RunStatus(args []string, jsonOutput bool) error {
 		out.Problems = append(out.Problems, validateTrovefile(m)...)
 		if name, remote, err := remoteForManifest(m, ""); err == nil {
 			out.Remote = &statusRemote{Name: name, ServerURL: remote.ServerURL, Package: remote.Package}
-			versions, _, err := packageVersionsForRemote(remote)
+			versions, _, err := packageVersionsForRemote(remote, m.Metadata)
 			if err == nil {
 				out.NextVersion, _ = nextVersion(versions, "patch", "")
 				out.CurrentPublishedVersion = latestPublishedVersion(versions)
-				refreshReviewPolicy(&out, remote, out.NextVersion)
+				refreshReviewPolicy(&out, remote, m.Metadata, out.NextVersion)
 			} else {
 				out.NextVersion = "1.0.0"
 				out.Problems = append(out.Problems, "remote package lookup failed: "+err.Error())
@@ -54,7 +54,7 @@ func RunStatus(args []string, jsonOutput bool) error {
 	if problems := validateAgentsManifest(m); len(problems) > 0 {
 		out.Problems = append(out.Problems, problems...)
 	}
-	if out.Remote != nil && m.Metadata.Org+"/"+m.Metadata.Namespace+"/"+m.Metadata.Name != out.Remote.Package {
+	if out.Remote != nil && out.Remote.Package != "" && m.Metadata.Org+"/"+m.Metadata.Namespace+"/"+m.Metadata.Name != out.Remote.Package {
 		out.Problems = append(out.Problems, "manifest package does not match configured remote")
 	}
 
@@ -91,11 +91,11 @@ func RunStatus(args []string, jsonOutput bool) error {
 	return nil
 }
 
-func refreshReviewPolicy(out *statusOutput, remote manifest.ProjectRemote, version string) {
+func refreshReviewPolicy(out *statusOutput, remote manifest.ProjectRemote, metadata manifest.Metadata, version string) {
 	if version == "" || os.Getenv("TROVE_TOKEN") == "" {
 		return
 	}
-	ref, err := ParsePackageRefNoSelector(remote.Package)
+	ref, err := packageRefForRemote(remote, metadata)
 	if err != nil {
 		return
 	}
@@ -136,7 +136,11 @@ func latestPublishedVersion(versions []PackageVersion) string {
 func printStatus(out statusOutput) {
 	fmt.Printf("Artifact: %s\n", out.ArtifactPath)
 	if out.Remote != nil {
-		fmt.Printf("Remote: %s -> %s/%s\n", out.Remote.Name, out.Remote.ServerURL, out.Remote.Package)
+		if out.Remote.Package != "" {
+			fmt.Printf("Remote: %s -> %s/%s\n", out.Remote.Name, out.Remote.ServerURL, out.Remote.Package)
+		} else {
+			fmt.Printf("Remote: %s -> %s\n", out.Remote.Name, out.Remote.ServerURL)
+		}
 	} else {
 		fmt.Println("Remote: missing")
 	}

@@ -81,7 +81,11 @@ func remoteList(jsonOutput bool) error {
 		items := make([]map[string]string, 0, len(names))
 		for _, name := range names {
 			remote := m.Local.Remotes[name]
-			items = append(items, map[string]string{"name": name, "serverUrl": remote.ServerURL, "package": remote.Package})
+			item := map[string]string{"name": name, "serverUrl": remote.ServerURL}
+			if remote.Package != "" {
+				item["package"] = remote.Package
+			}
+			items = append(items, item)
 		}
 		return outputJSON(map[string]any{"items": items})
 	}
@@ -91,7 +95,11 @@ func remoteList(jsonOutput bool) error {
 		if name == m.Local.DefaultRemote {
 			marker = " (default)"
 		}
-		fmt.Printf("%s -> %s/%s%s\n", name, remote.ServerURL, remote.Package, marker)
+		if remote.Package != "" {
+			fmt.Printf("%s -> %s/%s%s\n", name, remote.ServerURL, remote.Package, marker)
+		} else {
+			fmt.Printf("%s -> %s%s\n", name, remote.ServerURL, marker)
+		}
 	}
 	return nil
 }

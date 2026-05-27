@@ -51,7 +51,7 @@ func RunPush(args []string, jsonOutput bool) error {
 	if err != nil {
 		return err
 	}
-	ref, err := ParsePackageRefNoSelector(remote.Package)
+	ref, err := packageRefForRemote(remote, m.Metadata)
 	if err != nil {
 		return err
 	}

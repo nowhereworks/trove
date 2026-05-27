@@ -113,8 +113,10 @@ func validateTrovefile(m manifest.Manifest) []string {
 			if strings.TrimSpace(name) == "" {
 				problems = append(problems, "remote name is required")
 			}
-			if _, err := ParsePackageRefNoSelector(remote.Package); err != nil {
-				problems = append(problems, fmt.Sprintf("remote %s package is invalid: %v", name, err))
+			if remote.Package != "" {
+				if _, err := ParsePackageRefNoSelector(remote.Package); err != nil {
+					problems = append(problems, fmt.Sprintf("remote %s package is invalid: %v", name, err))
+				}
 			}
 			if err := validateServerURL(remote.ServerURL); err != nil {
 				problems = append(problems, fmt.Sprintf("remote %s serverUrl is invalid: %v", name, err))
@@ -220,9 +222,14 @@ func parseFullRemoteURL(raw string) (RemoteSpec, error) {
 	if u.Host == "" || u.RawQuery != "" || u.Fragment != "" {
 		return RemoteSpec{}, fmt.Errorf("remote URL must be an absolute package URL without query or fragment")
 	}
-	parts := strings.Split(strings.Trim(u.Path, "/"), "/")
+	path := strings.Trim(u.Path, "/")
+	if path == "" {
+		u.Path = ""
+		return RemoteSpec{ServerURL: strings.TrimRight(u.String(), "/")}, nil
+	}
+	parts := strings.Split(path, "/")
 	if len(parts) != 3 {
-		return RemoteSpec{}, fmt.Errorf("remote URL path must be /org/namespace/package")
+		return RemoteSpec{}, fmt.Errorf("remote URL path must be /org/namespace/package or just the server URL")
 	}
 	ref, err := ParsePackageRefNoSelector(strings.Join(parts, "/"))
 	if err != nil {
@@ -339,8 +346,18 @@ func semverLess(a, b SemVer) bool {
 	return a.Patch < b.Patch
 }
 
-func packageVersionsForRemote(remote manifest.ProjectRemote) ([]PackageVersion, *PackageDetailResponse, error) {
-	ref, err := ParsePackageRefNoSelector(remote.Package)
+func packageRefForRemote(remote manifest.ProjectRemote, metadata manifest.Metadata) (PackageRef, error) {
+	if remote.Package != "" {
+		return ParsePackageRefNoSelector(remote.Package)
+	}
+	if metadata.Org == "" || metadata.Namespace == "" || metadata.Name == "" {
+		return PackageRef{}, fmt.Errorf("remote.package is empty and metadata is incomplete; set metadata.org/namespace/name or configure remote.package")
+	}
+	return PackageRef{Org: metadata.Org, Namespace: metadata.Namespace, Name: metadata.Name}, nil
+}
+
+func packageVersionsForRemote(remote manifest.ProjectRemote, metadata manifest.Metadata) ([]PackageVersion, *PackageDetailResponse, error) {
+	ref, err := packageRefForRemote(remote, metadata)
 	if err != nil {
 		return nil, nil, err
 	}

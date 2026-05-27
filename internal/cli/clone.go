@@ -105,7 +105,7 @@ func RunPull(args []string, jsonOutput bool) error {
 	if state.Source.Remote != "" {
 		remoteName = state.Source.Remote
 		remote = m.Local.Remotes[remoteName]
-		if remote.ServerURL == "" || remote.Package == "" {
+		if remote.ServerURL == "" {
 			return fmt.Errorf("remote %q from %s is not configured", remoteName, projectStatePath)
 		}
 	}
@@ -113,7 +113,7 @@ func RunPull(args []string, jsonOutput bool) error {
 	if selector == "" {
 		selector = "latest"
 	}
-	ref, err := ParsePackageRefNoSelector(remote.Package)
+	ref, err := packageRefForRemote(remote, m.Metadata)
 	if err != nil {
 		return err
 	}
