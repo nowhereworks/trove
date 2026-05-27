@@ -151,6 +151,40 @@ func TestDownloadWritesOutputAndNoProjectMetadata(t *testing.T) {
 	}
 }
 
+func TestDownloadFullURLWritesPackageArtifactsWithoutMetadata(t *testing.T) {
+	chdirTemp(t)
+	server := newDownloadPackageServer(t)
+	t.Setenv("TROVE_SERVER_URL", "")
+
+	stdout := captureStdout(t, func() error {
+		return RunDownload([]string{server.URL + "/nwks/platform/agent-defaults@latest"}, "out", false, false, true)
+	})
+	var out map[string]string
+	if err := json.Unmarshal([]byte(stdout), &out); err != nil {
+		t.Fatalf("decode download JSON %q: %v", stdout, err)
+	}
+	if out["version"] != "1.0.0" || out["artifacts"] != "2" || out["changed"] != "2" || out["output"] != "out" {
+		t.Fatalf("download output = %+v", out)
+	}
+	for path, want := range map[string]string{
+		filepath.Join("out", "AGENTS.md"):             "# Downloaded defaults\n",
+		filepath.Join("out", "skills", "reviewer.md"): "# Reviewer\n",
+	} {
+		content, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatalf("read %s: %v", path, err)
+		}
+		if string(content) != want {
+			t.Fatalf("%s = %q, want %q", path, content, want)
+		}
+	}
+	for _, unexpected := range []string{filepath.Join("out", manifestPath), filepath.Join("out", ".trove", "state.yaml"), filepath.Join("out", ".trove.lock.yaml")} {
+		if _, err := os.Stat(unexpected); !os.IsNotExist(err) {
+			t.Fatalf("%s exists after download; err=%v", unexpected, err)
+		}
+	}
+}
+
 func TestDownloadCoreSkillWritesOutput(t *testing.T) {
 	chdirTemp(t)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -222,6 +256,39 @@ func newPackageDetailServer(t *testing.T, versions []PackageVersion) *httptest.S
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(PackageDetailResponse{Org: "nwks", Namespace: "platform", Name: "agent-defaults", Visibility: "private", Versions: versions})
+	}))
+	t.Cleanup(server.Close)
+	return server
+}
+
+func newDownloadPackageServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/resolve/nwks/platform/agent-defaults@latest":
+			_ = json.NewEncoder(w).Encode(ResolveResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Selector: "latest", ResolvedVersion: "1.0.0", Digest: "sha256:1.0.0"})
+		case r.Method == http.MethodGet && r.URL.Path == "/api/v1/packages/nwks/platform/agent-defaults/versions/1.0.0/manifest":
+			m := agentsManifest("1.0.0")
+			m.Spec.Artifacts = append(m.Spec.Artifacts,
+				manifest.Artifact{Path: "skills/reviewer.md", Type: "skill", Required: true},
+				manifest.Artifact{Path: manifestPath, Type: "metadata", Required: true},
+				manifest.Artifact{Path: ".trove/state.yaml", Type: "metadata", Required: true},
+			)
+			data, err := json.Marshal(m)
+			if err != nil {
+				t.Fatalf("marshal manifest: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(ManifestResponse{Org: "nwks", Namespace: "platform", Package: "agent-defaults", Version: "1.0.0", Digest: "sha256:1.0.0", Manifest: data})
+		case r.Method == http.MethodGet && r.URL.Path == "/raw/nwks/platform/agent-defaults/AGENTS.md@1.0.0":
+			w.Header().Set("Content-Type", "text/markdown")
+			_, _ = w.Write([]byte("# Downloaded defaults\n"))
+		case r.Method == http.MethodGet && r.URL.Path == "/raw/nwks/platform/agent-defaults/skills/reviewer.md@1.0.0":
+			w.Header().Set("Content-Type", "text/markdown")
+			_, _ = w.Write([]byte("# Reviewer\n"))
+		default:
+			http.NotFound(w, r)
+		}
 	}))
 	t.Cleanup(server.Close)
 	return server

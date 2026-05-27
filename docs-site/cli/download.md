@@ -2,13 +2,23 @@
 
 ## Why
 
-Use `trove download` when you need one artifact file without installing a package or writing Trove metadata. This is the fastest path for copying a shared `AGENTS.md` into a repo for immediate use.
+Use `trove download` when you need package files without installing a package or writing Trove metadata. This is the fastest path for copying shared agent artifacts into a repo for immediate use.
 
 `trove fetch` is not supported. Use `trove download` for single-artifact retrieval.
 
 ## How
 
-### Download To A File
+### Download A Package
+
+```bash
+trove download http://localhost:8080/nwks/platform/agent-backend@latest --output .
+```
+
+The full URL form is useful before a repo has any Trove config. It uses the URL host as the Trove server and downloads the package artifacts into the output directory.
+
+`trove download` writes only package artifact files. It does not write `Trovefile`, `.trove/*`, or `.trove.lock.yaml`.
+
+### Download One Artifact To A File
 
 ```bash
 trove download nwks/platform/agent-backend AGENTS.md --output AGENTS.md
@@ -22,7 +32,7 @@ The package selector is optional. When omitted, Trove resolves `latest`.
 trove download nwks/platform/agent-backend@1.0.0 AGENTS.md > AGENTS.md
 ```
 
-When streaming bytes to stdout, the command does not print status text.
+When streaming one artifact's bytes to stdout, the command does not print status text.
 
 ### Download A Bundled Core Skill
 
@@ -79,10 +89,12 @@ trove download nwks/platform/agent-backend AGENTS.md --metadata-only --json
 
 | Form | Description |
 |---|---|
-| `trove download <org/namespace/package[@selector]> <artifact-path>` | Download a package artifact |
+| `trove download <org/namespace/package[@selector]>` | Download package artifact files |
+| `trove download <server-url>/<org>/<namespace>/<package>[@selector]` | Download package artifact files from a server without prior config |
+| `trove download <org/namespace/package[@selector]> <artifact-path>` | Download one package artifact |
 | `trove download core/skills/<name>/SKILL.md` | Download a bundled core skill |
 
-`trove download` does not write `.trove.lock.yaml` or `Trovefile`.
+For package downloads, `--output` is a directory. For one-artifact and core skill downloads, `--output` is a file path.
 
 ## Next
 

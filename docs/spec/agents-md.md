@@ -119,9 +119,10 @@ Artifact paths must not contain `@`; raw artifact URLs reserve `@` for selectors
 
 ### Download For Immediate Use
 
-Use `trove download` when the caller wants one artifact file and does not want Trove project metadata.
+Use `trove download` when the caller wants package artifact files and does not want Trove project metadata. Use the two-argument form for one explicit artifact file.
 
 ```bash
+trove download https://trove.company.com/nwks/platform/agent-defaults@latest --output .
 trove download nwks/platform/agent-defaults AGENTS.md --output AGENTS.md
 trove download nwks/platform/agent-defaults@v1.0.3 AGENTS.md --output AGENTS.md
 trove download nwks/platform/backend-skills skills/reviewer/SKILL.md --output .opencode/skills/reviewer/SKILL.md
@@ -130,8 +131,10 @@ trove download nwks/platform/backend-skills skills/reviewer/SKILL.md --output .o
 Behavior:
 
 - Omitted selector resolves to `latest`.
-- Exactly one artifact path is fetched.
-- The artifact path is the manifest `path`, not `targetPath`.
+- One-argument package downloads fetch manifest artifact files and write them under `--output <dir>` or the current directory.
+- Two-argument downloads fetch exactly one artifact path.
+- Full URL package refs set the Trove server for that command, so first-time use does not require `TROVE_SERVER_URL`.
+- The explicit artifact path is the manifest `path`, not `targetPath`.
 - No `.trove.lock.yaml`, `Trovefile`, or `Trovefile local section` is written.
 - No archive is downloaded or extracted.
 - No progress or status text is printed to stdout when streaming bytes.
@@ -472,9 +475,10 @@ JSON output shape:
 
 ### `trove download`
 
-Downloads exactly one artifact from any package type. For this feature, the primary path is `AGENTS.md`.
+Downloads package artifact files from any package type. The two-argument form downloads exactly one artifact; for this feature, the primary path is `AGENTS.md`.
 
 ```bash
+trove download https://trove.company.com/nwks/platform/agent-defaults@latest --output .
 trove download nwks/platform/agent-defaults AGENTS.md --output AGENTS.md
 ```
 
@@ -482,18 +486,21 @@ Flags:
 
 | Flag | Description |
 |---|---|
-| `--output <file>` | Write artifact bytes to a file instead of stdout |
+| `--output <path>` | Write package artifacts to a directory, or one artifact to a file instead of stdout |
 | `--overwrite` | Allow replacing an existing different output file |
 | `--json` | Emit metadata instead of bytes; requires `--output` or `--metadata-only` |
 | `--metadata-only` | Resolve and report metadata without writing artifact bytes |
 
 Behavior:
 
-- `trove download <package-ref> <artifact-path>` is required.
+- `trove download <package-ref>` downloads package artifact files.
+- `trove download <package-ref> <artifact-path>` downloads one explicit artifact.
 - The package ref may omit selector; omitted selector resolves `latest`.
-- The command resolves the selector, then fetches the exact raw artifact.
-- With no `--output`, bytes are written to stdout.
-- With `--output`, bytes are written to the exact provided file path.
+- Full URL package refs are accepted for first-time use without configured server state.
+- The command resolves the selector, then fetches exact raw artifacts.
+- For one explicit artifact with no `--output`, bytes are written to stdout.
+- For one explicit artifact with `--output`, bytes are written to the exact provided file path.
+- For package downloads, only package artifacts are written; `Trovefile`, `.trove/*`, and `.trove.lock.yaml` are excluded.
 - Existing different files fail unless `--overwrite` is set.
 - Existing identical files succeed and report unchanged when not streaming bytes.
 - JSON mode must not emit artifact bytes to stdout.

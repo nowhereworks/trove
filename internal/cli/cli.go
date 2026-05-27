@@ -141,13 +141,13 @@ func flagValue(args []string, flag string) string {
 
 func filterFlags(args []string) []string {
 	valueFlags := map[string]bool{
-		"--output":          true,
-		"--remote":          true,
-		"--package":         true,
-		"--display-name":    true,
-		"--description":     true,
-		"--visibility":      true,
-		"--version":         true,
+		"--output":       true,
+		"--remote":       true,
+		"--package":      true,
+		"--display-name": true,
+		"--description":  true,
+		"--visibility":   true,
+		"--version":      true,
 	}
 
 	var result []string
@@ -202,9 +202,9 @@ Subcommands:
 	resolve <org/namespace/package@selector>
 	  Resolve a selector to an exact version
 
-  download <org/namespace/package[@selector]> <artifact-path> [--output file] [--overwrite] [--json]
+  download [server-url/]org/namespace/package[@selector] [artifact-path] [--output path] [--overwrite] [--json]
   download core/skills/<name>/SKILL.md [--output file] [--overwrite] [--json]
-    Download one artifact file or bundled core skill
+    Download package artifacts, one artifact file, or a bundled core skill
 
   install <org/namespace/package@selector> [--output dir] [--optional] [--overwrite] [--json]
     Install package artifacts to their target paths

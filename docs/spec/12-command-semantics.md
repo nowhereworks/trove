@@ -104,9 +104,10 @@ Output must include the requested selector, resolved version, package digest, ma
 
 ### Download
 
-`trove download` retrieves one artifact for immediate use.
+`trove download` retrieves package artifact files for immediate use. It can also retrieve one explicit artifact path.
 
 ```bash
+trove download http://localhost:8080/nwks/platform/agent-defaults@latest --output .
 trove download nwks/platform/agent-defaults AGENTS.md
 trove download nwks/platform/agent-defaults@v1.0.3 AGENTS.md --output AGENTS.md
 ```
@@ -114,15 +115,17 @@ trove download nwks/platform/agent-defaults@v1.0.3 AGENTS.md --output AGENTS.md
 Behavior:
 
 - Resolve omitted selectors to `latest`.
-- Fetch exactly one artifact path.
-- Write to stdout by default when no output path is provided.
-- Write to `--output <file>` when provided.
+- With one argument, fetch package artifact files and write them under `--output <dir>` or the current directory.
+- With two arguments, fetch exactly one artifact path.
+- Accept full URL package refs so first-time use does not require `TROVE_SERVER_URL`.
+- Write one explicit artifact to stdout by default when no output path is provided.
+- Write one explicit artifact to `--output <file>` when provided.
 - Never write lockfiles or project metadata.
 - Support `--json` for metadata when not streaming bytes to stdout.
 - `--json --output <file>` writes artifact bytes to the file and metadata to stdout.
 - `--json --metadata-only` writes metadata to stdout and does not fetch or write artifact bytes.
 
-`trove fetch` is not supported. `trove download` is the only single-artifact retrieval command.
+`trove fetch` is not supported. `trove download` is the retrieval command for package artifacts and single artifacts.
 
 ### Install
 
