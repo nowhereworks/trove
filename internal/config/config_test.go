@@ -1,12 +1,14 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
 
 func TestLoadEnvUsesDefaults(t *testing.T) {
-	cfg, err := LoadEnv(func(string) (string, bool) { return "", false })
+	cfg, err := LoadEnv(func(string) (string, bool) { return "", false }, Defaults())
 	if err != nil {
 		t.Fatalf("LoadEnv() error = %v", err)
 	}
@@ -60,7 +62,7 @@ func TestLoadEnvOverlaysValues(t *testing.T) {
 	cfg, err := LoadEnv(func(key string) (string, bool) {
 		value, ok := env[key]
 		return value, ok
-	})
+	}, Defaults())
 	if err != nil {
 		t.Fatalf("LoadEnv() error = %v", err)
 	}
@@ -111,7 +113,7 @@ func TestLoadEnvRequiresDefaultOrgWhenCreateOrgDisabled(t *testing.T) {
 	_, err := LoadEnv(func(key string) (string, bool) {
 		value, ok := env[key]
 		return value, ok
-	})
+	}, Defaults())
 	if err == nil || !strings.Contains(err.Error(), "TROVE_ORG") {
 		t.Fatalf("LoadEnv() error = %v, want TROVE_ORG requirement", err)
 	}
@@ -125,7 +127,7 @@ func TestLoadEnvRejectsInvalidDefaultOrg(t *testing.T) {
 	_, err := LoadEnv(func(key string) (string, bool) {
 		value, ok := env[key]
 		return value, ok
-	})
+	}, Defaults())
 	if err == nil || !strings.Contains(err.Error(), "TROVE_ORG") {
 		t.Fatalf("LoadEnv() error = %v, want TROVE_ORG validation", err)
 	}
@@ -143,7 +145,7 @@ func TestLoadEnvReportsParseErrors(t *testing.T) {
 	_, err := LoadEnv(func(key string) (string, bool) {
 		value, ok := env[key]
 		return value, ok
-	})
+	}, Defaults())
 	if err == nil {
 		t.Fatal("LoadEnv() error = nil, want parse errors")
 	}
@@ -159,5 +161,254 @@ func TestLoadEnvReportsParseErrors(t *testing.T) {
 		if !strings.Contains(message, want) {
 			t.Fatalf("error %q does not contain %q", message, want)
 		}
+	}
+}
+
+func TestLoadFile(t *testing.T) {
+	content := `
+server:
+  listen: ":7070"
+  publicURL: "https://trove.fromfile.test"
+database:
+  url: "postgres://file:test@localhost/trove"
+  migrateOnStartup: true
+auth:
+  mode: "oidc"
+  devModeEnabled: false
+  devToken: "file-token"
+  cookieSecure: true
+oidc:
+  issuerURL: "https://issuer.test"
+  clientID: "file-client-id"
+  clientSecret: "file-client-secret"
+  redirectURL: "https://trove.fromfile.test/callback"
+orgs:
+  allowCreateOrg: false
+  defaultOrg: "file-org"
+packages:
+  createPackageOnPush: false
+  createNamespaceOnPush: false
+storage:
+  mode: "postgres"
+  limits:
+    maxArtifactFileBytes: 2048
+    maxUnpackedPackageBytes: 4096
+    maxArtifactsPerVersion: 50
+raw:
+  requireAuthByDefault: false
+  allowPublicNamespaces: false
+  allowPublicPackages: false
+reviews:
+  requireApproval: false
+  minimumApprovals: 3
+  allowSelfApproval: true
+security:
+  secretScanning: false
+  unsafeInstructionScanning: false
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	fc, err := LoadFile(path)
+	if err != nil {
+		t.Fatalf("LoadFile() error = %v", err)
+	}
+
+	cfg := Defaults()
+	applyFileConfig(&cfg, fc)
+
+	if cfg.Server.Listen != ":7070" {
+		t.Fatalf("Server.Listen = %q, want :7070", cfg.Server.Listen)
+	}
+	if cfg.Server.PublicURL != "https://trove.fromfile.test" {
+		t.Fatalf("Server.PublicURL = %q", cfg.Server.PublicURL)
+	}
+	if cfg.Database.URL != "postgres://file:test@localhost/trove" {
+		t.Fatalf("Database.URL = %q", cfg.Database.URL)
+	}
+	if !cfg.Database.MigrateOnStartup {
+		t.Fatal("Database.MigrateOnStartup = false")
+	}
+	if cfg.Auth.Mode != "oidc" {
+		t.Fatalf("Auth.Mode = %q, want oidc", cfg.Auth.Mode)
+	}
+	if cfg.Auth.DevModeEnabled {
+		t.Fatal("Auth.DevModeEnabled = true")
+	}
+	if cfg.Auth.DevToken != "file-token" {
+		t.Fatalf("Auth.DevToken = %q", cfg.Auth.DevToken)
+	}
+	if !cfg.Auth.CookieSecure {
+		t.Fatal("Auth.CookieSecure = false")
+	}
+	if cfg.OIDC.IssuerURL != "https://issuer.test" {
+		t.Fatalf("OIDC.IssuerURL = %q", cfg.OIDC.IssuerURL)
+	}
+	if cfg.Orgs.DefaultOrg != "file-org" {
+		t.Fatalf("Orgs.DefaultOrg = %q", cfg.Orgs.DefaultOrg)
+	}
+	if cfg.Orgs.AllowCreateOrg {
+		t.Fatal("Orgs.AllowCreateOrg = true")
+	}
+	if cfg.Packages.CreatePackageOnPush {
+		t.Fatal("Packages.CreatePackageOnPush = true")
+	}
+	if cfg.Packages.CreateNamespaceOnPush {
+		t.Fatal("Packages.CreateNamespaceOnPush = true")
+	}
+	if cfg.Storage.Limits.MaxArtifactFileBytes != 2048 {
+		t.Fatalf("MaxArtifactFileBytes = %d, want 2048", cfg.Storage.Limits.MaxArtifactFileBytes)
+	}
+	if cfg.Storage.Limits.MaxUnpackedPackageBytes != 4096 {
+		t.Fatalf("MaxUnpackedPackageBytes = %d, want 4096", cfg.Storage.Limits.MaxUnpackedPackageBytes)
+	}
+	if cfg.Storage.Limits.MaxArtifactsPerVersion != 50 {
+		t.Fatalf("MaxArtifactsPerVersion = %d, want 50", cfg.Storage.Limits.MaxArtifactsPerVersion)
+	}
+	if cfg.Raw.RequireAuthByDefault {
+		t.Fatal("Raw.RequireAuthByDefault = true")
+	}
+	if cfg.Raw.AllowPublicNamespaces {
+		t.Fatal("Raw.AllowPublicNamespaces = true")
+	}
+	if cfg.Raw.AllowPublicPackages {
+		t.Fatal("Raw.AllowPublicPackages = true")
+	}
+	if cfg.Reviews.RequireApproval {
+		t.Fatal("Reviews.RequireApproval = true")
+	}
+	if cfg.Reviews.MinimumApprovals != 3 {
+		t.Fatalf("Reviews.MinimumApprovals = %d, want 3", cfg.Reviews.MinimumApprovals)
+	}
+	if !cfg.Reviews.AllowSelfApproval {
+		t.Fatal("Reviews.AllowSelfApproval = false")
+	}
+	if cfg.Security.SecretScanning {
+		t.Fatal("Security.SecretScanning = true")
+	}
+	if cfg.Security.UnsafeInstructionScanning {
+		t.Fatal("Security.UnsafeInstructionScanning = true")
+	}
+}
+
+func TestLoadFileNotFound(t *testing.T) {
+	_, err := LoadFile("/nonexistent/path/config.yaml")
+	if err == nil {
+		t.Fatal("LoadFile() error = nil, want error")
+	}
+}
+
+func TestLoadFileInvalidYAML(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "bad.yaml")
+	if err := os.WriteFile(path, []byte("invalid: yaml: : :"), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := LoadFile(path)
+	if err == nil {
+		t.Fatal("LoadFile() error = nil, want parse error")
+	}
+}
+
+func TestLoadWithFileEnvVarPrecedence(t *testing.T) {
+	content := `
+server:
+  listen: ":7070"
+database:
+  url: "postgres://file:test@localhost/trove"
+auth:
+  mode: "oidc"
+  devToken: "file-token"
+orgs:
+  defaultOrg: "file-org"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	env := map[string]string{
+		"TROVE_SERVER_LISTEN": ":9999",
+		"TROVE_AUTH_MODE":     "dev",
+	}
+
+	cfg, err := LoadEnv(func(key string) (string, bool) {
+		value, ok := env[key]
+		return value, ok
+	}, func() Config {
+		cfg := Defaults()
+		fc, _ := LoadFile(path)
+		applyFileConfig(&cfg, fc)
+		return cfg
+	}())
+	if err != nil {
+		t.Fatalf("LoadEnv() error = %v", err)
+	}
+
+	// Env var should override file value
+	if cfg.Server.Listen != ":9999" {
+		t.Fatalf("Server.Listen = %q, want :9999 (env should override file)", cfg.Server.Listen)
+	}
+	if cfg.Auth.Mode != "dev" {
+		t.Fatalf("Auth.Mode = %q, want dev (env should override file)", cfg.Auth.Mode)
+	}
+
+	// File value should persist where no env var is set
+	if cfg.Auth.DevToken != "file-token" {
+		t.Fatalf("Auth.DevToken = %q, want file-token (no env var, should use file)", cfg.Auth.DevToken)
+	}
+	if cfg.Orgs.DefaultOrg != "file-org" {
+		t.Fatalf("Orgs.DefaultOrg = %q, want file-org (no env var, should use file)", cfg.Orgs.DefaultOrg)
+	}
+}
+
+func TestLoadWithFileOnly(t *testing.T) {
+	content := `
+server:
+  listen: ":5555"
+database:
+  url: "postgres://onlyfile:test@localhost/trove"
+orgs:
+  defaultOrg: "only-file-org"
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadWithFile(path)
+	if err != nil {
+		t.Fatalf("LoadWithFile() error = %v", err)
+	}
+
+	if cfg.Server.Listen != ":5555" {
+		t.Fatalf("Server.Listen = %q, want :5555", cfg.Server.Listen)
+	}
+	if cfg.Database.URL != "postgres://onlyfile:test@localhost/trove" {
+		t.Fatalf("Database.URL = %q", cfg.Database.URL)
+	}
+	if cfg.Orgs.DefaultOrg != "only-file-org" {
+		t.Fatalf("Orgs.DefaultOrg = %q", cfg.Orgs.DefaultOrg)
+	}
+}
+
+func TestLoadWithFileEmptyPath(t *testing.T) {
+	cfg, err := LoadWithFile("")
+	if err != nil {
+		t.Fatalf("LoadWithFile(\"\") error = %v", err)
+	}
+
+	// Should be same as defaults
+	if cfg.Server.Listen != ":8080" {
+		t.Fatalf("Server.Listen = %q, want :8080", cfg.Server.Listen)
+	}
+	if cfg.Auth.Mode != "dev" {
+		t.Fatalf("Auth.Mode = %q, want dev", cfg.Auth.Mode)
 	}
 }

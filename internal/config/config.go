@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -97,15 +99,216 @@ type SecurityConfig struct {
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9-]{1,62}[a-z0-9]$`)
 
+// FileConfig mirrors Config with yaml tags for config file loading.
+type FileConfig struct {
+	Server   *struct {
+		Listen    string `yaml:"listen"`
+		PublicURL string `yaml:"publicURL"`
+	} `yaml:"server"`
+	Database *struct {
+		URL              string `yaml:"url"`
+		MigrateOnStartup *bool  `yaml:"migrateOnStartup"`
+	} `yaml:"database"`
+	Auth *struct {
+		Mode           string `yaml:"mode"`
+		DevModeEnabled *bool  `yaml:"devModeEnabled"`
+		DevToken       string `yaml:"devToken"`
+		CookieSecure   *bool  `yaml:"cookieSecure"`
+	} `yaml:"auth"`
+	OIDC *struct {
+		IssuerURL    string   `yaml:"issuerURL"`
+		ClientID     string   `yaml:"clientID"`
+		ClientSecret string   `yaml:"clientSecret"`
+		RedirectURL  string   `yaml:"redirectURL"`
+		Scopes       []string `yaml:"scopes"`
+	} `yaml:"oidc"`
+	Orgs *struct {
+		AllowCreateOrg *bool  `yaml:"allowCreateOrg"`
+		DefaultOrg     string `yaml:"defaultOrg"`
+	} `yaml:"orgs"`
+	Packages *struct {
+		CreatePackageOnPush   *bool `yaml:"createPackageOnPush"`
+		CreateNamespaceOnPush *bool `yaml:"createNamespaceOnPush"`
+	} `yaml:"packages"`
+	Storage *struct {
+		Mode   string `yaml:"mode"`
+		Limits *struct {
+			MaxArtifactFileBytes    *int64 `yaml:"maxArtifactFileBytes"`
+			MaxUnpackedPackageBytes *int64 `yaml:"maxUnpackedPackageBytes"`
+			MaxArtifactsPerVersion  *int   `yaml:"maxArtifactsPerVersion"`
+		} `yaml:"limits"`
+	} `yaml:"storage"`
+	Raw *struct {
+		RequireAuthByDefault  *bool `yaml:"requireAuthByDefault"`
+		AllowPublicNamespaces *bool `yaml:"allowPublicNamespaces"`
+		AllowPublicPackages   *bool `yaml:"allowPublicPackages"`
+	} `yaml:"raw"`
+	Reviews *struct {
+		RequireApproval   *bool `yaml:"requireApproval"`
+		MinimumApprovals  *int  `yaml:"minimumApprovals"`
+		AllowSelfApproval *bool `yaml:"allowSelfApproval"`
+	} `yaml:"reviews"`
+	Security *struct {
+		SecretScanning            *bool `yaml:"secretScanning"`
+		UnsafeInstructionScanning *bool `yaml:"unsafeInstructionScanning"`
+	} `yaml:"security"`
+}
+
+// LoadFile reads a YAML config file and returns a FileConfig.
+func LoadFile(path string) (FileConfig, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return FileConfig{}, fmt.Errorf("read config file %s: %w", path, err)
+	}
+
+	var fc FileConfig
+	if err := yaml.Unmarshal(data, &fc); err != nil {
+		return FileConfig{}, fmt.Errorf("parse config file %s: %w", path, err)
+	}
+
+	return fc, nil
+}
+
+// applyFileConfig overlays file config values onto a Config struct.
+// Only non-nil/non-empty values from the file config are applied.
+func applyFileConfig(cfg *Config, fc FileConfig) {
+	if fc.Server != nil {
+		if fc.Server.Listen != "" {
+			cfg.Server.Listen = fc.Server.Listen
+		}
+		if fc.Server.PublicURL != "" {
+			cfg.Server.PublicURL = fc.Server.PublicURL
+		}
+	}
+	if fc.Database != nil {
+		if fc.Database.URL != "" {
+			cfg.Database.URL = fc.Database.URL
+		}
+		if fc.Database.MigrateOnStartup != nil {
+			cfg.Database.MigrateOnStartup = *fc.Database.MigrateOnStartup
+		}
+	}
+	if fc.Auth != nil {
+		if fc.Auth.Mode != "" {
+			cfg.Auth.Mode = fc.Auth.Mode
+		}
+		if fc.Auth.DevModeEnabled != nil {
+			cfg.Auth.DevModeEnabled = *fc.Auth.DevModeEnabled
+		}
+		if fc.Auth.DevToken != "" {
+			cfg.Auth.DevToken = fc.Auth.DevToken
+		}
+		if fc.Auth.CookieSecure != nil {
+			cfg.Auth.CookieSecure = *fc.Auth.CookieSecure
+		}
+	}
+	if fc.OIDC != nil {
+		if fc.OIDC.IssuerURL != "" {
+			cfg.OIDC.IssuerURL = fc.OIDC.IssuerURL
+		}
+		if fc.OIDC.ClientID != "" {
+			cfg.OIDC.ClientID = fc.OIDC.ClientID
+		}
+		if fc.OIDC.ClientSecret != "" {
+			cfg.OIDC.ClientSecret = fc.OIDC.ClientSecret
+		}
+		if fc.OIDC.RedirectURL != "" {
+			cfg.OIDC.RedirectURL = fc.OIDC.RedirectURL
+		}
+		if fc.OIDC.Scopes != nil {
+			cfg.OIDC.Scopes = fc.OIDC.Scopes
+		}
+	}
+	if fc.Orgs != nil {
+		if fc.Orgs.DefaultOrg != "" {
+			cfg.Orgs.DefaultOrg = fc.Orgs.DefaultOrg
+		}
+		if fc.Orgs.AllowCreateOrg != nil {
+			cfg.Orgs.AllowCreateOrg = *fc.Orgs.AllowCreateOrg
+		}
+	}
+	if fc.Packages != nil {
+		if fc.Packages.CreatePackageOnPush != nil {
+			cfg.Packages.CreatePackageOnPush = *fc.Packages.CreatePackageOnPush
+		}
+		if fc.Packages.CreateNamespaceOnPush != nil {
+			cfg.Packages.CreateNamespaceOnPush = *fc.Packages.CreateNamespaceOnPush
+		}
+	}
+	if fc.Storage != nil {
+		if fc.Storage.Mode != "" {
+			cfg.Storage.Mode = fc.Storage.Mode
+		}
+		if fc.Storage.Limits != nil {
+			if fc.Storage.Limits.MaxArtifactFileBytes != nil {
+				cfg.Storage.Limits.MaxArtifactFileBytes = *fc.Storage.Limits.MaxArtifactFileBytes
+			}
+			if fc.Storage.Limits.MaxUnpackedPackageBytes != nil {
+				cfg.Storage.Limits.MaxUnpackedPackageBytes = *fc.Storage.Limits.MaxUnpackedPackageBytes
+			}
+			if fc.Storage.Limits.MaxArtifactsPerVersion != nil {
+				cfg.Storage.Limits.MaxArtifactsPerVersion = *fc.Storage.Limits.MaxArtifactsPerVersion
+			}
+		}
+	}
+	if fc.Raw != nil {
+		if fc.Raw.RequireAuthByDefault != nil {
+			cfg.Raw.RequireAuthByDefault = *fc.Raw.RequireAuthByDefault
+		}
+		if fc.Raw.AllowPublicNamespaces != nil {
+			cfg.Raw.AllowPublicNamespaces = *fc.Raw.AllowPublicNamespaces
+		}
+		if fc.Raw.AllowPublicPackages != nil {
+			cfg.Raw.AllowPublicPackages = *fc.Raw.AllowPublicPackages
+		}
+	}
+	if fc.Reviews != nil {
+		if fc.Reviews.RequireApproval != nil {
+			cfg.Reviews.RequireApproval = *fc.Reviews.RequireApproval
+		}
+		if fc.Reviews.MinimumApprovals != nil {
+			cfg.Reviews.MinimumApprovals = *fc.Reviews.MinimumApprovals
+		}
+		if fc.Reviews.AllowSelfApproval != nil {
+			cfg.Reviews.AllowSelfApproval = *fc.Reviews.AllowSelfApproval
+		}
+	}
+	if fc.Security != nil {
+		if fc.Security.SecretScanning != nil {
+			cfg.Security.SecretScanning = *fc.Security.SecretScanning
+		}
+		if fc.Security.UnsafeInstructionScanning != nil {
+			cfg.Security.UnsafeInstructionScanning = *fc.Security.UnsafeInstructionScanning
+		}
+	}
+}
+
 // Load reads process environment variables and overlays them onto defaults.
 func Load() (Config, error) {
-	return LoadEnv(os.LookupEnv)
+	return LoadWithFile("")
+}
+
+// LoadWithFile loads config from a YAML file (if path is non-empty), then
+// overlays environment variables. Env vars take precedence over file values.
+func LoadWithFile(path string) (Config, error) {
+	cfg := Defaults()
+
+	if path != "" {
+		fc, err := LoadFile(path)
+		if err != nil {
+			return Config{}, err
+		}
+		applyFileConfig(&cfg, fc)
+	}
+
+	return LoadEnv(os.LookupEnv, cfg)
 }
 
 // LoadEnv reads configuration using lookup, which keeps tests independent from
-// the process environment.
-func LoadEnv(lookup func(string) (string, bool)) (Config, error) {
-	cfg := Defaults()
+// the process environment. The base config is used as the starting point;
+// environment variables overlay on top of it.
+func LoadEnv(lookup func(string) (string, bool), base Config) (Config, error) {
+	cfg := base
 	var errs []error
 	var cookieSecureRaw string
 

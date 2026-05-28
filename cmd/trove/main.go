@@ -61,7 +61,15 @@ func commandMode(args []string) mode {
 }
 
 func runServer() error {
-	cfg, err := config.Load()
+	args := os.Args[1:]
+	var configPath string
+	for i, arg := range args {
+		if arg == "--config" && i+1 < len(args) {
+			configPath = args[i+1]
+		}
+	}
+
+	cfg, err := config.LoadWithFile(configPath)
 	if err != nil {
 		return err
 	}
