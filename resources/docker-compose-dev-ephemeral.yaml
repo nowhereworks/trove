@@ -20,14 +20,9 @@ services:
     depends_on:
       trove-postgres:
         condition: service_healthy
-    environment:
-      TROVE_PUBLIC_URL: http://localhost:8080
-      TROVE_DATABASE_URL: postgres://trove:trove@trove-postgres:5432/trove?sslmode=disable
-      TROVE_DATABASE_MIGRATE_ON_STARTUP: "true"
-      TROVE_AUTH_MODE: dev
-      TROVE_AUTH_DEV_MODE_ENABLED: "true"
-      TROVE_ORG: nwks
-      TROVE_REVIEWS_ALLOW_SELF_APPROVAL: "true"
+    command: ["server", "--config", "/etc/trove/config.yaml"]
+    volumes:
+      - ./config-ephemeral.yaml:/etc/trove/config.yaml:ro
     ports:
       - "8080:8080"
     networks:

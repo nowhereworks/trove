@@ -1,0 +1,32 @@
+server:
+  listen: ":8080"
+  publicURL: "http://localhost:8080"
+database:
+  url: "postgres://trove:trove@trove-postgres:5432/trove?sslmode=disable"
+  migrateOnStartup: true
+auth:
+  mode: "dev"
+  devModeEnabled: true
+orgs:
+  allowCreateOrg: true
+  defaultOrg: "nwks"
+packages:
+  createPackageOnPush: true
+  createNamespaceOnPush: true
+storage:
+  mode: "postgres"
+  limits:
+    maxArtifactFileBytes: 10485760
+    maxUnpackedPackageBytes: 104857600
+    maxArtifactsPerVersion: 1000
+raw:
+  requireAuthByDefault: false
+  allowPublicNamespaces: true
+  allowPublicPackages: true
+reviews:
+  requireApproval: false
+  minimumApprovals: 1
+  allowSelfApproval: true
+security:
+  secretScanning: true
+  unsafeInstructionScanning: true
